@@ -125,7 +125,7 @@ export default function PostDetailsScreen() {
       <Stack.Screen 
         options={{ 
           headerShown: true,
-          headerTitle: "Thread",
+          headerTitle: post.is_reply ? "Reply" : "Thread",
           headerStyle: { backgroundColor: "#0A0A0A" },
           headerTintColor: "#FAFAFA",
         }} 
@@ -144,6 +144,18 @@ export default function PostDetailsScreen() {
           // The Main Post is the Header
           ListHeaderComponent={
             <View>
+              {/* Breadcrumb: Link back to parent if this is a reply/comment */}
+              {post.reply_to_id && (
+                <Pressable 
+                  onPress={() => router.push(`/post/${post.reply_to_id}` as any)}
+                  className="px-4 py-3 border-b border-border bg-surface/30 flex-row items-center gap-2"
+                >
+                  <Text className="text-primary text-sm font-medium">
+                    ← View parent conversation
+                  </Text>
+                </Pressable>
+              )}
+              
               {/* Main Post - Displayed Prominently */}
               <SocialPost 
                 post={post}
@@ -164,7 +176,7 @@ export default function PostDetailsScreen() {
             </View>
           }
 
-          // The Replies with thread lines
+          // Direct replies only (Infinite Pivot pattern)
           renderItem={({ item, index }) => (
             <ThreadComment 
               comment={{
@@ -177,7 +189,6 @@ export default function PostDetailsScreen() {
                 is_liked: item.is_liked,
               }}
               isLast={index === (replies?.length ?? 0) - 1}
-              isReply={item.reply_to_id !== id} // Nested reply if parent is not the main post
               onReplyPress={() => startReplyToComment({ id: item.id, author: item.author })}
               onLikePress={() => handleLike(item)}
               onProfilePress={() => router.push(`/user/${item.user_id}` as any)}

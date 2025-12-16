@@ -142,35 +142,19 @@ export function usePostReplies(postId: string) {
   return useQuery({
     queryKey: queryKeys.posts.replies(postId),
     queryFn: async () => {
-      // Fetch all replies in the thread recursively
-      // First get direct replies, then get replies to those replies
-      const allReplies: any[] = [];
-      const idsToFetch = [postId];
-      const fetchedIds = new Set<string>();
+      // Infinite Pivot: Only fetch DIRECT replies to this post/comment
+      // Each comment can be "pivoted" to become the main post, fetching its own direct replies
+      const { data: replies, error } = await supabase
+        .from("posts")
+        .select(`*, author:profiles!user_id(*), likes:likes(count)`)
+        .eq("reply_to_id", postId)
+        .order("created_at", { ascending: true });
       
-      while (idsToFetch.length > 0) {
-        const currentId = idsToFetch.shift()!;
-        if (fetchedIds.has(currentId)) continue;
-        fetchedIds.add(currentId);
-        
-        const { data: replies, error } = await supabase
-          .from("posts")
-          .select(`*, author:profiles!user_id(*), likes:likes(count)`)
-          .eq("reply_to_id", currentId)
-          .order("created_at", { ascending: true });
-        
-        if (error) throw error;
-        if (replies && replies.length > 0) {
-          allReplies.push(...replies);
-          // Add these reply IDs to fetch their nested replies
-          replies.forEach((r: any) => idsToFetch.push(r.id));
-        }
-      }
+      if (error) throw error;
+      if (!replies || replies.length === 0) return [];
       
-      // Enrich with is_liked and counts
-      if (allReplies.length === 0) return [];
-      
-      const postIds = allReplies.map((p: any) => p.id);
+      // Enrich with is_liked
+      const postIds = replies.map((p: any) => p.id);
       let likedPostIds = new Set<string>();
       
       if (user?.id) {
@@ -182,7 +166,7 @@ export function usePostReplies(postId: string) {
         myLikes?.forEach((l: any) => likedPostIds.add(l.post_id));
       }
       
-      return allReplies.map((post: any) => ({
+      return replies.map((post: any) => ({
         ...post,
         likes_count: post.likes?.[0]?.count ?? 0,
         comments_count: post.comments_count ?? 0,

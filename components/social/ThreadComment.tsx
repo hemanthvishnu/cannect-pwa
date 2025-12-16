@@ -1,6 +1,7 @@
 import { View, Text, Pressable } from "react-native";
 import { Image } from "expo-image";
-import { Heart, MessageCircle, MoreHorizontal } from "lucide-react-native";
+import { Heart, MessageCircle, MoreHorizontal, ChevronRight } from "lucide-react-native";
+import { useRouter } from "expo-router";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "@/lib/utils/date";
 
@@ -28,6 +29,7 @@ interface ThreadCommentProps {
   onReplyPress?: () => void;
   onLikePress?: () => void;
   onProfilePress?: () => void;
+  onPivot?: () => void; // Navigate to make this comment the main post
 }
 
 export function ThreadComment({ 
@@ -36,13 +38,27 @@ export function ThreadComment({
   isReply = false,
   onReplyPress,
   onLikePress,
-  onProfilePress
+  onProfilePress,
+  onPivot
 }: ThreadCommentProps) {
+  const router = useRouter();
   const avatarUrl = comment.author?.avatar_url || 
     `https://ui-avatars.com/api/?name=${comment.author?.username || "U"}&background=10B981&color=fff`;
 
+  // Pivot: Navigate to this comment as the "main post" of a new thread view
+  const handlePivot = () => {
+    if (onPivot) {
+      onPivot();
+    } else {
+      router.push(`/post/${comment.id}` as any);
+    }
+  };
+
   return (
-    <View className={cn("flex-row px-4 bg-background", isReply && "pl-8")}>
+    <Pressable 
+      onPress={handlePivot}
+      className={cn("flex-row px-4 bg-background active:bg-surface/50", isReply && "pl-8")}
+    >
       {/* Left Column: Avatar + Connector Line */}
       <View className="items-center mr-3">
         <Pressable onPress={onProfilePress}>
@@ -89,21 +105,16 @@ export function ThreadComment({
         {/* Actions */}
         <View className="flex-row gap-6">
           <Pressable 
-            onPress={onReplyPress}
+            onPress={(e) => { e.stopPropagation(); onReplyPress?.(); }}
             className="flex-row items-center gap-1.5 active:opacity-70"
             accessibilityRole="button"
             accessibilityLabel="Reply"
           >
             <MessageCircle size={16} color="#6B7280" />
-            {(comment.replies_count ?? 0) > 0 && (
-              <Text className="text-xs font-medium text-text-muted">
-                {comment.replies_count}
-              </Text>
-            )}
           </Pressable>
 
           <Pressable 
-            onPress={onLikePress}
+            onPress={(e) => { e.stopPropagation(); onLikePress?.(); }}
             className="flex-row items-center gap-1.5 active:opacity-70"
             accessibilityRole="button"
             accessibilityLabel="Like"
@@ -122,9 +133,21 @@ export function ThreadComment({
               </Text>
             )}
           </Pressable>
+
+          {/* Pivot indicator - shows there are deeper replies */}
+          {(comment.replies_count ?? 0) > 0 && (
+            <View className="flex-1 flex-row justify-end items-center">
+              <View className="flex-row items-center gap-1 bg-surface/50 px-2 py-1 rounded-full">
+                <Text className="text-xs text-primary font-medium">
+                  {comment.replies_count} {comment.replies_count === 1 ? 'reply' : 'replies'}
+                </Text>
+                <ChevronRight size={12} color="#10B981" />
+              </View>
+            </View>
+          )}
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
