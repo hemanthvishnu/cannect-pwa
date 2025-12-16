@@ -101,7 +101,10 @@ export function SocialPost({
   const displayPost = isSimpleRepost && post.quoted_post ? post.quoted_post : post;
   const reposter = isSimpleRepost ? post.author : null;
 
-  const avatarUrl = displayPost.author?.avatar_url || `https://ui-avatars.com/api/?name=${displayPost.author?.username || "U"}&background=10B981&color=fff`;
+  // Fix: Standardize fallback to match registration logic (using encoded display_name)
+  const displayName = displayPost.author?.display_name || displayPost.author?.username || "User";
+  const avatarUrl = displayPost.author?.avatar_url || 
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10B981&color=fff`;
   
   return (
     <Pressable onPress={onPress}>

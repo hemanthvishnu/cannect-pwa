@@ -26,21 +26,18 @@ export default function RootLayout() {
   const { setSession, setLoading } = useAuthStore();
 
   useEffect(() => {
-    // Get initial session
+    // Single listener to sync Supabase Auth with Zustand Store
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       SplashScreen.hideAsync();
     });
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
 
     return () => subscription.unsubscribe();
-  }, [setSession, setLoading]);
+  }, [setSession]);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -1,4 +1,4 @@
-import { View, Text, RefreshControl, ActivityIndicator, Alert, Platform, ActionSheetIOS, Share } from "react-native";
+import { View, Text, RefreshControl, ActivityIndicator, Alert, Platform, ActionSheetIOS, Share, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
@@ -11,7 +11,11 @@ import type { PostWithAuthor } from "@/lib/types/database";
 export default function FeedScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { data, isLoading, refetch, isRefetching, fetchNextPage, hasNextPage, isFetchingNextPage } = useFeed();
+  const { 
+    data, isLoading, refetch, isRefetching, 
+    fetchNextPage, hasNextPage, isFetchingNextPage,
+    isError // Add error state
+  } = useFeed();
   const likeMutation = useLikePost();
   const unlikeMutation = useUnlikePost();
   const deleteMutation = useDeletePost();
@@ -19,6 +23,17 @@ export default function FeedScreen() {
   
   // Flatten infinite query pages into a single array
   const posts = data?.pages?.flat() || [];
+
+  if (isError) {
+    return (
+      <SafeAreaView className="flex-1 bg-background items-center justify-center px-6">
+        <Text className="text-text-primary text-lg font-semibold mb-2">Failed to load feed</Text>
+        <Pressable onPress={() => refetch()} className="bg-primary px-6 py-3 rounded-full">
+          <Text className="text-white font-bold">Retry</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   const handleLike = (post: PostWithAuthor) => {
     if (post.is_liked) {

@@ -86,28 +86,22 @@ export function useIsFollowing(targetUserId: string) {
 // Follow a user
 export function useFollowUser() {
   const queryClient = useQueryClient();
+  const { user } = useAuthStore(); // Optimization: use store instead of getSession
 
   return useMutation({
     mutationFn: async (targetUserId: string) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) throw new Error("Not authenticated");
-      const user = session.user;
-
+      if (!user) throw new Error("Not authenticated");
       const { error } = await supabase.from("follows").insert({
         follower_id: user.id,
         following_id: targetUserId,
       });
-
       if (error) throw error;
       return targetUserId;
     },
-    onSuccess: (targetUserId) => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.follows.isFollowing("current", targetUserId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.profiles.detail(targetUserId),
-      });
+    onSettled: (targetUserId) => { // Use onSettled to ensure UI reflects server state
+      queryClient.invalidateQueries({ queryKey: queryKeys.follows.isFollowing("current", targetUserId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(targetUserId!) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(user?.id!) });
     },
   });
 }
@@ -185,10 +179,9 @@ export function useFollowing(userId: string) {
 // Search users by name or username
 export function useSearchUsers(query: string) {
   return useQuery({
-    queryKey: ["profiles", "search", query],
+    queryKey: queryKeys.search.users(query), // Use factory key
     queryFn: async () => {
-      if (!query || query.length < 2) return [];
-      
+      // Logic handled by 'enabled' property to prevent empty calls
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -198,6 +191,7 @@ export function useSearchUsers(query: string) {
       if (error) throw error;
       return data as Profile[];
     },
-    enabled: query.length >= 2,
+    enabled: query.trim().length >= 2, // Threshold check
+    staleTime: 1000 * 60, // Search results can stay fresh for 1 minute
   });
 }

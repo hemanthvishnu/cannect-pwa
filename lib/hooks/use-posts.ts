@@ -246,22 +246,26 @@ export function useUnlikePost() {
 
 export function useCreatePost() {
   const queryClient = useQueryClient();
+  const { user } = useAuthStore(); // Use store instead of calling getSession
+
   return useMutation({
     mutationFn: async ({ content, mediaUrls, replyToId }: { content: string; mediaUrls?: string[]; replyToId?: string }) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) throw new Error("Not authenticated");
+      if (!user) throw new Error("Not authenticated");
       const { data, error } = await supabase.from("posts").insert({
-        user_id: session.user.id,
+        user_id: user.id,
         content,
         media_urls: mediaUrls,
         is_reply: !!replyToId,
         reply_to_id: replyToId,
       }).select(`*, author:profiles!user_id(*)`).single();
+      
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Invalidate both feed and the user's own profile to update post_count
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profiles.detail(user?.id!) });
     },
   });
 }
