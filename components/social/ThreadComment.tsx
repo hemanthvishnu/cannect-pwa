@@ -111,6 +111,12 @@ export function ThreadComment({
             accessibilityLabel="Reply"
           >
             <MessageCircle size={16} color="#6B7280" />
+            {/* Show count next to reply icon */}
+            {(comment.replies_count ?? 0) > 0 && (
+              <Text className="text-xs font-medium text-text-muted">
+                {comment.replies_count}
+              </Text>
+            )}
           </Pressable>
 
           <Pressable 
@@ -134,13 +140,11 @@ export function ThreadComment({
             )}
           </Pressable>
 
-          {/* Pivot indicator - shows there are deeper replies */}
+          {/* Pivot indicator - "View Thread" badge shows there are deeper replies */}
           {(comment.replies_count ?? 0) > 0 && (
-            <View className="flex-1 flex-row justify-end items-center">
-              <View className="flex-row items-center gap-1 bg-surface/50 px-2 py-1 rounded-full">
-                <Text className="text-xs text-primary font-medium">
-                  {comment.replies_count} {comment.replies_count === 1 ? 'reply' : 'replies'}
-                </Text>
+            <View className="flex-1 items-end">
+              <View className="flex-row items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10">
+                <Text className="text-[10px] font-bold text-primary uppercase">View Thread</Text>
                 <ChevronRight size={12} color="#10B981" />
               </View>
             </View>
