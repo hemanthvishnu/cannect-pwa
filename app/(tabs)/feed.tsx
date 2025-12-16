@@ -243,16 +243,39 @@ export default function FeedScreen() {
             data={posts}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
-              const isFederated = (item as any).is_federated === true;
+              // Live Global = direct from Bluesky API (read-only except repost)
+              const isLiveGlobal = (item as any).is_federated === true;
+              // Cannect Repost of Global = stored in our DB (fully interactive!)
+              const isCannectRepostOfGlobal = !!(item as any).external_id;
+              
+              // For Cannect reposts, interactions should target the Cannect post.id
+              const interactionId = item.id;
+              
               return (
                 <SocialPost 
                   post={item}
-                  onLike={() => !isFederated && handleLike(item)}
-                  onReply={() => !isFederated && handlePostPress(item.id)}
-                  onRepost={() => handleRepost(item)} // Allow repost for all posts including federated
-                  onProfilePress={() => !isFederated && handleProfilePress(item.user_id)}
-                  onPress={() => !isFederated && handlePostPress(item.id)}
-                  onMore={() => !isFederated && handleMore(item)}
+                  onLike={() => handleLike(item)} // Component handles disabled state
+                  onReply={() => handlePostPress(interactionId)} // Navigate to Cannect thread
+                  onRepost={() => handleRepost(item)}
+                  onProfilePress={() => {
+                    // For Cannect reposts, navigate to reposter's profile
+                    // For live global, no navigation
+                    if (!isLiveGlobal || isCannectRepostOfGlobal) {
+                      handleProfilePress(item.user_id);
+                    }
+                  }}
+                  onPress={() => {
+                    // For Cannect reposts, navigate to thread view
+                    // For live global, no navigation
+                    if (!isLiveGlobal || isCannectRepostOfGlobal) {
+                      handlePostPress(interactionId);
+                    }
+                  }}
+                  onMore={() => {
+                    if (!isLiveGlobal || isCannectRepostOfGlobal) {
+                      handleMore(item);
+                    }
+                  }}
                   onShare={() => handleShare(item)}
                 />
               );

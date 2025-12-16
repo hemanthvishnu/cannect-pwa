@@ -100,7 +100,10 @@ export function usePost(postId: string) {
             created_at,
             media_urls,
             author:profiles!user_id(*)
-          )
+          ),
+          external_id,
+          external_source,
+          external_metadata
         `)
         .eq("id", postId)
         .single();

@@ -95,19 +95,24 @@ export function SocialPost({
   // Check if quoted_post is valid (has actual data, not just an empty object from the join)
   const hasValidQuotedPost = post.quoted_post && post.quoted_post.id && post.quoted_post.content;
   
-  // Check if this is a federated (external) post from Global tab
-  const isFederated = (post as any).is_federated === true;
+  // =====================================================
+  // INTERACTION CAPTURE LOGIC
+  // =====================================================
   
-  // Check if this is a shadow repost (repost of external/federated content)
-  const isExternalRepost = !!(post as any).external_id && (post as any).external_metadata;
-  const externalData = isExternalRepost ? (post as any).external_metadata : null;
+  // 1. Live Global = Data fetched directly from Bluesky API (Read-only except repost)
+  const isLiveGlobal = (post as any).is_federated === true;
+  
+  // 2. Cannect Repost of Global = Data from Supabase referencing Bluesky (FULLY INTERACTIVE!)
+  //    These have a real post.id in our database, so likes/comments work
+  const isCannectRepostOfGlobal = !!(post as any).external_id && (post as any).external_metadata;
+  const externalData = isCannectRepostOfGlobal ? (post as any).external_metadata : null;
   
   // Handle Simple Repost: Only show repost UI when explicitly marked as a repost
   // AND there's a valid quoted_post to display. This prevents false positives.
-  const isSimpleRepost = (post.type === 'repost' || post.is_repost === true) && (hasValidQuotedPost || isExternalRepost);
+  const isSimpleRepost = (post.type === 'repost' || post.is_repost === true) && (hasValidQuotedPost || isCannectRepostOfGlobal);
   
   // For external reposts, construct a virtual quoted_post from the metadata
-  const virtualQuotedPost = isExternalRepost ? {
+  const virtualQuotedPost = isCannectRepostOfGlobal ? {
     id: (post as any).external_id,
     content: externalData?.content,
     created_at: externalData?.created_at,
@@ -128,8 +133,16 @@ export function SocialPost({
   const avatarUrl = displayPost?.author?.avatar_url || 
     `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=10B981&color=fff`;
   
-  // Check if the displayed content is from an external source
-  const displayedIsFederated = isFederated || (displayPost as any)?.is_federated === true;
+  // Check if the displayed content is from an external source (for badge display)
+  const displayedIsFederated = isLiveGlobal || (displayPost as any)?.is_federated === true;
+  
+  // =====================================================
+  // INTERACTION RULES:
+  // - isLiveGlobal: Only Repost enabled (to "capture" into Cannect)
+  // - isCannectRepostOfGlobal: ALL interactions enabled (it's OUR data now!)
+  // - Regular posts: ALL interactions enabled
+  // =====================================================
+  const interactionsDisabled = isLiveGlobal && !isCannectRepostOfGlobal;
   
   return (
     <Pressable onPress={onPress}>
@@ -225,58 +238,38 @@ export function SocialPost({
         </PostContent>
 
         <PostFooter>
-          {displayedIsFederated ? (
-            <>
-              {/* Disabled Reply for federated */}
-              <ActionButton 
-                icon={MessageCircle} 
-                count={displayPost?.comments_count} 
-              />
-              {/* ✅ REPOST ENABLED FOR FEDERATED - allows shadow reposting */}
-              <ActionButton 
-                icon={Repeat2} 
-                count={displayPost?.reposts_count} 
-                active={false} 
-                activeColor="#10B981"
-                onPress={onRepost} 
-              />
-              {/* Disabled Like for federated */}
-              <ActionButton 
-                icon={Heart} 
-                count={displayPost?.likes_count} 
-              />
-              <ActionButton 
-                icon={Share} 
-                onPress={onShare}
-              />
-            </>
-          ) : (
-            <>
-              <ActionButton 
-                icon={MessageCircle} 
-                count={displayPost?.comments_count} 
-                onPress={onReply} 
-              />
-              <ActionButton 
-                icon={Repeat2} 
-                count={displayPost?.reposts_count} 
-                active={false} 
-                activeColor="#10B981" // green
-                onPress={onRepost} 
-              />
-              <ActionButton 
-                icon={Heart} 
-                count={displayPost?.likes_count} 
-                active={displayPost?.is_liked} 
-                activeColor="#EF4444" // red
-                onPress={onLike} 
-              />
-              <ActionButton 
-                icon={Share} 
-                onPress={onShare}
-              />
-            </>
-          )}
+          {/* 
+            INTERACTION CAPTURE:
+            - Live Global posts: Reply/Like disabled, Repost enabled (to capture)
+            - Cannect Reposts of Global: ALL enabled (we own the data now!)
+            - Regular Cannect posts: ALL enabled
+            
+            For Cannect Reposts, interactions are on the CANNECT post.id, 
+            not the original Bluesky CID. This creates "Shadow Threads".
+          */}
+          <ActionButton 
+            icon={MessageCircle} 
+            count={isCannectRepostOfGlobal ? post.comments_count : displayPost?.comments_count} 
+            onPress={interactionsDisabled ? undefined : onReply}
+          />
+          <ActionButton 
+            icon={Repeat2} 
+            count={isCannectRepostOfGlobal ? post.reposts_count : displayPost?.reposts_count} 
+            active={false} 
+            activeColor="#10B981"
+            onPress={onRepost} // Always enabled - allows shadow reposting
+          />
+          <ActionButton 
+            icon={Heart} 
+            count={isCannectRepostOfGlobal ? post.likes_count : displayPost?.likes_count} 
+            active={isCannectRepostOfGlobal ? post.is_liked : displayPost?.is_liked} 
+            activeColor="#EF4444"
+            onPress={interactionsDisabled ? undefined : onLike}
+          />
+          <ActionButton 
+            icon={Share} 
+            onPress={onShare}
+          />
         </PostFooter>
       </PostRoot>
     </Pressable>
