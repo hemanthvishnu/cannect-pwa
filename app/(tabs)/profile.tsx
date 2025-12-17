@@ -3,9 +3,11 @@ import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { useAuthStore } from "@/lib/stores";
 import { useProfile, useUserPosts, useSignOut, ProfileTab } from "@/lib/hooks";
+import { queryKeys } from "@/lib/query-client";
 import { ProfileHeader } from "@/components/social";
 import { SocialPost } from "@/components/social";
 import { MediaGridItem } from "@/components/Profile";
@@ -15,6 +17,7 @@ import { SkeletonProfile, SkeletonCard } from "@/components/ui/Skeleton";
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const signOut = useSignOut();
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
@@ -40,6 +43,17 @@ export default function ProfileScreen() {
     router.push("/settings/edit-profile" as any);
   };
 
+  // ✅ Platinum: Prefetch tab data on touch start for instant switching
+  const prefetchTab = (tab: ProfileTab) => {
+    if (!user?.id) return;
+    queryClient.prefetchInfiniteQuery({
+      queryKey: [...queryKeys.posts.byUser(user.id), tab],
+      initialPageParam: 0,
+      queryFn: () => Promise.resolve([]),
+      staleTime: 1000 * 60 * 5,
+    });
+  };
+
   // Render header with Platinum Tab Bar
   const renderHeader = () => (
     <View>
@@ -47,14 +61,16 @@ export default function ProfileScreen() {
         profile={profile!} 
         isCurrentUser={true}
         onEditPress={handleEditProfile}
+        onFollowersPress={() => router.push(`/user/${profile!.username}/followers` as any)}
+        onFollowingPress={() => router.push(`/user/${profile!.username}/following` as any)}
       />
       
-      {/* ✅ Platinum Tab Bar (RNR) */}
+      {/* ✅ Platinum Tab Bar (RNR) with prefetching */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)}>
         <TabsList>
-          <TabsTrigger value="posts">Posts</TabsTrigger>
-          <TabsTrigger value="replies">Replies</TabsTrigger>
-          <TabsTrigger value="media">Media</TabsTrigger>
+          <TabsTrigger value="posts" onPressIn={() => prefetchTab('posts')}>Posts</TabsTrigger>
+          <TabsTrigger value="replies" onPressIn={() => prefetchTab('replies')}>Replies</TabsTrigger>
+          <TabsTrigger value="media" onPressIn={() => prefetchTab('media')}>Media</TabsTrigger>
         </TabsList>
       </Tabs>
     </View>

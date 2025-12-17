@@ -2,6 +2,7 @@ import { View, Text, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { Share, Link as LinkIcon, Calendar } from "lucide-react-native";
 import { Button } from "@/components/ui/Button";
+import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/date";
 import type { Profile } from "@/lib/types/database";
@@ -13,6 +14,8 @@ interface ProfileHeaderProps {
   onEditPress?: () => void;
   onFollowPress?: () => void;
   onSharePress?: () => void;
+  onFollowersPress?: () => void;
+  onFollowingPress?: () => void;
 }
 
 export function ProfileHeader({ 
@@ -21,9 +24,10 @@ export function ProfileHeader({
   isFollowing,
   onEditPress,
   onFollowPress,
-  onSharePress 
+  onSharePress,
+  onFollowersPress,
+  onFollowingPress
 }: ProfileHeaderProps) {
-  const avatarUrl = profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.username}&background=10B981&color=fff`;
   const coverUrl = profile.cover_url;
 
   return (
@@ -54,11 +58,12 @@ export function ProfileHeader({
       <View className="px-4">
         {/* Header Row: Avatar + Actions */}
         <View className="flex-row justify-between items-end -mt-10 mb-3">
-          <View className="rounded-full border-4 border-background overflow-hidden">
-            <Image
-              source={{ uri: avatarUrl }}
-              style={{ width: 80, height: 80 }}
-              contentFit="cover"
+          {/* ✅ Platinum: Stable Avatar with caching - prevents flicker */}
+          <View className="rounded-full border-4 border-background bg-background overflow-hidden">
+            <Avatar 
+              url={profile.avatar_url} 
+              name={profile.display_name || profile.username} 
+              size={80} 
             />
           </View>
           
@@ -123,13 +128,19 @@ export function ProfileHeader({
           </View>
         </View>
 
-        {/* Stats Row */}
+        {/* Stats Row - ✅ Platinum: Now navigable */}
         <View className="flex-row gap-5 mb-2">
-          <Pressable className="flex-row items-center gap-1">
+          <Pressable 
+            onPress={onFollowingPress} 
+            className="flex-row items-center gap-1 active:opacity-60"
+          >
             <Text className="font-bold text-text-primary">{profile.following_count || 0}</Text>
             <Text className="text-text-muted">Following</Text>
           </Pressable>
-          <Pressable className="flex-row items-center gap-1">
+          <Pressable 
+            onPress={onFollowersPress} 
+            className="flex-row items-center gap-1 active:opacity-60"
+          >
             <Text className="font-bold text-text-primary">{profile.followers_count || 0}</Text>
             <Text className="text-text-muted">Followers</Text>
           </Pressable>
