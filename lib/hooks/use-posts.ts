@@ -69,9 +69,13 @@ async function fetchPostsWithCounts(query: any, userId?: string) {
       likes_count: isRepost && liveSource?.likes 
         ? (liveSource.likes?.[0]?.count ?? liveSource.likes_count ?? 0)
         : (post.likes?.[0]?.count ?? post.likes_count ?? 0),
-      comments_count: isRepost && liveSource?.comments_count
+      comments_count: isRepost && liveSource?.comments_count !== undefined
         ? liveSource.comments_count
         : post.comments_count,
+      // ✅ Sync reposts_count from original content (the "Viral" effect)
+      reposts_count: isRepost && liveSource?.reposts_count !== undefined
+        ? liveSource.reposts_count
+        : post.reposts_count,
     };
   });
 }
@@ -105,6 +109,7 @@ export function useFeed() {
             is_reply,
             reply_to_id,
             comments_count,
+            reposts_count,
             quoted_post_id:repost_of_id,
             author:profiles!user_id(*),
             likes:likes(count)
@@ -147,6 +152,7 @@ export function usePost(postId: string) {
             is_reply,
             reply_to_id,
             comments_count,
+            reposts_count,
             quoted_post_id:repost_of_id,
             author:profiles!user_id(*),
             likes:likes(count)
