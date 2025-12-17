@@ -35,7 +35,7 @@ export function ProfileRow({
     if (onPress) {
       onPress();
     } else if (!isFederated) {
-      router.push(`/user/${profile.username}`);
+      router.push(`/user/${profile.username}` as any);
     }
     // Federated profiles need custom handling via onPress
   };
@@ -46,7 +46,8 @@ export function ProfileRow({
   return (
     <Pressable
       onPress={handlePress}
-      className="flex-row items-center gap-3 py-2"
+      accessibilityRole="button"
+      className="flex-row items-center gap-3 py-3 px-1 active:opacity-70"
     >
       <Avatar
         url={profile.avatar_url}

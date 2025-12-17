@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ✅ Platinum: Web layout fixes for FlashList and full-height containers */
+@layer base {
+  html, body, #root {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 /* Custom utility classes for Cannect */
 @layer components {
   .btn-primary {

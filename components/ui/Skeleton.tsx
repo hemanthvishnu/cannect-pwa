@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { View, Animated, type ViewProps } from "react-native";
+import { View, Animated, Platform, type ViewProps } from "react-native";
 import { cn } from "@/lib/utils";
 
 /**
@@ -18,6 +18,9 @@ interface SkeletonProps extends ViewProps {
   radius?: number | "full" | "sm" | "md" | "lg" | "xl";
 }
 
+// ✅ Platinum: Web doesn't support native driver
+const useNativeDriver = Platform.OS !== 'web';
+
 export function Skeleton({ 
   width = "100%", 
   height = 20, 
@@ -34,12 +37,12 @@ export function Skeleton({
         Animated.timing(shimmerAnim, {
           toValue: 1,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver,
         }),
         Animated.timing(shimmerAnim, {
           toValue: 0,
           duration: 1000,
-          useNativeDriver: true,
+          useNativeDriver,
         }),
       ])
     );
@@ -69,8 +72,8 @@ export function Skeleton({
       className={cn("bg-muted", className)}
       style={[
         {
-          width,
-          height,
+          width: width as any,
+          height: height as any,
           borderRadius: getBorderRadius(),
           opacity,
         },

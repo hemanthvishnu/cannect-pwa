@@ -26,7 +26,7 @@ export default function UserRelationshipsScreen() {
   const title = type === 'followers' ? 'Followers' : 'Following';
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-background" style={{ flex: 1 }} edges={["top"]}>
       <Stack.Screen 
         options={{ 
           title: title,
@@ -39,7 +39,7 @@ export default function UserRelationshipsScreen() {
           <ActivityIndicator size="large" color="#10B981" />
         </View>
       ) : (
-        <View className="flex-1">
+        <View className="flex-1" style={{ flex: 1 }}>
           <FlashList
             data={users}
             estimatedItemSize={70}
