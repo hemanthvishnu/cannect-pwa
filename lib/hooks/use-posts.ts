@@ -218,21 +218,52 @@ export function usePostReplies(postId: string) {
   });
 }
 
-export function useUserPosts(userId: string) {
+/**
+ * Gold Standard Profile Tabs:
+ * - 'posts': Original posts + reposts (public face)
+ * - 'replies': Comments/replies with thread context
+ * - 'media': Posts containing images/videos
+ */
+export type ProfileTab = 'posts' | 'replies' | 'media';
+
+export function useUserPosts(userId: string, tab: ProfileTab = 'posts') {
   const { user } = useAuthStore(); // Current user (viewer)
   return useInfiniteQuery({
-    queryKey: queryKeys.posts.byUser(userId),
+    queryKey: [...queryKeys.posts.byUser(userId), tab],
     queryFn: async ({ pageParam = 0 }) => {
       const from = pageParam * POSTS_PER_PAGE;
       const to = from + POSTS_PER_PAGE - 1;
 
-      const query = supabase
+      let query = supabase
         .from("posts")
-        .select(`*, author:profiles!user_id(*), likes:likes(count)`)
+        .select(`
+          *,
+          author:profiles!user_id(*),
+          likes:likes(count),
+          quoted_post:repost_of_id(
+            *,
+            author:profiles!user_id(*),
+            likes:likes(count)
+          ),
+          parent_post:reply_to_id(
+            author:profiles!user_id(username, display_name)
+          )
+        `)
         .eq("user_id", userId)
-        .eq("is_reply", false) // Filter out replies - only show original posts and reposts
         .order("created_at", { ascending: false })
         .range(from, to);
+
+      // ✅ Gold Standard Tab Filtering
+      if (tab === 'posts') {
+        // Show original posts and reposts, but NOT direct replies
+        query = query.or('is_reply.eq.false,type.eq.repost');
+      } else if (tab === 'replies') {
+        // Show ONLY replies (not reposts)
+        query = query.eq('is_reply', true).neq('type', 'repost');
+      } else if (tab === 'media') {
+        // Show only posts that have media URLs
+        query = query.not('media_urls', 'is', null);
+      }
 
       return fetchPostsWithCounts(query, user?.id);
     },

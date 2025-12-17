@@ -82,6 +82,8 @@ interface SocialPostProps {
   onMore?: () => void;
   onShare?: () => void;
   onQuotedPostPress?: (quotedPostId: string) => void;
+  /** Show "Replying to @username" context (useful for Replies tab in profile) */
+  showThreadContext?: boolean;
 }
 
 export function SocialPost({ 
@@ -93,7 +95,8 @@ export function SocialPost({
   onPress,
   onMore,
   onShare,
-  onQuotedPostPress
+  onQuotedPostPress,
+  showThreadContext = true,
 }: SocialPostProps) {
   // Check if quoted_post is valid (has actual data, not just an empty object from the join)
   const hasValidQuotedPost = post.quoted_post && post.quoted_post.id && post.quoted_post.content;
@@ -272,7 +275,7 @@ export function SocialPost({
         )}
 
         {/* ✅ Gold Standard: Thread Context - "Replying to @username" */}
-        {displayPost?.is_reply && (displayPost as any)?.parent_post?.author?.username && (
+        {showThreadContext && displayPost?.is_reply && (displayPost as any)?.parent_post?.author?.username && (
           <View className="flex-row items-center mb-1 ml-[52px]">
             <Text className="text-xs text-text-muted">
               Replying to{" "}
