@@ -167,11 +167,14 @@ export default function PostDetailsScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
         className="flex-1"
+        style={{ flex: 1 }}
       >
-        <FlashList
-          data={replies || []}
-          keyExtractor={(item) => item.id}
-          estimatedItemSize={100}
+        {/* FlashList needs explicit flex container on web */}
+        <View style={{ flex: 1, minHeight: 2 }}>
+          <FlashList
+            data={replies || []}
+            keyExtractor={(item) => item.id}
+            estimatedItemSize={100}
           
           // The Main Post is the Header
           ListHeaderComponent={
@@ -242,6 +245,7 @@ export default function PostDetailsScreen() {
           
           contentContainerStyle={{ paddingBottom: 100 }}
         />
+        </View>
 
         {/* Sticky Reply Input */}
         <View className="border-t border-border bg-background">

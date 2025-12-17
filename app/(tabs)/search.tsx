@@ -231,7 +231,7 @@ export default function SearchScreen() {
       )}
 
       {/* Content */}
-      <View className="flex-1">
+      <View style={{ flex: 1, minHeight: 2 }}>
         {showDiscovery ? renderDiscovery() : renderSearchResults()}
       </View>
     </SafeAreaView>

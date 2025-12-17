@@ -48,10 +48,11 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <FlashList
-        data={posts}
-        keyExtractor={(item) => item.id}
-        estimatedItemSize={150}
+      <View style={{ flex: 1, minHeight: 2 }}>
+        <FlashList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={150}
         
         // Render the Profile Header as part of the list for unified scrolling
         ListHeaderComponent={
@@ -101,6 +102,7 @@ export default function ProfileScreen() {
         onEndReachedThreshold={0.5}
         contentContainerStyle={{ paddingBottom: 20 }}
       />
+      </View>
     </SafeAreaView>
   );
 }

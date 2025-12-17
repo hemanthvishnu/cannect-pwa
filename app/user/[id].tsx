@@ -61,11 +61,12 @@ export default function UserProfileScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <Stack.Screen options={{ title: `@${profile.username}`, headerBackTitle: "Back" }} />
-      <FlashList
-        data={posts}
-        keyExtractor={(item) => item.id}
-        estimatedItemSize={150}
-        ListHeaderComponent={
+      <View style={{ flex: 1, minHeight: 2 }}>
+        <FlashList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          estimatedItemSize={150}
+          ListHeaderComponent={
           <ProfileHeader 
             profile={profile} 
             isCurrentUser={currentUser?.id === profile.id} 
@@ -92,6 +93,7 @@ export default function UserProfileScreen() {
         )}
         onEndReached={() => hasNextPage && fetchNextPage()}
       />
+      </View>
     </SafeAreaView>
   );
 }

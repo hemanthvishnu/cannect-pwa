@@ -141,11 +141,12 @@ export default function FederatedUserScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <FlashList
-        data={posts}
-        keyExtractor={(item: any) => item.id}
-        estimatedItemSize={200}
-        ListHeaderComponent={() => (
+      <View style={{ flex: 1, minHeight: 2 }}>
+        <FlashList
+          data={posts}
+          keyExtractor={(item: any) => item.id}
+          estimatedItemSize={200}
+          ListHeaderComponent={() => (
           <View>
             {/* Header Bar */}
             <View className="flex-row items-center px-4 py-3">
@@ -219,6 +220,7 @@ export default function FederatedUserScreen() {
         )}
         contentContainerStyle={{ paddingBottom: 20 }}
       />
+      </View>
     </SafeAreaView>
   );
 }
