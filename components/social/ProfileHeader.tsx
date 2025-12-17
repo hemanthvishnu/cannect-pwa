@@ -124,14 +124,11 @@ export function ProfileHeader({
           </Pressable>
         </View>
       </View>
-
-      {/* Tabs */}
-      <ProfileTabs activeTab="posts" />
     </View>
   );
 }
 
-// Tabs Component
+// Tabs Component - Exported for use by parent screens
 interface ProfileTabsProps {
   activeTab: "posts" | "replies" | "media";
   onTabChange?: (tab: "posts" | "replies" | "media") => void;
@@ -145,7 +142,7 @@ function ProfileTabs({ activeTab, onTabChange }: ProfileTabsProps) {
   ];
 
   return (
-    <View className="flex-row mt-4 border-b border-border">
+    <View className="flex-row border-b border-border bg-background">
       {tabs.map((tab) => (
         <Pressable 
           key={tab.key}
