@@ -26,6 +26,8 @@ export function Avatar({ url, name, size = 40 }: AvatarProps) {
         }}
         contentFit="cover"
         transition={200}
+        cachePolicy="memory-disk"
+        recyclingKey={url}
       />
     );
   }

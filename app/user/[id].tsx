@@ -91,35 +91,6 @@ export default function UserProfileScreen() {
     }
   };
 
-  // Render the profile header with Platinum Tab Bar
-  const renderHeader = () => (
-    <View>
-      <ProfileHeader 
-        profile={profile!} 
-        isCurrentUser={currentUser?.id === profile!.id}
-        isFollowing={isFollowing ?? false}
-        onFollowPress={handleFollowToggle}
-        onFollowersPress={() => router.push({ 
-          pathname: `/user/${username}/relationships` as any,
-          params: { type: 'followers' }
-        })}
-        onFollowingPress={() => router.push({ 
-          pathname: `/user/${username}/relationships` as any,
-          params: { type: 'following' }
-        })}
-      />
-      
-      {/* ✅ Platinum Tab Bar (RNR) with prefetching */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)}>
-        <TabsList>
-          <TabsTrigger value="posts" onPressIn={() => prefetchTab('posts')}>Posts</TabsTrigger>
-          <TabsTrigger value="replies" onPressIn={() => prefetchTab('replies')}>Replies</TabsTrigger>
-          <TabsTrigger value="media" onPressIn={() => prefetchTab('media')}>Media</TabsTrigger>
-        </TabsList>
-      </Tabs>
-    </View>
-  );
-
   // Render item based on active tab
   const renderItem = ({ item }: { item: any }) => {
     if (activeTab === 'media') {
@@ -164,6 +135,32 @@ export default function UserProfileScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
       <Stack.Screen options={{ title: `@${profile.username}`, headerBackTitle: "Back" }} />
+      
+      {/* ✅ Platinum: Header stays mounted, only list content changes */}
+      <ProfileHeader 
+        profile={profile!} 
+        isCurrentUser={currentUser?.id === profile!.id}
+        isFollowing={isFollowing ?? false}
+        onFollowPress={handleFollowToggle}
+        onFollowersPress={() => router.push({ 
+          pathname: `/user/${username}/relationships` as any,
+          params: { type: 'followers' }
+        })}
+        onFollowingPress={() => router.push({ 
+          pathname: `/user/${username}/relationships` as any,
+          params: { type: 'following' }
+        })}
+      />
+      
+      {/* ✅ Platinum Tab Bar - outside FlashList for stability */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)}>
+        <TabsList>
+          <TabsTrigger value="posts" onPressIn={() => prefetchTab('posts')}>Posts</TabsTrigger>
+          <TabsTrigger value="replies" onPressIn={() => prefetchTab('replies')}>Replies</TabsTrigger>
+          <TabsTrigger value="media" onPressIn={() => prefetchTab('media')}>Media</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      
       <View style={{ flex: 1, minHeight: 2 }}>
         <FlashList
           key={activeTab === 'media' ? 'grid' : 'list'}
@@ -171,7 +168,6 @@ export default function UserProfileScreen() {
           keyExtractor={(item) => item.id}
           numColumns={activeTab === 'media' ? 3 : 1}
           estimatedItemSize={activeTab === 'media' ? 120 : 200}
-          ListHeaderComponent={renderHeader}
           renderItem={renderItem}
           onEndReached={() => hasNextPage && fetchNextPage()}
           ListFooterComponent={

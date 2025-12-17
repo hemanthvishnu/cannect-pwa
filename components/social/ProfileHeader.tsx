@@ -39,6 +39,8 @@ export function ProfileHeader({
             source={{ uri: coverUrl }}
             style={{ width: '100%', height: '100%' }}
             contentFit="cover"
+            cachePolicy="memory-disk"
+            recyclingKey={coverUrl}
           />
         ) : (
           <View className="absolute inset-0 bg-gradient-to-br from-primary/30 via-primary/10 to-surface" />

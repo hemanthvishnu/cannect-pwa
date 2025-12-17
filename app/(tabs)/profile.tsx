@@ -54,34 +54,6 @@ export default function ProfileScreen() {
     });
   };
 
-  // Render header with Platinum Tab Bar
-  const renderHeader = () => (
-    <View>
-      <ProfileHeader 
-        profile={profile!} 
-        isCurrentUser={true}
-        onEditPress={handleEditProfile}
-        onFollowersPress={() => router.push({ 
-          pathname: `/user/${profile!.username}/relationships` as any,
-          params: { type: 'followers' }
-        })}
-        onFollowingPress={() => router.push({ 
-          pathname: `/user/${profile!.username}/relationships` as any,
-          params: { type: 'following' }
-        })}
-      />
-      
-      {/* ✅ Platinum Tab Bar (RNR) with prefetching */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)}>
-        <TabsList>
-          <TabsTrigger value="posts" onPressIn={() => prefetchTab('posts')}>Posts</TabsTrigger>
-          <TabsTrigger value="replies" onPressIn={() => prefetchTab('replies')}>Replies</TabsTrigger>
-          <TabsTrigger value="media" onPressIn={() => prefetchTab('media')}>Media</TabsTrigger>
-        </TabsList>
-      </Tabs>
-    </View>
-  );
-
   // Render item based on active tab
   const renderItem = ({ item }: { item: any }) => {
     if (activeTab === 'media') {
@@ -111,6 +83,30 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+      {/* ✅ Platinum: Header stays mounted, only list content changes */}
+      <ProfileHeader 
+        profile={profile!} 
+        isCurrentUser={true}
+        onEditPress={handleEditProfile}
+        onFollowersPress={() => router.push({ 
+          pathname: `/user/${profile!.username}/relationships` as any,
+          params: { type: 'followers' }
+        })}
+        onFollowingPress={() => router.push({ 
+          pathname: `/user/${profile!.username}/relationships` as any,
+          params: { type: 'following' }
+        })}
+      />
+      
+      {/* ✅ Platinum Tab Bar - outside FlashList for stability */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)}>
+        <TabsList>
+          <TabsTrigger value="posts" onPressIn={() => prefetchTab('posts')}>Posts</TabsTrigger>
+          <TabsTrigger value="replies" onPressIn={() => prefetchTab('replies')}>Replies</TabsTrigger>
+          <TabsTrigger value="media" onPressIn={() => prefetchTab('media')}>Media</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      
       <View style={{ flex: 1, minHeight: 2 }}>
         <FlashList
           key={activeTab === 'media' ? 'grid' : 'list'}
@@ -118,7 +114,6 @@ export default function ProfileScreen() {
           keyExtractor={(item) => item.id}
           numColumns={activeTab === 'media' ? 3 : 1}
           estimatedItemSize={activeTab === 'media' ? 120 : 200}
-          ListHeaderComponent={renderHeader}
           renderItem={renderItem}
 
           // Empty State
