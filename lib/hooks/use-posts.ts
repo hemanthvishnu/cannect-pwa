@@ -15,19 +15,23 @@ async function fetchPostsWithCounts(query: any, userId?: string) {
   if (error) throw error;
   if (!posts) return [];
 
-  // 2. Extract Post IDs
+  // 2. Extract Post IDs (include both wrapper and original content IDs)
   const postIds = posts.map((p: any) => p.id);
+  const originalContentIds = posts
+    .filter((p: any) => p.quoted_post?.id)
+    .map((p: any) => p.quoted_post.id);
+  const allRelevantIds = Array.from(new Set([...postIds, ...originalContentIds]));
   
-  if (postIds.length === 0) return [];
+  if (allRelevantIds.length === 0) return [];
 
-  // 3. Get "Liked By Me" status
+  // 3. Get "Liked By Me" status (check both wrapper and original content)
   let likedPostIds = new Set<string>();
   if (userId) {
     const { data: myLikes } = await supabase
       .from("likes")
       .select("post_id")
       .eq("user_id", userId)
-      .in("post_id", postIds);
+      .in("post_id", allRelevantIds);
       
     myLikes?.forEach((l: any) => likedPostIds.add(l.post_id));
   }
@@ -50,18 +54,22 @@ async function fetchPostsWithCounts(query: any, userId?: string) {
 
   // 5. Return Enriched Posts with Live Engagement Sync
   return posts.map((post: any) => {
-    // ✅ Gold Standard: For reposts, use the original post's live engagement counts
-    const liveSource = post.quoted_post || post;
+    // ✅ Gold Standard: For reposts, use the original post's live engagement
+    const isRepost = post.type === 'repost' && post.quoted_post;
+    const liveSource = isRepost ? post.quoted_post : post;
+    const sourceId = liveSource?.id || post.id;
     
     return {
       ...post,
-      is_liked: likedPostIds.has(post.id),
-      is_reposted_by_me: repostedPostIds.has(post.id) || repostedPostIds.has(post.repost_of_id),
+      // ✅ Check if the ORIGINAL content is liked (not the wrapper)
+      is_liked: likedPostIds.has(sourceId),
+      // ✅ Check if the ORIGINAL content is reposted by me
+      is_reposted_by_me: repostedPostIds.has(sourceId) || repostedPostIds.has(post.id),
       // Sync live counts from original post if it's a repost
-      likes_count: post.type === 'repost' && liveSource?.likes 
+      likes_count: isRepost && liveSource?.likes 
         ? (liveSource.likes?.[0]?.count ?? liveSource.likes_count ?? 0)
         : (post.likes?.[0]?.count ?? post.likes_count ?? 0),
-      comments_count: post.type === 'repost' && liveSource?.comments_count
+      comments_count: isRepost && liveSource?.comments_count
         ? liveSource.comments_count
         : post.comments_count,
     };
@@ -491,22 +499,27 @@ export function useToggleRepost() {
 
       if (undo || post.is_reposted_by_me) {
         // UNDO REPOST: Delete the repost row from our posts table
+        // ✅ Gold Standard: Target the ORIGINAL content ID, not the wrapper
         if (post.is_federated) {
           // For federated posts, match by external_id
+          const targetId = post.external_id || post.id;
           const { error } = await supabase
             .from("posts")
             .delete()
             .eq("user_id", user.id)
-            .eq("external_id", post.id)
+            .eq("external_id", targetId)
             .eq("is_repost", true);
           if (error) throw error;
         } else {
           // For internal posts, match by repost_of_id and type="repost" (not quote)
+          // If this IS a repost wrapper, target its quoted_post.id
+          // If this is the original post, target its own id
+          const targetId = post.quoted_post?.id || post.repost_of_id || post.id;
           const { error } = await supabase
             .from("posts")
             .delete()
             .eq("user_id", user.id)
-            .eq("repost_of_id", post.id)
+            .eq("repost_of_id", targetId)
             .eq("type", "repost");
           if (error) throw error;
         }

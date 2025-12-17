@@ -2,7 +2,7 @@ import { View, Text, TextInput, KeyboardAvoidingView, Platform, Pressable, Activ
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
-import { Send, ArrowLeft } from "lucide-react-native";
+import { Send, ArrowLeft, ArrowUpLeft } from "lucide-react-native";
 import { useState } from "react";
 
 import { usePost, usePostReplies, useCreatePost, useLikePost, useUnlikePost, useDeletePost, useToggleRepost } from "@/lib/hooks";
@@ -179,14 +179,15 @@ export default function PostDetailsScreen() {
           // The Main Post is the Header
           ListHeaderComponent={
             <View>
-              {/* Breadcrumb: Link back to parent if this is a reply/comment */}
-              {post.reply_to_id && (
+              {/* Gold Standard: View Parent anchor for upward navigation */}
+              {post.is_reply && post.reply_to_id && (
                 <Pressable 
                   onPress={() => router.push(`/post/${post.reply_to_id}` as any)}
-                  className="px-4 py-3 border-b border-border bg-surface/30 flex-row items-center gap-2"
+                  className="flex-row items-center px-4 py-3 bg-primary/5 border-b border-border active:bg-primary/10"
                 >
-                  <Text className="text-primary text-sm font-medium">
-                    ← View parent conversation
+                  <ArrowUpLeft size={16} color="#10B981" />
+                  <Text className="ml-2 text-sm font-medium text-primary">
+                    View Parent Post
                   </Text>
                 </Pressable>
               )}

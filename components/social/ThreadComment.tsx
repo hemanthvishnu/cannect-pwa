@@ -184,14 +184,17 @@ export function ThreadComment({
             )}
           </Pressable>
 
-          {/* Pivot indicator - "View Thread" badge shows there are deeper replies */}
+          {/* Gold Standard: View Thread pivot - portal into deeper replies */}
           {(comment.replies_count ?? 0) > 0 && (
-            <View className="flex-1 items-end">
-              <View className="flex-row items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10">
-                <Text className="text-[10px] font-bold text-primary uppercase">View Thread</Text>
+            <Pressable 
+              onPress={(e) => { e.stopPropagation(); handlePivot(); }}
+              className="flex-1 items-end"
+            >
+              <View className="flex-row items-center gap-1 px-3 py-1 rounded-full bg-primary/10 active:bg-primary/20">
+                <Text className="text-[10px] font-bold text-primary uppercase tracking-wider">View Thread</Text>
                 <ChevronRight size={12} color="#10B981" />
               </View>
-            </View>
+            </Pressable>
           )}
         </View>
       </View>
