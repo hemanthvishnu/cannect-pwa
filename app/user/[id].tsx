@@ -99,8 +99,14 @@ export default function UserProfileScreen() {
         isCurrentUser={currentUser?.id === profile!.id}
         isFollowing={isFollowing ?? false}
         onFollowPress={handleFollowToggle}
-        onFollowersPress={() => router.push(`/user/${username}/followers` as any)}
-        onFollowingPress={() => router.push(`/user/${username}/following` as any)}
+        onFollowersPress={() => router.push({ 
+          pathname: `/user/${username}/relationships` as any,
+          params: { type: 'followers' }
+        })}
+        onFollowingPress={() => router.push({ 
+          pathname: `/user/${username}/relationships` as any,
+          params: { type: 'following' }
+        })}
       />
       
       {/* ✅ Platinum Tab Bar (RNR) with prefetching */}
