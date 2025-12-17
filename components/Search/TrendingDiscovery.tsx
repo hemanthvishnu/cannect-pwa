@@ -31,7 +31,7 @@ export function TrendingDiscovery({ onTopicPress }: TrendingDiscoveryProps) {
     <View className="px-5 pt-4">
       <View className="flex-row items-center gap-2 mb-4">
         <TrendingUp size={20} color="#10B981" />
-        <Text className="text-xl font-bold text-text-primary">Trending on Bluesky</Text>
+        <Text className="text-xl font-bold text-text-primary">Trending Globally</Text>
       </View>
 
       {trends.topics.map((item: { topic: string; link?: string }, index: number) => (

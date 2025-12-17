@@ -122,7 +122,7 @@ export default function SearchScreen() {
               <View className="mb-6">
                 <View className="flex-row items-center gap-2 mb-3">
                   <Users size={18} color="#3B82F6" />
-                  <Text className="text-lg font-bold text-text-primary">Discover on Bluesky</Text>
+                  <Text className="text-lg font-bold text-text-primary">Discover Globally</Text>
                 </View>
                 {isTrendingLoading ? (
                   <ActivityIndicator color="#3B82F6" />
