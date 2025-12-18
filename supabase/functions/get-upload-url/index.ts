@@ -25,7 +25,35 @@ serve(async (req) => {
 
   try {
     // ========================================
-    // 1. Verify Authentication
+    // Health Check Endpoint (GET request)
+    // ========================================
+    if (req.method === "GET") {
+      // Test Cloudflare Images API connectivity
+      const testResponse = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/images/v1/stats`,
+        {
+          headers: { Authorization: `Bearer ${CLOUDFLARE_IMAGES_TOKEN}` },
+        }
+      );
+      const testData = await testResponse.json();
+
+      return new Response(
+        JSON.stringify({
+          status: "ok",
+          cloudflareConnected: testData.success === true,
+          accountId: CLOUDFLARE_ACCOUNT_ID ? "✓ set" : "✗ missing",
+          imagesToken: CLOUDFLARE_IMAGES_TOKEN ? "✓ set" : "✗ missing",
+          streamToken: CLOUDFLARE_STREAM_TOKEN ? "✓ set" : "✗ missing",
+          imagesHash: CLOUDFLARE_IMAGES_HASH ? "✓ set" : "✗ missing",
+          streamSubdomain: CLOUDFLARE_STREAM_SUBDOMAIN ? "✓ set" : "✗ missing",
+          cloudflareResponse: testData.success ? "API connected" : testData.errors,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ========================================
+    // 1. Verify Authentication (POST requests)
     // ========================================
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {

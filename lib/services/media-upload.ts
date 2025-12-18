@@ -93,7 +93,7 @@ export async function pickVideo(): Promise<ImagePicker.ImagePickerAsset | null> 
  * Compress and resize image before upload
  * This reduces upload time and bandwidth significantly
  */
-async function compressImage(uri: string): Promise<{ uri: string; width: number; height: number }> {
+export async function compressImage(uri: string): Promise<{ uri: string; width: number; height: number }> {
   // Resize to max width and compress
   const result = await ImageManipulator.manipulateAsync(
     uri,

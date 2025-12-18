@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
-import { View, TextInput, Text, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, TextInput, Text, Pressable, ActivityIndicator, Alert, Platform } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
+import * as Haptics from "expo-haptics";
 import { Camera } from "lucide-react-native";
 
 import { useAuthStore } from "@/lib/stores";
 import { useProfile, useUpdateProfile } from "@/lib/hooks";
+import { uploadImage, compressImage } from "@/lib/services/media-upload";
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -19,6 +21,8 @@ export default function EditProfileScreen() {
   const [bio, setBio] = useState("");
   const [website, setWebsite] = useState("");
   const [avatar, setAvatar] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null); // Cloudflare URL
+  const [isUploading, setIsUploading] = useState(false);
 
   // Populate form when profile loads
   useEffect(() => {
@@ -35,13 +39,45 @@ export default function EditProfileScreen() {
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.5,
+      quality: 0.8,
     });
 
-    if (!result.canceled) {
-      // Preview the selected image locally
-      // In production, you'd upload to Supabase Storage here
-      setAvatar(result.assets[0].uri); 
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      
+      // Show local preview immediately
+      setAvatar(asset.uri);
+      
+      // Upload to Cloudflare
+      setIsUploading(true);
+      try {
+        // Compress first
+        const compressed = await compressImage(asset.uri);
+        
+        // Upload to Cloudflare
+        const uploaded = await uploadImage({
+          uri: compressed.uri,
+          type: 'image',
+          width: compressed.width,
+          height: compressed.height,
+        });
+        
+        // Store the Cloudflare URL (avatar variant)
+        const avatarVariantUrl = uploaded.url.replace('/public', '/avatar');
+        setAvatarUrl(avatarVariantUrl);
+        
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      } catch (error) {
+        console.error("Avatar upload failed:", error);
+        Alert.alert("Upload Failed", "Failed to upload image. Please try again.");
+        // Reset to original avatar
+        setAvatar(profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.username}&background=10B981&color=fff`);
+        setAvatarUrl(null);
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -55,9 +91,14 @@ export default function EditProfileScreen() {
           display_name: displayName || null,
           bio: bio || null,
           website: website || null,
-          // avatar_url would be set after Storage upload in production
+          // Use uploaded Cloudflare URL if available
+          ...(avatarUrl && { avatar_url: avatarUrl }),
         }
       });
+      
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
       router.back();
     } catch (error) {
       Alert.alert("Error", "Failed to update profile");
@@ -94,7 +135,7 @@ export default function EditProfileScreen() {
 
       {/* Avatar Section */}
       <View className="items-center py-6 border-b border-border">
-        <Pressable onPress={pickImage} className="relative">
+        <Pressable onPress={pickImage} disabled={isUploading} className="relative">
           <Image
             source={{ uri: avatar }}
             style={{ width: 100, height: 100, borderRadius: 50 }}
@@ -102,10 +143,16 @@ export default function EditProfileScreen() {
             transition={200}
           />
           <View className="absolute inset-0 items-center justify-center bg-black/40 rounded-full">
-            <Camera size={24} color="#fff" />
+            {isUploading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Camera size={24} color="#fff" />
+            )}
           </View>
         </Pressable>
-        <Text className="text-primary mt-3 font-medium">Change Photo</Text>
+        <Text className="text-primary mt-3 font-medium">
+          {isUploading ? "Uploading..." : avatarUrl ? "Photo Updated ✓" : "Change Photo"}
+        </Text>
       </View>
 
       {/* Form Fields */}
