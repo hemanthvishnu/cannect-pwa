@@ -1,6 +1,6 @@
-import { View, Text, Pressable, type ViewProps, Platform, Animated } from "react-native";
+import { View, Text, Pressable, type ViewProps, Platform, Animated, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
-import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, BadgeCheck, Globe2 } from "lucide-react-native";
+import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, BadgeCheck, Globe2, Loader2 } from "lucide-react-native";
 import React, { useRef, memo, useCallback } from "react";
 import * as Haptics from "expo-haptics";
 import { cn } from "@/lib/utils";
@@ -152,16 +152,21 @@ export const SocialPost = memo(function SocialPost({
   // =====================================================
   // SHARE SNAPSHOT HOOK
   // =====================================================
-  const { shareRef, captureAndShare } = useShareSnapshot();
+  const { shareRef, captureAndShare, isCapturing, shouldRenderCard } = useShareSnapshot();
 
   // Handle share - use snapshot share if no custom handler provided
   const handleShare = useCallback(() => {
     if (onShare) {
       onShare();
     } else {
-      captureAndShare();
+      // Pass post info for web share fallback
+      captureAndShare(
+        post.id,
+        post.author?.username,
+        post.content || undefined
+      );
     }
-  }, [onShare, captureAndShare]);
+  }, [onShare, captureAndShare, post.id, post.author?.username, post.content]);
 
   // Check if quoted_post is valid (has actual data, not just an empty object from the join)
   const hasValidQuotedPost = post.quoted_post && post.quoted_post.id && post.quoted_post.content;
@@ -470,32 +475,42 @@ export const SocialPost = memo(function SocialPost({
             fill={true}
             accessibilityLabel={`${(isCannectRepostOfGlobal ? post.is_liked : displayPost?.is_liked) ? 'Unlike' : 'Like'}. ${isCannectRepostOfGlobal ? post.likes_count : displayPost?.likes_count || 0} likes`}
           />
-          <ActionButton 
-            icon={Share} 
-            onPress={handleShare}
-            accessibilityLabel="Share post"
-          />
+          {/* Share button with loading state */}
+          {isCapturing ? (
+            <View className="flex-row items-center gap-1.5 p-1 -ml-2">
+              <ActivityIndicator size="small" color="#6B7280" />
+            </View>
+          ) : (
+            <ActionButton 
+              icon={Share} 
+              onPress={handleShare}
+              accessibilityLabel="Share post"
+            />
+          )}
         </PostFooter>
           </>
         )}
       </PostRoot>
 
       {/* =====================================================
-          GHOST CONTAINER - Off-screen Share Card
+          GHOST CONTAINER - Off-screen Share Card (Lazy Rendered)
+          Only mounts when user taps Share to reduce memory pressure.
           This is captured by react-native-view-shot to create
           a beautiful Instagram Stories-ready share image.
           collapsable={false} prevents React Native from 
           optimizing this view away before capture.
           ===================================================== */}
-      <View 
-        collapsable={false} 
-        style={{ position: 'absolute', top: -9999, left: -9999 }}
-        pointerEvents="none"
-      >
-        <View ref={shareRef} collapsable={false}>
-          <PostShareCard post={post} />
+      {shouldRenderCard && Platform.OS !== 'web' && (
+        <View 
+          collapsable={false} 
+          style={{ position: 'absolute', top: -9999, left: -9999 }}
+          pointerEvents="none"
+        >
+          <View ref={shareRef} collapsable={false}>
+            <PostShareCard post={post} />
+          </View>
         </View>
-      </View>
+      )}
     </Pressable>
   );
 }, (prevProps, nextProps) => {
