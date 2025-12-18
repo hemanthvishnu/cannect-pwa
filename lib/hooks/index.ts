@@ -7,6 +7,7 @@ export * from "./use-search";
 export * from "./use-share-snapshot";
 export * from "./use-debounce";
 export * from "./use-media-upload";
+export * from "./use-pwa-persistence";
 
 // Web push utilities
 export { 

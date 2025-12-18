@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { 
   View, 
   Text, 
@@ -29,7 +29,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 
-import { useCreatePost, useMediaUpload } from "@/lib/hooks";
+import { useCreatePost, useMediaUpload, usePWAPersistence } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { router } from "expo-router";
 
@@ -42,6 +42,10 @@ export default function ComposeScreen() {
   const createPost = useCreatePost();
   const { user, profile, isAuthenticated } = useAuthStore();
   const media = useMediaUpload(4);
+  
+  // 💎 Draft persistence
+  const { saveDraft, getDraft, clearDraft } = usePWAPersistence();
+  const draftLoadedRef = useRef(false);
 
   // Progress bar animation
   const progressWidth = useSharedValue(0);
@@ -53,6 +57,35 @@ export default function ComposeScreen() {
   if (media.isUploading) {
     progressWidth.value = withSpring(media.uploadProgress, { damping: 15 });
   }
+
+  // 💎 Restore Draft on Mount
+  useEffect(() => {
+    if (draftLoadedRef.current) return;
+    
+    getDraft().then((draft) => {
+      if (draft && !content) {
+        setContent(draft.content);
+        draftLoadedRef.current = true;
+        
+        // Subtle haptic to indicate draft restored
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        console.log('[Compose] Draft restored from', new Date(draft.savedAt).toLocaleString());
+      }
+    });
+  }, []);
+
+  // 💎 Auto-save Draft (debounced - 1 second after typing stops)
+  useEffect(() => {
+    if (!content.trim()) return;
+    
+    const timeoutId = setTimeout(() => {
+      saveDraft(content);
+    }, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [content, saveDraft]);
 
   // =====================================================
   // Handle Post
@@ -92,7 +125,10 @@ export default function ComposeScreen() {
         videoThumbnailUrl,
       });
 
-      // 3. Success feedback
+      // 3. 💎 Clear draft only on success (if post fails, draft stays!)
+      await clearDraft();
+
+      // 4. Success feedback
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }

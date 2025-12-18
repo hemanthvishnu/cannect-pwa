@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/stores";
 import { usePushNotifications } from "@/lib/hooks";
 import { PWAUpdater } from "@/components/PWAUpdater";
+import { IOSInstallPrompt } from "@/components/IOSInstallPrompt";
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -42,6 +43,9 @@ function AppContent() {
       
       {/* 💎 PWA Update Toast - Shows when new version is available */}
       <PWAUpdater checkInterval={60000} />
+      
+      {/* 💎 iOS Install Prompt - Guides Safari users to install */}
+      <IOSInstallPrompt />
     </SafeAreaProvider>
   );
 }
