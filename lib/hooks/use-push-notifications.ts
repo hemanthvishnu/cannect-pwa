@@ -8,11 +8,17 @@ import {
   unregisterPushNotifications,
   setBadgeCount
 } from '@/lib/services/push-notifications';
+import {
+  isWebPushSupported,
+  registerWebPushNotifications,
+  unregisterWebPushNotifications,
+} from '@/lib/services/web-push-notifications';
 import { useUnreadNotificationCount } from './use-notifications';
 
 export function usePushNotifications() {
   const { user, isAuthenticated } = useAuthStore();
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
+  const [webPushSubscription, setWebPushSubscription] = useState<PushSubscription | null>(null);
   const [notification, setNotification] = useState<Notifications.Notification | null>(null);
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListenerCleanup = useRef<(() => void) | null>(null);
@@ -26,18 +32,27 @@ export function usePushNotifications() {
     if (isAuthenticated && user?.id && user.id !== previousUserId.current) {
       previousUserId.current = user.id;
       
-      // Register for push notifications
-      registerForPushNotifications(user.id).then((token) => {
-        setExpoPushToken(token);
-      });
+      if (Platform.OS === 'web') {
+        // Web Push Registration
+        if (isWebPushSupported()) {
+          registerWebPushNotifications(user.id).then((subscription) => {
+            setWebPushSubscription(subscription);
+          });
+        }
+      } else {
+        // Native Push Registration (iOS/Android)
+        registerForPushNotifications(user.id).then((token) => {
+          setExpoPushToken(token);
+        });
 
-      // Listen for incoming notifications (while app is foregrounded)
-      notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
-        setNotification(notification);
-      });
+        // Listen for incoming notifications (while app is foregrounded)
+        notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
+          setNotification(notification);
+        });
 
-      // Set up tap handler
-      responseListenerCleanup.current = setupNotificationListeners();
+        // Set up tap handler
+        responseListenerCleanup.current = setupNotificationListeners();
+      }
     }
 
     return () => {
@@ -55,13 +70,18 @@ export function usePushNotifications() {
   // Unregister when user logs out
   useEffect(() => {
     if (!isAuthenticated && previousUserId.current) {
-      unregisterPushNotifications(previousUserId.current);
+      if (Platform.OS === 'web') {
+        unregisterWebPushNotifications(previousUserId.current);
+      } else {
+        unregisterPushNotifications(previousUserId.current);
+      }
       previousUserId.current = null;
       setExpoPushToken(null);
+      setWebPushSubscription(null);
     }
   }, [isAuthenticated]);
 
-  // Sync badge count with unread notifications
+  // Sync badge count with unread notifications (native only)
   useEffect(() => {
     if (Platform.OS !== 'web' && unreadCount !== undefined) {
       setBadgeCount(unreadCount);
@@ -70,7 +90,8 @@ export function usePushNotifications() {
 
   return {
     expoPushToken,
+    webPushSubscription,
     notification,
-    isRegistered: !!expoPushToken,
+    isRegistered: Platform.OS === 'web' ? !!webPushSubscription : !!expoPushToken,
   };
 }
