@@ -132,6 +132,74 @@ export function useFeed() {
   });
 }
 
+// ✅ Following Feed - Only posts from users the current user follows
+export function useFollowingFeed() {
+  const { user } = useAuthStore();
+  
+  return useInfiniteQuery({
+    queryKey: ['posts', 'following', user?.id],
+    queryFn: async ({ pageParam = 0 }) => {
+      if (!user) return [];
+      
+      const from = pageParam * POSTS_PER_PAGE;
+      const to = from + POSTS_PER_PAGE - 1;
+
+      // 1. Get list of users the current user follows
+      const { data: followingData, error: followsError } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', user.id);
+      
+      if (followsError) throw followsError;
+      
+      const followingIds = (followingData as any[])?.map(f => f.following_id) || [];
+      
+      // Include own posts in following feed
+      followingIds.push(user.id);
+      
+      if (followingIds.length === 0) return [];
+
+      // 2. Fetch posts from followed users only
+      const query = supabase
+        .from("posts")
+        .select(`
+          *,
+          author:profiles!user_id(*),
+          likes:likes(count),
+          quoted_post:repost_of_id(
+            id,
+            content,
+            created_at,
+            media_urls,
+            is_reply,
+            reply_to_id,
+            comments_count,
+            reposts_count,
+            quoted_post_id:repost_of_id,
+            author:profiles!user_id(*),
+            likes:likes(count)
+          ),
+          parent_post:reply_to_id(
+            author:profiles!user_id(username, display_name)
+          ),
+          external_id,
+          external_source,
+          external_metadata
+        `)
+        .eq("is_reply", false)
+        .in("user_id", followingIds)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      return fetchPostsWithCounts(query, user?.id);
+    },
+    getNextPageParam: (lastPage, allPages) => 
+      lastPage.length < POSTS_PER_PAGE ? undefined : allPages.length,
+    initialPageParam: 0,
+    enabled: !!user,
+  });
+}
+
 export function usePost(postId: string) {
   const { user } = useAuthStore();
   return useQuery({

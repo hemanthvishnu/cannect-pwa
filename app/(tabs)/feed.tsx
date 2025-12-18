@@ -5,7 +5,8 @@ import { useRouter } from "expo-router";
 import { Leaf, Globe2 } from "lucide-react-native";
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useFeed, useLikePost, useUnlikePost, useDeletePost, useRepost, useToggleRepost } from "@/lib/hooks";
+import * as Haptics from "expo-haptics";
+import { useFeed, useFollowingFeed, useLikePost, useUnlikePost, useDeletePost, useRepost, useToggleRepost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { SocialPost } from "@/components/social";
 import { getFederatedPosts } from "@/lib/services/bluesky";
@@ -24,11 +25,11 @@ export default function FeedScreen() {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<FeedTab>("for-you");
   
-  const { 
-    data, isLoading, refetch, isRefetching, 
-    fetchNextPage, hasNextPage, isFetchingNextPage,
-    isError
-  } = useFeed();
+  // Cannect (For You) feed - all posts
+  const forYouQuery = useFeed();
+  
+  // Following feed - only posts from followed users
+  const followingQuery = useFollowingFeed();
   
   // Federated feed from Bluesky
   const federatedQuery = useQuery({
@@ -44,19 +45,47 @@ export default function FeedScreen() {
   const repostMutation = useRepost();
   const toggleRepostMutation = useToggleRepost();
   
-  // Flatten infinite query pages into a single array
-  const internalPosts = data?.pages?.flat() || [];
+  // Select the appropriate query based on active tab
+  const getCurrentQuery = () => {
+    switch (activeTab) {
+      case "for-you":
+        return forYouQuery;
+      case "following":
+        return followingQuery;
+      case "federated":
+        // Wrap federatedQuery to match infinite query shape
+        return {
+          data: { pages: [federatedQuery.data || []] },
+          isLoading: federatedQuery.isLoading,
+          isError: federatedQuery.isError,
+          isRefetching: federatedQuery.isRefetching,
+          refetch: federatedQuery.refetch,
+          fetchNextPage: () => {},
+          hasNextPage: false,
+          isFetchingNextPage: false,
+        };
+    }
+  };
   
-  // Get the appropriate posts based on active tab
-  const posts = activeTab === "federated" 
-    ? (federatedQuery.data || []) 
-    : internalPosts;
+  const currentQuery = getCurrentQuery();
+  const posts = currentQuery.data?.pages?.flat() || [];
   
   // Loading and error states based on active tab
-  const isCurrentLoading = activeTab === "federated" ? federatedQuery.isLoading : isLoading;
-  const isCurrentRefetching = activeTab === "federated" ? federatedQuery.isRefetching : isRefetching;
-  const isCurrentError = activeTab === "federated" ? federatedQuery.isError : isError;
-  const currentRefetch = activeTab === "federated" ? federatedQuery.refetch : refetch;
+  const isCurrentLoading = currentQuery.isLoading;
+  const isCurrentRefetching = currentQuery.isRefetching;
+  const isCurrentError = currentQuery.isError;
+  const currentRefetch = currentQuery.refetch;
+  const fetchNextPage = 'fetchNextPage' in currentQuery ? currentQuery.fetchNextPage : () => {};
+  const hasNextPage = 'hasNextPage' in currentQuery ? currentQuery.hasNextPage : false;
+  const isFetchingNextPage = 'isFetchingNextPage' in currentQuery ? currentQuery.isFetchingNextPage : false;
+  
+  // ✅ Haptic feedback on pull-to-refresh
+  const handleRefresh = () => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    currentRefetch();
+  };
 
   if (isCurrentError) {
     return (
@@ -283,7 +312,7 @@ export default function FeedScreen() {
         <View style={{ flex: 1 }}>
           <FlashList
             data={posts}
-            keyExtractor={(item, index) => `${item.id}-${index}`}
+            keyExtractor={(item) => `${activeTab}-${item.id}`}
             renderItem={({ item }) => {
               // Live Global = direct from Bluesky API (read-only except repost)
               const isLiveGlobal = (item as any).is_federated === true;
@@ -368,7 +397,7 @@ export default function FeedScreen() {
             refreshControl={
               <RefreshControl 
                 refreshing={isCurrentRefetching} 
-                onRefresh={() => currentRefetch()} 
+                onRefresh={handleRefresh} 
                 tintColor="#10B981"
                 colors={["#10B981"]} // Android
               />
@@ -386,6 +415,8 @@ export default function FeedScreen() {
                 <Text className="text-text-secondary text-base">
                   {activeTab === "federated" 
                     ? "No federated posts available." 
+                    : activeTab === "following"
+                    ? "No posts from people you follow yet."
                     : "No posts yet. Be the first!"}
                 </Text>
               </View>
