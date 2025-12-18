@@ -9,7 +9,7 @@ import { Camera } from "lucide-react-native";
 
 import { useAuthStore } from "@/lib/stores";
 import { useProfile, useUpdateProfile } from "@/lib/hooks";
-import { uploadImage, compressImage } from "@/lib/services/media-upload";
+import { uploadImage } from "@/lib/services/media-upload";
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -51,16 +51,8 @@ export default function EditProfileScreen() {
       // Upload to Cloudflare
       setIsUploading(true);
       try {
-        // Compress first
-        const compressed = await compressImage(asset.uri);
-        
-        // Upload to Cloudflare
-        const uploaded = await uploadImage({
-          uri: compressed.uri,
-          type: 'image',
-          width: compressed.width,
-          height: compressed.height,
-        });
+        // Upload to Cloudflare (uploadImage handles compression internally)
+        const uploaded = await uploadImage(asset);
         
         // Store the Cloudflare URL (avatar variant)
         const avatarVariantUrl = uploaded.url.replace('/public', '/avatar');
@@ -69,9 +61,9 @@ export default function EditProfileScreen() {
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Avatar upload failed:", error);
-        Alert.alert("Upload Failed", "Failed to upload image. Please try again.");
+        Alert.alert("Upload Failed", error.message || "Failed to upload image. Please try again.");
         // Reset to original avatar
         setAvatar(profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.username}&background=10B981&color=fff`);
         setAvatarUrl(null);

@@ -205,11 +205,14 @@ export async function uploadImage(
   const formData = new FormData();
   
   if (Platform.OS === 'web') {
-    // Web: Fetch as blob
-    const blob = await fetch(compressed.uri).then(r => r.blob());
-    formData.append('file', blob, filename);
+    // Web: Fetch as blob and append properly
+    const response = await fetch(compressed.uri);
+    const blob = await response.blob();
+    // Create a File object with proper MIME type
+    const file = new File([blob], filename, { type: 'image/jpeg' });
+    formData.append('file', file);
   } else {
-    // Native: Use file URI
+    // Native: Use file URI with RN-style object
     formData.append('file', {
       uri: compressed.uri,
       type: 'image/jpeg',
@@ -217,10 +220,11 @@ export async function uploadImage(
     } as any);
   }
 
-  // 4. Upload directly to Cloudflare
+  // 4. Upload directly to Cloudflare (don't set Content-Type - let browser set it with boundary)
   const uploadResponse = await fetch(credentials.uploadURL, {
     method: 'POST',
     body: formData,
+    // Important: Do NOT set Content-Type header - browser will set it with multipart boundary
   });
 
   if (!uploadResponse.ok) {
