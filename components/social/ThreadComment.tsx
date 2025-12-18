@@ -7,6 +7,10 @@ import { formatDistanceToNow } from "@/lib/utils/date";
 import { BLURHASH_PLACEHOLDERS } from "@/lib/utils/assets";
 import { PostCarousel } from "./PostCarousel";
 
+// ✅ Diamond Standard: Design tokens for thread alignment
+const THREAD_AVATAR_SIZE = 36;
+const THREAD_LINE_OFFSET = THREAD_AVATAR_SIZE / 2; // 18px - centers line on avatar
+
 interface Author {
   id: string;
   username: string;
@@ -82,7 +86,11 @@ export function ThreadComment({
         <Pressable onPress={onProfilePress}>
           <Image
             source={{ uri: avatarUrl }}
-            style={{ width: 36, height: 36, borderRadius: 18 }}
+            style={{ 
+              width: THREAD_AVATAR_SIZE, 
+              height: THREAD_AVATAR_SIZE, 
+              borderRadius: THREAD_AVATAR_SIZE / 2 
+            }}
             contentFit="cover"
           />
         </Pressable>
@@ -214,7 +222,10 @@ export function ThreadComment({
 export function ThreadConnector() {
   return (
     <View className="px-4 py-2">
-      <View className="ml-[18px] w-[2px] h-4 bg-border rounded-full" />
+      <View 
+        style={{ marginLeft: THREAD_LINE_OFFSET }} 
+        className="w-[2px] h-4 bg-border rounded-full" 
+      />
     </View>
   );
 }

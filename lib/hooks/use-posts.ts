@@ -194,17 +194,31 @@ export function usePostReplies(postId: string) {
       if (error) throw error;
       if (!replies || replies.length === 0) return [];
       
-      // Enrich with is_liked
+      // Enrich with is_liked and is_reposted_by_me
       const postIds = replies.map((p: any) => p.id);
       let likedPostIds = new Set<string>();
+      let repostedPostIds = new Set<string>();
       
       if (user?.id) {
+        // ✅ Diamond Standard: Check likes
         const { data: myLikes } = await supabase
           .from("likes")
           .select("post_id")
           .eq("user_id", user.id)
           .in("post_id", postIds);
         myLikes?.forEach((l: any) => likedPostIds.add(l.post_id));
+        
+        // ✅ Diamond Standard: Check reposts (fixes green state for reposted replies)
+        const { data: myReposts } = await supabase
+          .from("posts")
+          .select("repost_of_id, external_id")
+          .eq("user_id", user.id)
+          .eq("type", "repost")
+          .in("repost_of_id", postIds);
+        myReposts?.forEach((r: any) => {
+          if (r.repost_of_id) repostedPostIds.add(r.repost_of_id);
+          if (r.external_id) repostedPostIds.add(r.external_id);
+        });
       }
       
       return replies.map((post: any) => ({
@@ -212,6 +226,7 @@ export function usePostReplies(postId: string) {
         likes_count: post.likes?.[0]?.count ?? 0,
         comments_count: post.comments_count ?? 0,
         is_liked: likedPostIds.has(post.id),
+        is_reposted_by_me: repostedPostIds.has(post.id), // ✅ Now replies show green repost state
       }));
     },
     enabled: !!postId,
@@ -679,11 +694,16 @@ export function useToggleRepost() {
     },
     // Optimistic update for instant feedback
     onMutate: async ({ post, undo }) => {
+      // ✅ Diamond Standard: Cancel and snapshot BOTH feed and detail caches
       await queryClient.cancelQueries({ queryKey: queryKeys.posts.all });
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.detail(post.id) });
+      
       const previousPosts = queryClient.getQueryData(queryKeys.posts.all);
+      const previousDetail = queryClient.getQueryData(queryKeys.posts.detail(post.id));
       
       const shouldUndo = undo || post.is_reposted_by_me;
 
+      // Update Feed cache
       queryClient.setQueryData(queryKeys.posts.all, (old: any) => {
         if (!old) return old;
         return {
@@ -704,13 +724,30 @@ export function useToggleRepost() {
         };
       });
 
-      return { previousPosts };
+      // ✅ Diamond Standard: Also update Detail view cache
+      queryClient.setQueryData(queryKeys.posts.detail(post.id), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          is_reposted_by_me: !shouldUndo,
+          reposts_count: shouldUndo 
+            ? Math.max(0, (old.reposts_count || 0) - 1)
+            : (old.reposts_count || 0) + 1
+        };
+      });
+
+      return { previousPosts, previousDetail, postId: post.id };
     },
     onError: (err, vars, context) => {
+      // Rollback both caches on error
       queryClient.setQueryData(queryKeys.posts.all, context?.previousPosts);
+      if (context?.postId) {
+        queryClient.setQueryData(queryKeys.posts.detail(context.postId), context?.previousDetail);
+      }
     },
-    onSettled: () => {
+    onSettled: (data, error, { post }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.detail(post.id) });
     },
   });
 }
