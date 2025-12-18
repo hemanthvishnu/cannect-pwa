@@ -62,6 +62,8 @@ export interface Database {
           user_id: string;
           content: string;
           media_urls: string[] | null;
+          video_url: string | null;
+          video_thumbnail_url: string | null;
           likes_count: number;
           comments_count: number;
           reposts_count: number;
@@ -78,6 +80,8 @@ export interface Database {
           user_id: string;
           content: string;
           media_urls?: string[] | null;
+          video_url?: string | null;
+          video_thumbnail_url?: string | null;
           likes_count?: number;
           comments_count?: number;
           reposts_count?: number;
@@ -94,6 +98,8 @@ export interface Database {
           user_id?: string;
           content?: string;
           media_urls?: string[] | null;
+          video_url?: string | null;
+          video_thumbnail_url?: string | null;
           likes_count?: number;
           comments_count?: number;
           reposts_count?: number;

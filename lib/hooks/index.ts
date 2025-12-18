@@ -6,9 +6,17 @@ export * from "./use-push-notifications";
 export * from "./use-search";
 export * from "./use-share-snapshot";
 export * from "./use-debounce";
+export * from "./use-media-upload";
 
 // Web push utilities
 export { 
   isWebPushSupported, 
   getWebPushPermission 
 } from "@/lib/services/web-push-notifications";
+
+// Media upload utilities
+export {
+  getImageVariant,
+  getThumbnailUrl,
+  getBlurUrl,
+} from "@/lib/services/media-upload";

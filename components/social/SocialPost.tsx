@@ -8,6 +8,7 @@ import { formatDistanceToNow } from "@/lib/utils/date";
 import { ASSET_RATIOS, BLURHASH_PLACEHOLDERS } from "@/lib/utils/assets";
 import { PostCarousel } from "./PostCarousel";
 import { PostShareCard } from "./PostShareCard";
+import { VideoPlayer } from "@/components/ui/VideoPlayer";
 import { useShareSnapshot } from "@/lib/hooks/use-share-snapshot";
 import type { PostWithAuthor, isFederatedPost, hasExternalMetadata } from "@/lib/types/database";
 
@@ -437,6 +438,17 @@ export const SocialPost = memo(function SocialPost({
               mediaUrls={displayPost.media_urls} 
               isFederated={displayedIsFederated}
             />
+          )}
+
+          {/* ✅ DIAMOND STANDARD: Video Player (Cloudflare Stream HLS) */}
+          {!displayPost.quoted_post && displayPost.video_url && (
+            <View className="mt-3">
+              <VideoPlayer
+                url={displayPost.video_url}
+                thumbnailUrl={displayPost.video_thumbnail_url || undefined}
+                aspectRatio={16/9}
+              />
+            </View>
           )}
         </PostContent>
 

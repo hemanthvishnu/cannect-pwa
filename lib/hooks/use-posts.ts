@@ -482,12 +482,26 @@ export function useCreatePost() {
   const { user } = useAuthStore(); // Use store instead of calling getSession
 
   return useMutation({
-    mutationFn: async ({ content, mediaUrls, replyToId }: { content: string; mediaUrls?: string[]; replyToId?: string }) => {
+    mutationFn: async ({ 
+      content, 
+      mediaUrls, 
+      replyToId,
+      videoUrl,
+      videoThumbnailUrl,
+    }: { 
+      content: string; 
+      mediaUrls?: string[]; 
+      replyToId?: string;
+      videoUrl?: string;
+      videoThumbnailUrl?: string;
+    }) => {
       if (!user) throw new Error("Not authenticated");
       const { data, error } = await supabase.from("posts").insert({
         user_id: user.id,
         content,
         media_urls: mediaUrls,
+        video_url: videoUrl,
+        video_thumbnail_url: videoThumbnailUrl,
         is_reply: !!replyToId,
         reply_to_id: replyToId,
         type: 'post', // Explicitly set type to 'post' for new posts
