@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { useAuthStore } from "@/lib/stores";
 
 interface Notification {
   id: string;
@@ -19,12 +20,12 @@ interface Notification {
 
 // Fetch user's notifications
 export function useNotifications() {
+  const { user } = useAuthStore();
+  
   return useQuery({
     queryKey: ["notifications"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return [];
-      const user = session.user;
+      if (!user) return [];
 
       const { data, error } = await supabase
         .from("notifications")
@@ -39,17 +40,18 @@ export function useNotifications() {
       if (error) throw error;
       return data as Notification[];
     },
+    enabled: !!user,
   });
 }
 
 // Get unread notification count
 export function useUnreadNotificationCount() {
+  const { user } = useAuthStore();
+  
   return useQuery({
     queryKey: ["notifications", "unread-count"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return 0;
-      const user = session.user;
+      if (!user) return 0;
 
       const { count, error } = await supabase
         .from("notifications")
@@ -60,21 +62,23 @@ export function useUnreadNotificationCount() {
       if (error) throw error;
       return count || 0;
     },
+    enabled: !!user,
+    // Refetch every 30 seconds to keep badge updated
+    refetchInterval: 30000,
   });
 }
 
 // Mark notifications as read
 export function useMarkNotificationsRead() {
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
 
   return useMutation({
     mutationFn: async (notificationIds?: string[]) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) throw new Error("Not authenticated");
-      const user = session.user;
+      if (!user) throw new Error("Not authenticated");
 
-      let query = supabase
-        .from("notifications")
+      let query = (supabase
+        .from("notifications") as any)
         .update({ is_read: true })
         .eq("user_id", user.id);
 

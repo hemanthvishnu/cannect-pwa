@@ -2,9 +2,11 @@ import { Tabs, Redirect } from "expo-router";
 import { Home, Search, PlusSquare, Bell, User } from "lucide-react-native";
 import { View, ActivityIndicator } from "react-native";
 import { useAuthStore } from "@/lib/stores";
+import { useUnreadNotificationCount } from "@/lib/hooks";
 
 export default function TabsLayout() {
   const { isLoading, isAuthenticated } = useAuthStore();
+  const { data: unreadCount } = useUnreadNotificationCount();
 
   // Show loading while checking auth
   if (isLoading) {
@@ -59,6 +61,8 @@ export default function TabsLayout() {
         name="notifications"
         options={{
           tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
+          tabBarBadge: unreadCount && unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#EF4444', fontSize: 10 },
         }}
       />
       <Tabs.Screen
