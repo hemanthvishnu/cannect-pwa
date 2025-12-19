@@ -25,6 +25,15 @@ export default function PostDetailsScreen() {
   const { data: post, isLoading: isPostLoading } = usePost(id ?? "");
   const { data: replies, isLoading: isRepliesLoading, refetch: refetchReplies } = usePostReplies(id ?? "");
   
+  // ✅ Diamond Standard: Custom back handler for direct URL access
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/feed');
+    }
+  };
+  
   // ✅ Diamond Standard: Use optimistic reply hook
   const createReply = useCreateReply(replyTargetId || id || "");
   const likeMutation = useLikePost();
@@ -185,6 +194,11 @@ export default function PostDetailsScreen() {
             headerTitle: "Thread",
             headerStyle: { backgroundColor: "#0A0A0A" },
             headerTintColor: "#FAFAFA",
+            headerLeft: () => (
+              <Pressable onPress={handleBack} className="p-2 -ml-2 active:opacity-70">
+                <ArrowLeft size={24} color="#FAFAFA" />
+              </Pressable>
+            ),
           }} 
         />
         {/* ✅ Diamond Standard: Skeleton loading instead of spinner */}
@@ -206,6 +220,11 @@ export default function PostDetailsScreen() {
           headerTitle: displayPost?.is_reply ? "Reply" : "Thread",
           headerStyle: { backgroundColor: "#0A0A0A" },
           headerTintColor: "#FAFAFA",
+          headerLeft: () => (
+            <Pressable onPress={handleBack} className="p-2 -ml-2 active:opacity-70">
+              <ArrowLeft size={24} color="#FAFAFA" />
+            </Pressable>
+          ),
         }} 
       />
       
