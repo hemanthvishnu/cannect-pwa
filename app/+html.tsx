@@ -46,6 +46,9 @@ export default function Root({ children }: { children: React.ReactNode }) {
             -webkit-text-size-adjust: 100%;
             background-color: #0A0A0A;
             color: #FAFAFA;
+            /* 💎 Gold Standard: Remove padding - let SafeAreaView handle notch internally */
+            margin: 0;
+            padding: 0;
           }
           /* Prevent overscroll bounce on iOS */
           body {
@@ -55,10 +58,6 @@ export default function Root({ children }: { children: React.ReactNode }) {
           /* Hide scrollbar but keep functionality */
           ::-webkit-scrollbar {
             display: none;
-          }
-          /* Safe area padding for notch devices */
-          body {
-            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
           }
         `}} />
       </head>
