@@ -1,4 +1,10 @@
 {
+  "rewrites": [
+    {
+      "source": "/((?!api|_next|_expo|.*\\..*).*)",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/sw.js",
