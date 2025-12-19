@@ -2,7 +2,7 @@ import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Layers, Play } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { PLACEHOLDER_BLURHASH } from '@/lib/utils/assets';
+import { BLURHASH_PLACEHOLDERS } from '@/lib/utils/assets';
 
 interface MediaGridItemProps {
   item: {
@@ -38,7 +38,7 @@ export function MediaGridItem({ item }: MediaGridItemProps) {
         source={{ uri: firstMedia }} 
         className="w-full h-full bg-surface"
         contentFit="cover"
-        placeholder={PLACEHOLDER_BLURHASH}
+        placeholder={{ blurhash: BLURHASH_PLACEHOLDERS.NEUTRAL }}
         transition={200}
       />
       

@@ -36,7 +36,7 @@ export function PostMedia({ uri, isFederated = false }: PostMediaProps) {
           source={uri}
           style={{ width: '100%', height: '100%' }}
           contentFit="cover"
-          placeholder={isFederated ? BLURHASH_PLACEHOLDERS.GLOBAL : BLURHASH_PLACEHOLDERS.NEUTRAL}
+          placeholder={{ blurhash: isFederated ? BLURHASH_PLACEHOLDERS.GLOBAL : BLURHASH_PLACEHOLDERS.NEUTRAL }}
           transition={300}
           cachePolicy="memory-disk"
           onLoad={(e) => {
