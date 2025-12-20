@@ -11,7 +11,7 @@
 import React, { memo, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Share, Platform } from 'react-native';
 import { Image } from 'expo-image';
-import { format } from 'date-fns';
+import { formatDateTime } from '@/lib/utils/date';
 import * as Haptics from 'expo-haptics';
 import { Heart, MessageCircle, Repeat2, Share as ShareIcon, MoreHorizontal } from 'lucide-react-native';
 import type { PostWithAuthor } from '@/lib/types/database';
@@ -65,7 +65,7 @@ export const FocusedPost = memo(function FocusedPost({
     onShare();
   }, [onShare]);
 
-  const formattedDate = format(new Date(post.created_at), "h:mm a · MMM d, yyyy");
+  const formattedDate = formatDateTime(new Date(post.created_at));
 
   return (
     <View style={styles.container}>
