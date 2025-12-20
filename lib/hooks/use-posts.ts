@@ -147,7 +147,10 @@ export function useFeed() {
 }
 
 /**
- * Following Feed - Only posts from users the current user follows
+ * Following Feed - Posts from users you follow + posts they reposted
+ * 
+ * Bluesky-style: If @alice follows @bob and @bob reposts @charlie's post,
+ * @alice sees it with "Reposted by @bob" header
  */
 export function useFollowingFeed() {
   const { user } = useAuthStore();
@@ -170,13 +173,13 @@ export function useFollowingFeed() {
       
       const followingIds = (followingData as any[])?.map(f => f.following_id) || [];
       
-      // Include own posts in following feed
-      followingIds.push(user.id);
+      // Include own user ID for own posts
+      const followingIdsWithSelf = [...followingIds, user.id];
       
-      if (followingIds.length === 0) return [];
+      if (followingIdsWithSelf.length === 0) return [];
 
-      // 2. Fetch posts from followed users only
-      const query = supabase
+      // 2. Fetch posts authored by followed users
+      const { data: authoredPosts, error: postsError } = await supabase
         .from("posts")
         .select(`
           *,
@@ -204,17 +207,135 @@ export function useFollowingFeed() {
           external_metadata
         `)
         .eq("is_reply", false)
-        .in("user_id", followingIds)
+        .in("user_id", followingIdsWithSelf)
         .order("created_at", { ascending: false })
         .range(from, to);
 
-      return fetchPostsWithCounts(query, user?.id);
+      if (postsError) throw postsError;
+
+      // 3. Fetch reposts by followed users (to show posts they reposted)
+      const { data: repostsData, error: repostsError } = await supabase
+        .from("reposts")
+        .select(`
+          id,
+          created_at,
+          user_id,
+          post_id,
+          reposter:profiles!user_id(id, username, display_name, avatar_url),
+          post:posts!post_id(
+            *,
+            author:profiles!user_id(*),
+            likes:likes(count),
+            quoted_post:repost_of_id(
+              id,
+              content,
+              created_at,
+              media_urls,
+              is_reply,
+              thread_parent_id,
+              thread_root_id,
+              replies_count,
+              reposts_count,
+              quoted_post_id:repost_of_id,
+              author:profiles!user_id(*),
+              likes:likes(count)
+            ),
+            parent_post:thread_parent_id(
+              author:profiles!user_id(username, display_name)
+            ),
+            external_id,
+            external_source,
+            external_metadata
+          )
+        `)
+        .in("user_id", followingIds) // Only reposts from people we follow (not ourselves)
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (repostsError) throw repostsError;
+
+      // 4. Transform reposted posts to include reposted_by info
+      const repostedPosts = (repostsData || [])
+        .filter((r: any) => r.post && r.post.is_reply === false)
+        .map((r: any) => ({
+          ...r.post,
+          reposted_by: r.reposter,
+          reposted_at: r.created_at,
+          // Use repost timestamp for feed ordering
+          _feed_timestamp: r.created_at,
+        }));
+
+      // 5. Add feed timestamp to authored posts
+      const authoredWithTimestamp = (authoredPosts || []).map((p: any) => ({
+        ...p,
+        _feed_timestamp: p.created_at,
+      }));
+
+      // 6. Merge and deduplicate (keep first occurrence of each post)
+      const allPosts = [...authoredWithTimestamp, ...repostedPosts];
+      const seenPostIds = new Set<string>();
+      const deduplicatedPosts = allPosts.filter((p: any) => {
+        if (seenPostIds.has(p.id)) return false;
+        seenPostIds.add(p.id);
+        return true;
+      });
+
+      // 7. Sort by feed timestamp (most recent first)
+      deduplicatedPosts.sort((a: any, b: any) => 
+        new Date(b._feed_timestamp).getTime() - new Date(a._feed_timestamp).getTime()
+      );
+
+      // 8. Take only the page slice
+      const pagedPosts = deduplicatedPosts.slice(0, POSTS_PER_PAGE);
+
+      // 9. Enrich with is_liked and is_reposted_by_me
+      return enrichPostsWithStatus(pagedPosts, user?.id);
     },
     getNextPageParam: (lastPage, allPages) => 
       lastPage.length < POSTS_PER_PAGE ? undefined : allPages.length,
     initialPageParam: 0,
     enabled: !!user,
   });
+}
+
+/**
+ * Helper to enrich posts with is_liked and is_reposted_by_me status
+ */
+async function enrichPostsWithStatus(posts: any[], userId?: string) {
+  if (!posts.length) return [];
+  
+  const postIds = posts.map((p: any) => p.id);
+  
+  // Get liked status
+  let likedPostIds = new Set<string>();
+  if (userId) {
+    const { data: myLikes } = await supabase
+      .from("likes")
+      .select("post_id")
+      .eq("user_id", userId)
+      .in("post_id", postIds);
+    myLikes?.forEach((l: any) => likedPostIds.add(l.post_id));
+  }
+
+  // Get reposted status
+  let repostedPostIds = new Set<string>();
+  if (userId) {
+    const { data: myReposts } = await supabase
+      .from("reposts")
+      .select("post_id")
+      .eq("user_id", userId)
+      .in("post_id", postIds);
+    myReposts?.forEach((r: any) => {
+      if (r.post_id) repostedPostIds.add(r.post_id);
+    });
+  }
+
+  return posts.map((post: any) => ({
+    ...post,
+    is_liked: likedPostIds.has(post.id),
+    is_reposted_by_me: repostedPostIds.has(post.id),
+    likes_count: post.likes?.[0]?.count ?? post.likes_count ?? 0,
+  }));
 }
 
 export function usePost(postId: string) {
