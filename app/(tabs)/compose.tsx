@@ -176,10 +176,10 @@ export default function ComposeScreen() {
   };
 
   // =====================================================
-  // Validation
+  // Validation (Bluesky uses 300 graphemes)
   // =====================================================
   const charCount = content.length;
-  const maxChars = 280;
+  const maxChars = 300;
   const isOverLimit = charCount > maxChars;
   const canPost = (content.trim() || media.hasMedia) && !isOverLimit && !media.isUploading && !createPost.isPending;
 

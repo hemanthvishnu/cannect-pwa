@@ -27,7 +27,7 @@ export default function QuotePostScreen() {
   const isFederated = !!externalPost || originalPost?.is_federated;
 
   const charCount = content.length;
-  const maxChars = 280;
+  const maxChars = 300; // Bluesky uses 300 graphemes
   const isOverLimit = charCount > maxChars;
 
   const handleQuote = async () => {

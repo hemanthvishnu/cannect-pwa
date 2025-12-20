@@ -379,6 +379,10 @@ export default function FeedScreen() {
                       handleProfilePress(item.author?.username || '');
                     }
                   }}
+                  onRepostedByPress={(username) => {
+                    // Navigate to the reposter's profile
+                    handleProfilePress(username);
+                  }}
                   onPress={() => {
                     // For Cannect reposts, navigate to thread view
                     // For live global, prompt to import

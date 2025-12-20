@@ -1,6 +1,6 @@
 import { View, Text, Pressable, type ViewProps, Platform, Animated, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
-import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, BadgeCheck, Globe2, Loader2 } from "lucide-react-native";
+import { Heart, MessageCircle, Repeat2, Share, MoreHorizontal, BadgeCheck, Globe2, Loader2, RefreshCw } from "lucide-react-native";
 import React, { useRef, memo, useCallback } from "react";
 import * as Haptics from "expo-haptics";
 import { cn } from "@/lib/utils";
@@ -138,6 +138,8 @@ interface SocialPostProps {
   onQuotedPostPress?: (quotedPostId: string) => void;
   /** Show "Replying to @username" context (useful for Replies tab in profile) */
   showThreadContext?: boolean;
+  /** Callback when reposted_by username is pressed */
+  onRepostedByPress?: (username: string) => void;
 }
 
 export const SocialPost = memo(function SocialPost({ 
@@ -151,6 +153,7 @@ export const SocialPost = memo(function SocialPost({
   onShare,
   onQuotedPostPress,
   showThreadContext = true,
+  onRepostedByPress,
 }: SocialPostProps) {
   // =====================================================
   // SHARE SNAPSHOT HOOK
@@ -343,6 +346,22 @@ export const SocialPost = memo(function SocialPost({
         {/* Normal post rendering */}
         {displayPost && (
           <>
+        {/* ✅ Bluesky-style: "Reposted by @username" header */}
+        {post.reposted_by && (
+          <Pressable 
+            onPress={() => onRepostedByPress?.(post.reposted_by?.username || '')}
+            className="flex-row items-center mb-2 ml-[52px] active:opacity-70"
+          >
+            <Repeat2 size={14} color="#6B7280" />
+            <Text className="text-xs text-text-muted ml-1.5">
+              Reposted by{" "}
+              <Text className="font-medium">
+                {post.reposted_by.display_name || `@${post.reposted_by.username}`}
+              </Text>
+            </Text>
+          </Pressable>
+        )}
+
         {/* ✅ Gold Standard: Thread Context - "Replying to @username" */}
         {showThreadContext && displayPost?.is_reply && displayPost?.parent_post?.author?.username && (
           <View className="flex-row items-center mb-1 ml-[52px]">
@@ -511,7 +530,8 @@ export const SocialPost = memo(function SocialPost({
     prevProps.post.is_reposted_by_me === nextProps.post.is_reposted_by_me &&
     prevProps.post.likes_count === nextProps.post.likes_count &&
     prevProps.post.replies_count === nextProps.post.replies_count &&
-    prevProps.post.reposts_count === nextProps.post.reposts_count
+    prevProps.post.reposts_count === nextProps.post.reposts_count &&
+    prevProps.post.reposted_by?.id === nextProps.post.reposted_by?.id
   );
 });
 
