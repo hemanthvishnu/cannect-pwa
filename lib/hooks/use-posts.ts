@@ -215,7 +215,7 @@ export function useFollowingFeed() {
 
       if (postsError) throw postsError;
 
-      // 3. Fetch reposts by followed users (to show posts they reposted)
+      // 3. Fetch reposts by followed users AND yourself (to show posts they/you reposted)
       const { data: repostsData, error: repostsError } = await supabase
         .from("reposts")
         .select(`
@@ -250,7 +250,7 @@ export function useFollowingFeed() {
             external_metadata
           )
         `)
-        .in("user_id", followingIds) // Only reposts from people we follow (not ourselves)
+        .in("user_id", followingIdsWithSelf) // Include own reposts with "Reposted by" header
         .order("created_at", { ascending: false })
         .range(from, to);
 
