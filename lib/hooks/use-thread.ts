@@ -25,6 +25,9 @@ const POST_SELECT = `
   )
 `;
 
+// Simpler select for INSERT operations (avoid nested query issues)
+const INSERT_SELECT = `*, author:profiles!user_id(*)`;
+
 /**
  * Fetch the complete thread view for a post
  */
@@ -213,7 +216,7 @@ export function useThreadReply(threadPostId: string) {
           thread_depth: threadDepth,
           type: 'post',
         })
-        .select(POST_SELECT)
+        .select(INSERT_SELECT)
         .single();
 
       if (error) throw error;
