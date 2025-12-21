@@ -1133,6 +1133,15 @@ export function useToggleRepost() {
       const previousDetail = queryClient.getQueryData(queryKeys.posts.detail(post.id));
       
       const shouldUndo = undo || post.is_reposted_by_me;
+      
+      // Get current user's profile for "Reposted by you" header
+      const { profile } = useAuthStore.getState();
+      const myRepostInfo = profile ? {
+        id: profile.id,
+        username: profile.username,
+        display_name: profile.display_name,
+        avatar_url: profile.avatar_url,
+      } : null;
 
       // Helper to update a post in a pages array
       const updatePostInPages = (old: any) => {
@@ -1153,13 +1162,15 @@ export function useToggleRepost() {
                       }
                     : p
                 )
-              // When reposting: just update the flags
+              // When reposting: add reposted_by info for "Reposted by you" header
               : page.map((p: any) =>
                   p.id === post.id
                     ? {
                         ...p,
                         is_reposted_by_me: true,
                         reposts_count: (p.reposts_count || 0) + 1,
+                        reposted_by: myRepostInfo,
+                        reposted_at: new Date().toISOString(),
                       }
                     : p
                 )
@@ -1185,9 +1196,9 @@ export function useToggleRepost() {
           reposts_count: shouldUndo 
             ? Math.max(0, (old.reposts_count || 0) - 1)
             : (old.reposts_count || 0) + 1,
-          // Clear reposted_by when unreposting
-          reposted_by: shouldUndo ? undefined : old.reposted_by,
-          reposted_at: shouldUndo ? undefined : old.reposted_at,
+          // Add/clear reposted_by for header
+          reposted_by: shouldUndo ? undefined : myRepostInfo,
+          reposted_at: shouldUndo ? undefined : new Date().toISOString(),
         };
       });
 
