@@ -1,4 +1,4 @@
-import { View, Alert, Text, Platform, ActivityIndicator, Pressable } from "react-native";
+import { View, Text, Platform, ActivityIndicator, Pressable } from "react-native";
 import { useState, useCallback } from "react";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 import { RefreshCw } from "lucide-react-native";
 import { useProfileByUsername, useUserPosts, useLikePost, useUnlikePost, useToggleRepost, useDeletePost, useFollowUser, useUnfollowUser, useIsFollowing, ProfileTab } from "@/lib/hooks";
 import { ProfileHeader } from "@/components/social/ProfileHeader";
-import { SocialPost, RepostMenu } from "@/components/social";
+import { SocialPost, RepostMenu, PostOptionsMenu } from "@/components/social";
 import { MediaGridItem } from "@/components/Profile";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/Tabs";
 import { SkeletonProfile, SkeletonCard } from "@/components/ui/Skeleton";
@@ -50,6 +50,10 @@ export default function UserProfileScreen() {
   // Repost menu state
   const [repostMenuVisible, setRepostMenuVisible] = useState(false);
   const [repostMenuPost, setRepostMenuPost] = useState<any>(null);
+  
+  // Post options menu state
+  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
+  const [optionsMenuPost, setOptionsMenuPost] = useState<any>(null);
 
   const posts = postsData?.pages.flat() || [];
   
@@ -148,12 +152,11 @@ export default function UserProfileScreen() {
         // Show thread context for replies tab
         showThreadContext={activeTab === 'replies'}
         onMore={() => {
-          if (currentUser?.id === item.user_id) {
-            Alert.alert("Delete Post", "Are you sure?", [
-              { text: "Cancel", style: "cancel" },
-              { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate(item.id) }
-            ]);
+          if (Platform.OS !== 'web') {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }
+          setOptionsMenuPost(item);
+          setOptionsMenuVisible(true);
         }}
       />
     );
@@ -274,6 +277,16 @@ export default function UserProfileScreen() {
         onRepost={handleDoRepost}
         onQuotePost={handleDoQuotePost}
         isReposted={repostMenuPost?.is_reposted_by_me === true}
+      />
+      
+      {/* Post Options Menu */}
+      <PostOptionsMenu
+        isVisible={optionsMenuVisible}
+        onClose={() => setOptionsMenuVisible(false)}
+        onDelete={() => optionsMenuPost && deleteMutation.mutate(optionsMenuPost.id)}
+        isOwnPost={optionsMenuPost?.user_id === currentUser?.id}
+        postUrl={optionsMenuPost ? `https://cannect.app/post/${optionsMenuPost.id}` : undefined}
+        isReply={!!optionsMenuPost?.thread_parent_id}
       />
     </SafeAreaView>
   );

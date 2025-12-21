@@ -1,4 +1,4 @@
-import { View, Text, RefreshControl, ActivityIndicator, Alert, Platform, ActionSheetIOS, Share, Pressable } from "react-native";
+import { View, Text, RefreshControl, ActivityIndicator, Platform, Share, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { useFeed, useFollowingFeed, useLikePost, useUnlikePost, useDeletePost, useToggleRepost, useProfile } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
-import { SocialPost, RepostMenu } from "@/components/social";
+import { SocialPost, RepostMenu, PostOptionsMenu } from "@/components/social";
 import { EmptyFeedState } from "@/components/social/EmptyFeedState";
 import { DiscoveryModal, useDiscoveryModal } from "@/components/social/DiscoveryModal";
 import { getFederatedPosts } from "@/lib/services/bluesky";
@@ -38,6 +38,10 @@ export default function FeedScreen() {
   // Repost menu state
   const [repostMenuVisible, setRepostMenuVisible] = useState(false);
   const [repostMenuPost, setRepostMenuPost] = useState<PostWithAuthor | null>(null);
+  
+  // Post options menu state
+  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
+  const [optionsMenuPost, setOptionsMenuPost] = useState<PostWithAuthor | null>(null);
   
   // Cannect (For You) feed - all posts
   const forYouQuery = useFeed();
@@ -147,67 +151,17 @@ export default function FeedScreen() {
   };
 
   const handleMore = (post: PostWithAuthor) => {
-    const isOwnPost = post.user_id === user?.id;
-    
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: isOwnPost 
-            ? ['Cancel', 'Delete Post'] 
-            : ['Cancel', 'Report Post'],
-          destructiveButtonIndex: 1,
-          cancelButtonIndex: 0,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) {
-            if (isOwnPost) {
-              handleDelete(post.id);
-            } else {
-              Alert.alert("Reported", "Thank you for reporting this post.");
-            }
-          }
-        }
-      );
-    } else if (Platform.OS === 'web') {
-      if (isOwnPost) {
-        if (window.confirm("Delete this post? This cannot be undone.")) {
-          deleteMutation.mutate(post.id);
-        }
-      } else {
-        if (window.confirm("Report this post?")) {
-          window.alert("Thank you for reporting this post.");
-        }
-      }
-    } else {
-      Alert.alert(
-        "Manage Post", 
-        undefined, 
-        isOwnPost 
-          ? [
-              { text: "Cancel", style: "cancel" },
-              { text: "Delete", style: "destructive", onPress: () => handleDelete(post.id) }
-            ]
-          : [
-              { text: "Cancel", style: "cancel" },
-              { text: "Report", onPress: () => Alert.alert("Reported", "Thank you for reporting this post.") }
-            ]
-      );
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+    setOptionsMenuPost(post);
+    setOptionsMenuVisible(true);
   };
 
-  const handleDelete = (postId: string) => {
-    Alert.alert(
-      "Delete Post",
-      "Are you sure you want to delete this post? This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive", 
-          onPress: () => deleteMutation.mutate(postId)
-        }
-      ]
-    );
+  const handleOptionsDelete = () => {
+    if (optionsMenuPost) {
+      deleteMutation.mutate(optionsMenuPost.id);
+    }
   };
 
   const handleRepost = useCallback((post: PostWithAuthor) => {
@@ -366,6 +320,16 @@ export default function FeedScreen() {
         onRepost={handleDoRepost}
         onQuotePost={handleDoQuotePost}
         isReposted={repostMenuPost?.is_reposted_by_me === true}
+      />
+      
+      {/* Post Options Menu */}
+      <PostOptionsMenu
+        isVisible={optionsMenuVisible}
+        onClose={() => setOptionsMenuVisible(false)}
+        onDelete={handleOptionsDelete}
+        isOwnPost={optionsMenuPost?.user_id === user?.id}
+        postUrl={optionsMenuPost ? `https://cannect.app/post/${optionsMenuPost.id}` : undefined}
+        isReply={!!optionsMenuPost?.thread_parent_id}
       />
     </SafeAreaView>
   );

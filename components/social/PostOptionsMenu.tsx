@@ -9,6 +9,7 @@ interface PostOptionsMenuProps {
   onDelete?: () => void;
   isOwnPost: boolean;
   postUrl?: string;
+  isReply?: boolean;
 }
 
 export function PostOptionsMenu({ 
@@ -17,6 +18,7 @@ export function PostOptionsMenu({
   onDelete,
   isOwnPost,
   postUrl,
+  isReply = false,
 }: PostOptionsMenuProps) {
   
   const handleDelete = () => {
@@ -82,7 +84,7 @@ export function PostOptionsMenu({
                   Copy Link
                 </Text>
                 <Text className="text-text-muted text-sm">
-                  Copy post link to clipboard
+                  Copy {isReply ? "reply" : "post"} link to clipboard
                 </Text>
               </View>
             </Pressable>
@@ -99,10 +101,10 @@ export function PostOptionsMenu({
               </View>
               <View className="flex-1">
                 <Text className="text-red-500 text-lg font-semibold">
-                  Delete Post
+                  {isReply ? "Delete Reply" : "Delete Post"}
                 </Text>
                 <Text className="text-text-muted text-sm">
-                  Permanently remove this post
+                  Permanently remove this {isReply ? "reply" : "post"}
                 </Text>
               </View>
             </Pressable>
@@ -119,7 +121,7 @@ export function PostOptionsMenu({
               </View>
               <View className="flex-1">
                 <Text className="text-text-primary text-lg font-semibold">
-                  Report Post
+                  {isReply ? "Report Reply" : "Report Post"}
                 </Text>
                 <Text className="text-text-muted text-sm">
                   Report inappropriate content

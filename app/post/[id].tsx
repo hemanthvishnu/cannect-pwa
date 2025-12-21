@@ -244,6 +244,7 @@ export default function PostDetailsScreen() {
         onDelete={handleDoDelete}
         isOwnPost={optionsMenuPost?.user_id === user?.id}
         postUrl={optionsMenuPost ? `https://cannect.app/post/${optionsMenuPost.id}` : undefined}
+        isReply={!!optionsMenuPost?.thread_parent_id}
       />
     </SafeAreaView>
   );
