@@ -350,12 +350,12 @@ export const SocialPost = memo(function SocialPost({
           />
           <ActionButton 
             icon={Repeat2} 
-            count={post.reposts_count} 
-            active={post.is_reposted_by_me === true} 
+            count={(post.reposts_count || 0) + ((post as any).quotes_count || 0)} 
+            active={post.is_reposted_by_me === true || (post as any).is_quoted_by_me === true} 
             activeColor="#10B981"
             onPress={onRepost}
             hapticStyle="medium"
-            accessibilityLabel={`${post.is_reposted_by_me ? 'Undo repost' : 'Repost'}. ${post.reposts_count || 0} reposts`}
+            accessibilityLabel={`${post.is_reposted_by_me || (post as any).is_quoted_by_me ? 'Undo repost' : 'Repost'}. ${(post.reposts_count || 0) + ((post as any).quotes_count || 0)} reposts`}
           />
           <ActionButton 
             icon={Heart} 
@@ -400,9 +400,11 @@ export const SocialPost = memo(function SocialPost({
     prevProps.post.id === nextProps.post.id &&
     prevProps.post.is_liked === nextProps.post.is_liked &&
     prevProps.post.is_reposted_by_me === nextProps.post.is_reposted_by_me &&
+    (prevProps.post as any).is_quoted_by_me === (nextProps.post as any).is_quoted_by_me &&
     prevProps.post.likes_count === nextProps.post.likes_count &&
     prevProps.post.replies_count === nextProps.post.replies_count &&
-    prevProps.post.reposts_count === nextProps.post.reposts_count
+    prevProps.post.reposts_count === nextProps.post.reposts_count &&
+    (prevProps.post as any).quotes_count === (nextProps.post as any).quotes_count
   );
 });
 

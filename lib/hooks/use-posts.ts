@@ -400,7 +400,7 @@ async function enrichPostsWithStatus(posts: any[], userId?: string) {
     myLikes?.forEach((l: any) => likedPostIds.add(l.post_id));
   }
 
-  // Get reposted status
+  // Get reposted status (simple reposts)
   let repostedPostIds = new Set<string>();
   if (userId) {
     const { data: myReposts } = await supabase
@@ -413,10 +413,25 @@ async function enrichPostsWithStatus(posts: any[], userId?: string) {
     });
   }
 
+  // Get quoted status (quote posts I've created)
+  let quotedPostIds = new Set<string>();
+  if (userId) {
+    const { data: myQuotes } = await supabase
+      .from("posts")
+      .select("repost_of_id")
+      .eq("user_id", userId)
+      .eq("type", "quote")
+      .in("repost_of_id", postIds);
+    myQuotes?.forEach((q: any) => {
+      if (q.repost_of_id) quotedPostIds.add(q.repost_of_id);
+    });
+  }
+
   return posts.map((post: any) => ({
     ...post,
     is_liked: likedPostIds.has(post.id),
     is_reposted_by_me: repostedPostIds.has(post.id),
+    is_quoted_by_me: quotedPostIds.has(post.id),
     likes_count: post.likes?.[0]?.count ?? post.likes_count ?? 0,
   }));
 }
@@ -1303,7 +1318,7 @@ export function useRepost() {
           pages: old.pages.map((page: any) =>
             page.map((p: any) =>
               p.id === originalPost.id
-                ? { ...p, quotes_count: (p.quotes_count || 0) + 1 }
+                ? { ...p, quotes_count: (p.quotes_count || 0) + 1, is_quoted_by_me: true }
                 : p
             )
           ),
