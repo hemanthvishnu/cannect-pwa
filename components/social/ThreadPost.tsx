@@ -25,6 +25,8 @@ interface ThreadPostProps {
   replyingTo?: string;
   /** Is this the focused/anchor post (larger text, full timestamp) */
   isFocused?: boolean;
+  /** Is this an ancestor post (no bottom border - flows into next) */
+  isAncestor?: boolean;
   
   // Actions
   onPress?: () => void;
@@ -40,6 +42,7 @@ export const ThreadPost = memo(function ThreadPost({
   post,
   replyingTo,
   isFocused = false,
+  isAncestor = false,
   onPress,
   onLike,
   onReply,
@@ -82,7 +85,7 @@ export const ThreadPost = memo(function ThreadPost({
     : formatDistanceToNow(new Date(post.created_at));
 
   const content = (
-    <View style={[styles.container, !isFocused && styles.borderBottom]}>
+    <View style={[styles.container, !isFocused && !isAncestor && styles.borderBottom]}>
       {/* Main Post Content Row */}
       <View style={styles.mainRow}>
         {/* Avatar */}

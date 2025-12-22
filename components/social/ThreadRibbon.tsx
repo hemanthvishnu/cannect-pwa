@@ -62,6 +62,7 @@ export const ThreadRibbon = memo(function ThreadRibbon({
         return (
           <ThreadPost
             post={item.post}
+            isAncestor
             onPress={() => navigateToPost(item.post.id)}
             onLike={() => onLike(item.post)}
             onReply={() => onReply(item.post, item.post.author?.username)}
