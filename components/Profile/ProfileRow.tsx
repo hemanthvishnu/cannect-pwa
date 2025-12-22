@@ -97,6 +97,10 @@ export function ProfileRow({
 
   const displayName = profile.display_name || profile.username;
   const handle = profile.username || profile.handle;
+  
+  // For external users, show the domain part more prominently
+  // e.g., "bsky.app" shows as "@bsky.app" with a globe icon
+  const handleParts = handle?.includes('.') ? handle.split('.') : null;
 
   return (
     <Pressable
@@ -118,14 +122,23 @@ export function ProfileRow({
           {profile.is_verified && (
             <BadgeCheck size={16} color="#10B981" fill="#10B981" />
           )}
-          {isFederated && (
+          {isExternal && (
+            <View className="flex-row items-center gap-1 bg-blue-500/20 px-1.5 py-0.5 rounded-full">
+              <Globe2 size={10} color="#3B82F6" />
+              <Text className="text-[10px] text-blue-500 font-medium">Bluesky</Text>
+            </View>
+          )}
+          {isFederated && !isExternal && (
             <View className="flex-row items-center gap-1 bg-blue-500/20 px-1.5 py-0.5 rounded-full">
               <Globe2 size={10} color="#3B82F6" />
               <Text className="text-[10px] text-blue-500 font-medium">Global</Text>
             </View>
           )}
         </View>
-        <Text className="text-text-muted">@{handle}</Text>
+        {/* Show full handle with domain for external users */}
+        <Text className="text-text-muted">
+          @{handle}
+        </Text>
         {profile.bio && (
           <Text className="text-text-secondary text-sm mt-0.5" numberOfLines={2}>
             {profile.bio}
