@@ -85,7 +85,7 @@ export const ThreadPost = memo(function ThreadPost({
     : formatDistanceToNow(new Date(post.created_at));
 
   const content = (
-    <View style={[styles.container, !isFocused && !isAncestor && styles.borderBottom]}>
+    <View style={styles.container}>
       {/* Main Post Content Row */}
       <View style={styles.mainRow}>
         {/* Avatar */}
@@ -224,10 +224,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#000',
   },
-  borderBottom: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#222',
-  },
+  // Clean layout without borders between posts (Bluesky style)
   pressed: {
     backgroundColor: '#0A0A0A',
   },
@@ -328,16 +325,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#222',
   },
   statsRow: {
     flexDirection: 'row',
     gap: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#222',
+    paddingVertical: 8,
   },
   stat: {
     fontSize: 14,
@@ -358,9 +350,7 @@ const styles = StyleSheet.create({
   actionsFocused: {
     justifyContent: 'space-around',
     gap: 0,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#222',
+    paddingTop: 8,
   },
   actionButton: {
     flexDirection: 'row',

@@ -193,8 +193,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: THREAD_DESIGN.OUTER_SPACE,
     paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#222',
+    borderTopColor: '#333',
     backgroundColor: '#000',
   },
   replyDividerText: {
@@ -207,8 +206,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: THREAD_DESIGN.OUTER_SPACE,
     alignItems: 'center',
     backgroundColor: '#000',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#222',
   },
   loadMoreText: {
     fontSize: 14,
