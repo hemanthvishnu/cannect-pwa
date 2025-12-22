@@ -59,7 +59,8 @@ async function fetchActorFeed(handle: string) {
       likeCount: bskyPost.likeCount || 0,
       repostCount: bskyPost.repostCount || 0,
       replyCount: bskyPost.replyCount || 0,
-      images: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
+      // Use thumb for feed performance, fullsize available if needed
+      images: bskyPost.embed?.images?.map((img: any) => img.thumb || img.fullsize) || [],
     };
   });
 

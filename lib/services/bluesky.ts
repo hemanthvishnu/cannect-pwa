@@ -92,7 +92,8 @@ export async function getFederatedPosts(limit = 25): Promise<FederatedPost[]> {
         user_id: bskyPost.author.did,
         content: bskyPost.record?.text || "",
         created_at: bskyPost.record?.createdAt || bskyPost.indexedAt,
-        media_urls: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
+        // Use thumb for feed performance, fullsize available if needed
+        media_urls: bskyPost.embed?.images?.map((img: any) => img.thumb || img.fullsize) || [],
         likes_count: bskyPost.likeCount || 0,
         reposts_count: bskyPost.repostCount || 0,
         replies_count: bskyPost.replyCount || 0,
@@ -138,7 +139,8 @@ export async function searchFederatedPosts(query: string, limit = 25) {
       user_id: bskyPost.author.did,
       content: bskyPost.record?.text || "",
       created_at: bskyPost.record?.createdAt || bskyPost.indexedAt,
-      media_urls: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
+      // Use thumb for feed performance, fullsize available if needed
+      media_urls: bskyPost.embed?.images?.map((img: any) => img.thumb || img.fullsize) || [],
       likes_count: bskyPost.likeCount || 0,
       reposts_count: bskyPost.repostCount || 0,
       replies_count: bskyPost.replyCount || 0,
@@ -175,7 +177,8 @@ function parseBlueskyPost(bskyPost: any): FederatedPost {
     user_id: bskyPost.author.did,
     content: bskyPost.record?.text || "",
     created_at: bskyPost.record?.createdAt || bskyPost.indexedAt,
-    media_urls: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
+    // Use thumb for feed performance, fullsize available if needed
+    media_urls: bskyPost.embed?.images?.map((img: any) => img.thumb || img.fullsize) || [],
     likes_count: bskyPost.likeCount || 0,
     reposts_count: bskyPost.repostCount || 0,
     replies_count: bskyPost.replyCount || 0,

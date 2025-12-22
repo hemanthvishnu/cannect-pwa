@@ -55,7 +55,8 @@ async function fetchExternalPosts(handle: string, filter: 'posts_no_replies' | '
       likeCount: bskyPost.likeCount || 0,
       repostCount: bskyPost.repostCount || 0,
       replyCount: bskyPost.replyCount || 0,
-      images: bskyPost.embed?.images?.map((img: any) => img.fullsize) || [],
+      // Use thumb for feed performance, fullsize available if needed
+      images: bskyPost.embed?.images?.map((img: any) => img.thumb || img.fullsize) || [],
       // Include reply info for showing thread context
       replyParent: bskyPost.record?.reply?.parent ? {
         uri: bskyPost.record.reply.parent.uri,
