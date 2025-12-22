@@ -1,24 +1,19 @@
 /**
- * ThreadRibbon - Bluesky Flat Style Thread View
+ * ThreadRibbon - Bluesky-style Thread View
  * 
- * Renders the complete thread in Bluesky's flat style:
- * - Ancestor chain (root → parent → focused)
- * - Hero focused post
- * - Reply divider
- * - FLAT list of replies with "Replying to @user" labels
+ * Uses unified ThreadPost component for all post types.
+ * Thread lines connect posts vertically through avatar centers.
  */
 
 import React, { memo, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import type { ThreadView, ThreadListItem, ThreadReply as ThreadReplyType } from '@/lib/types/thread';
+import type { ThreadView, ThreadListItem } from '@/lib/types/thread';
 import type { PostWithAuthor } from '@/lib/types/database';
 import { flattenThreadToList, THREAD_DESIGN } from '@/lib/types/thread';
 import { useAuthStore } from '@/lib/stores';
-import { AncestorPost } from './AncestorPost';
-import { FocusedPost } from './FocusedPost';
-import { ThreadReply } from './ThreadReply';
+import { ThreadPost } from './ThreadPost';
 
 interface ThreadRibbonProps {
   thread: ThreadView;
@@ -65,26 +60,32 @@ export const ThreadRibbon = memo(function ThreadRibbon({
     switch (item.type) {
       case 'ancestor':
         return (
-          <AncestorPost
+          <ThreadPost
             post={item.post}
-            isLast={item.isLast}
+            showParentLine={item.showParentLine}
+            showChildLine={item.showChildLine}
             onPress={() => navigateToPost(item.post.id)}
+            onLike={() => onLike(item.post)}
+            onReply={() => onReply(item.post, item.post.author?.username)}
+            onRepost={() => onRepost(item.post)}
             onProfilePress={() => navigateToProfile(item.post.author?.id || '')}
+            onMore={onMore ? () => onMore(item.post) : undefined}
           />
         );
 
       case 'focused':
         return (
-          <FocusedPost
+          <ThreadPost
             post={item.post}
+            showParentLine={item.showParentLine}
+            showChildLine={item.showChildLine}
+            isFocused
             onLike={() => onLike(item.post)}
             onReply={() => onReply(item.post, item.post.author?.username)}
             onRepost={() => onRepost(item.post)}
             onShare={() => {}}
             onProfilePress={() => navigateToProfile(item.post.author?.id || '')}
-            onMorePress={onMore ? () => onMore(item.post) : undefined}
-            hasAncestors={item.hasAncestors}
-            hasReplies={item.hasReplies}
+            onMore={onMore ? () => onMore(item.post) : undefined}
           />
         );
 
@@ -99,15 +100,17 @@ export const ThreadRibbon = memo(function ThreadRibbon({
 
       case 'reply':
         return (
-          <ThreadReply
-            reply={item.reply}
+          <ThreadPost
+            post={item.reply.post}
+            showParentLine={item.showParentLine}
+            showChildLine={item.showChildLine}
+            replyingTo={item.reply.replyingTo}
             onPress={() => navigateToPost(item.reply.post.id)}
             onLike={() => onLike(item.reply.post)}
             onReply={() => onReply(item.reply.post, item.reply.post.author?.username)}
             onRepost={() => onRepost(item.reply.post)}
             onProfilePress={() => navigateToProfile(item.reply.post.author?.id || '')}
             onMore={onMore ? () => onMore(item.reply.post) : undefined}
-            isOwnPost={item.reply.post.user_id === user?.id}
           />
         );
 
@@ -131,7 +134,7 @@ export const ThreadRibbon = memo(function ThreadRibbon({
       default:
         return null;
     }
-  }, [navigateToPost, navigateToProfile, onLike, onReply, onRepost, onMore, onLoadMore, isLoadingMore, user?.id]);
+  }, [navigateToPost, navigateToProfile, onLike, onReply, onRepost, onMore, onLoadMore, isLoadingMore]);
 
   // Key extractor
   const keyExtractor = useCallback((item: ThreadListItem, index: number) => {
@@ -168,7 +171,7 @@ export const ThreadRibbon = memo(function ThreadRibbon({
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         getItemType={getItemType}
-        estimatedItemSize={100}
+        estimatedItemSize={120}
         ListHeaderComponent={ListHeaderComponent}
         ListFooterComponent={ListFooterComponent}
         contentContainerStyle={styles.contentContainer}
@@ -192,8 +195,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   replyDivider: {
-    paddingHorizontal: THREAD_DESIGN.HORIZONTAL_PADDING,
-    paddingLeft: THREAD_DESIGN.HORIZONTAL_PADDING + THREAD_DESIGN.LEFT_COLUMN_WIDTH + 12,
+    paddingHorizontal: THREAD_DESIGN.OUTER_SPACE,
     paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -207,9 +209,8 @@ const styles = StyleSheet.create({
   },
   loadMoreButton: {
     paddingVertical: 16,
-    paddingHorizontal: THREAD_DESIGN.HORIZONTAL_PADDING,
-    paddingLeft: THREAD_DESIGN.HORIZONTAL_PADDING + THREAD_DESIGN.LEFT_COLUMN_WIDTH + 12,
-    alignItems: 'flex-start',
+    paddingHorizontal: THREAD_DESIGN.OUTER_SPACE,
+    alignItems: 'center',
     backgroundColor: '#000',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#222',

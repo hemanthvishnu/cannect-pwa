@@ -10,9 +10,12 @@ export * from "./DiscoveryModal";
 export * from "./RepostMenu";
 export * from "./PostOptionsMenu";
 
-// Post Ribbon components (Bluesky threading pattern)
+// Thread components (Bluesky-style layout)
+export * from "./ThreadPost";
+export * from "./ThreadRibbon";
+export * from "./ThreadSkeleton";
+
+// Legacy post components (deprecated - use ThreadPost)
 export * from "./AncestorPost";
 export * from "./FocusedPost";
 export * from "./ThreadReply";
-export * from "./ThreadRibbon";
-export * from "./ThreadSkeleton";

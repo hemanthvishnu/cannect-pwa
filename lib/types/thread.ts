@@ -49,11 +49,12 @@ export interface ThreadView {
 
 /**
  * Flattened item for FlashList rendering
+ * UI flags match Bluesky's pattern for thread line visibility
  */
 export type ThreadListItem = 
-  | { type: 'ancestor'; post: PostWithAuthor; isLast: boolean }
-  | { type: 'focused'; post: PostWithAuthor; hasAncestors: boolean; hasReplies: boolean }
-  | { type: 'reply'; reply: ThreadReply }
+  | { type: 'ancestor'; post: PostWithAuthor; showParentLine: boolean; showChildLine: boolean }
+  | { type: 'focused'; post: PostWithAuthor; showParentLine: boolean; showChildLine: boolean }
+  | { type: 'reply'; reply: ThreadReply; showParentLine: boolean; showChildLine: boolean }
   | { type: 'reply-divider'; count: number }
   | { type: 'load-more'; count: number };
 
@@ -68,44 +69,46 @@ export const THREAD_CONFIG = {
 } as const;
 
 /**
- * Thread design tokens
+ * Thread design tokens - Matches Bluesky's official layout
+ * Reference: bluesky-social/social-app/src/screens/PostThread/const.ts
  */
 export const THREAD_DESIGN = {
-  /** Avatar sizes by context */
-  AVATAR_SIZES: {
-    ancestor: 32,
-    focused: 48,
-    reply: 40,
-  },
+  /** Avatar size (Bluesky uses 42px in linear view) */
+  AVATAR_SIZE: 42,
   /** Thread connector line width */
   LINE_WIDTH: 2,
-  /** Consistent left column width for thread alignment */
-  LEFT_COLUMN_WIDTH: 48,
-  /** Horizontal padding */
-  HORIZONTAL_PADDING: 16,
+  /** Outer space/padding */
+  OUTER_SPACE: 16,
+  /** Gap between avatar and content */
+  AVATAR_GAP: 12,
 } as const;
 
 /**
- * Flatten a ThreadView into a list of renderable items - Bluesky Flat Style
+ * Flatten a ThreadView into a list of renderable items - Bluesky Style
+ * Sets showParentLine/showChildLine flags for continuous thread connectors
  */
 export function flattenThreadToList(thread: ThreadView): ThreadListItem[] {
   const items: ThreadListItem[] = [];
+  const hasAncestors = thread.ancestors.length > 0;
+  const hasReplies = thread.replies.length > 0;
   
-  // 1. Add ancestors
+  // 1. Add ancestors with thread lines
   thread.ancestors.forEach((post, index) => {
+    const isLast = index === thread.ancestors.length - 1;
     items.push({
       type: 'ancestor',
       post,
-      isLast: index === thread.ancestors.length - 1,
+      showParentLine: index > 0, // Line going up (not for first ancestor)
+      showChildLine: true, // Always show line going down to next
     });
   });
   
-  // 2. Add focused post (with connector flags)
+  // 2. Add focused post
   items.push({
     type: 'focused',
     post: thread.focusedPost,
-    hasAncestors: thread.ancestors.length > 0,
-    hasReplies: thread.replies.length > 0,
+    showParentLine: hasAncestors, // Line going up to parent
+    showChildLine: hasReplies, // Line going down to replies
   });
   
   // 3. Add reply divider if there are replies
@@ -116,11 +119,14 @@ export function flattenThreadToList(thread: ThreadView): ThreadListItem[] {
     });
   }
   
-  // 4. Add all replies flat (no nesting)
-  thread.replies.forEach(reply => {
+  // 4. Add all replies flat
+  thread.replies.forEach((reply, index) => {
+    const isLast = index === thread.replies.length - 1;
     items.push({
       type: 'reply',
       reply,
+      showParentLine: true, // Always show line going up in reply section
+      showChildLine: !isLast, // Show line down unless last reply
     });
   });
   
