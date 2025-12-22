@@ -26,6 +26,10 @@ interface FocusedPostProps {
   onShare: () => void;
   onProfilePress: () => void;
   onMorePress?: () => void;
+  /** Show connector line going up to ancestors */
+  hasAncestors?: boolean;
+  /** Show connector line going down to replies */
+  hasReplies?: boolean;
 }
 
 export const FocusedPost = memo(function FocusedPost({
@@ -36,6 +40,8 @@ export const FocusedPost = memo(function FocusedPost({
   onShare,
   onProfilePress,
   onMorePress,
+  hasAncestors,
+  hasReplies,
 }: FocusedPostProps) {
   const handleLike = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -71,13 +77,20 @@ export const FocusedPost = memo(function FocusedPost({
     <View style={styles.container}>
       {/* Author Section - Larger */}
       <View style={styles.authorSection}>
-        <Pressable onPress={onProfilePress}>
-          <Image
-            source={{ uri: post.author?.avatar_url }}
-            style={styles.avatar}
-            contentFit="cover"
-          />
-        </Pressable>
+        {/* Left column with avatar and thread lines */}
+        <View style={styles.avatarColumn}>
+          {/* Line going UP to ancestors */}
+          {hasAncestors && <View style={styles.threadLineUp} />}
+          <Pressable onPress={onProfilePress}>
+            <Image
+              source={{ uri: post.author?.avatar_url }}
+              style={styles.avatar}
+              contentFit="cover"
+            />
+          </Pressable>
+          {/* Line going DOWN to replies */}
+          {hasReplies && <View style={styles.threadLineDown} />}
+        </View>
         <View style={styles.authorInfo}>
           <Text style={styles.displayName}>
             {post.author?.display_name || post.author?.username}
@@ -167,10 +180,26 @@ const styles = StyleSheet.create({
   },
   authorSection: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 12,
+  },
+  avatarColumn: {
+    alignItems: 'center',
+  },
+  threadLineUp: {
+    width: THREAD_DESIGN.LINE_WIDTH,
+    height: 16,
+    backgroundColor: '#10B981', // Emerald - matches ancestor's last line
+    marginBottom: 4,
+  },
+  threadLineDown: {
+    width: THREAD_DESIGN.LINE_WIDTH,
+    flex: 1,
+    backgroundColor: '#2A2A2A',
+    marginTop: 4,
+    minHeight: 8,
   },
   avatar: {
     width: THREAD_DESIGN.AVATAR_SIZES.focused,
@@ -181,6 +210,8 @@ const styles = StyleSheet.create({
   authorInfo: {
     marginLeft: 12,
     flex: 1,
+    justifyContent: 'center',
+    paddingTop: 10,
   },
   displayName: {
     fontSize: 17,

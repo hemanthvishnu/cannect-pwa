@@ -52,7 +52,7 @@ export interface ThreadView {
  */
 export type ThreadListItem = 
   | { type: 'ancestor'; post: PostWithAuthor; isLast: boolean }
-  | { type: 'focused'; post: PostWithAuthor }
+  | { type: 'focused'; post: PostWithAuthor; hasAncestors: boolean; hasReplies: boolean }
   | { type: 'reply'; reply: ThreadReply }
   | { type: 'reply-divider'; count: number }
   | { type: 'load-more'; count: number };
@@ -96,10 +96,12 @@ export function flattenThreadToList(thread: ThreadView): ThreadListItem[] {
     });
   });
   
-  // 2. Add focused post
+  // 2. Add focused post (with connector flags)
   items.push({
     type: 'focused',
     post: thread.focusedPost,
+    hasAncestors: thread.ancestors.length > 0,
+    hasReplies: thread.replies.length > 0,
   });
   
   // 3. Add reply divider if there are replies

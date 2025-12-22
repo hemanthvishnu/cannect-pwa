@@ -83,6 +83,8 @@ export const ThreadRibbon = memo(function ThreadRibbon({
             onShare={() => {}}
             onProfilePress={() => navigateToProfile(item.post.author?.id || '')}
             onMorePress={onMore ? () => onMore(item.post) : undefined}
+            hasAncestors={item.hasAncestors}
+            hasReplies={item.hasReplies}
           />
         );
 
