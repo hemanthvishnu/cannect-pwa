@@ -1,20 +1,26 @@
-import { View, Text, RefreshControl, ActivityIndicator, Platform, Share, Pressable } from "react-native";
+import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { Leaf, Globe2 } from "lucide-react-native";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { useFeed, useFollowingFeed, useLikePost, useUnlikePost, useDeletePost, useToggleRepost, useProfile } from "@/lib/hooks";
+import { useFeed, useFollowingFeed, useDeletePost, useToggleRepost, useProfile } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
-import { SocialPost, RepostMenu, PostOptionsMenu, BlueskyPost } from "@/components/social";
+import { RepostMenu, PostOptionsMenu, UnifiedFeedItem } from "@/components/social";
 import { EmptyFeedState } from "@/components/social/EmptyFeedState";
 import { DiscoveryModal, useDiscoveryModal } from "@/components/social/DiscoveryModal";
-import { getFederatedPosts, type FederatedPost } from "@/lib/services/bluesky";
+import { getFederatedPosts } from "@/lib/services/bluesky";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { FeedSkeleton } from "@/components/Skeleton";
 import type { PostWithAuthor } from "@/lib/types/database";
+import { 
+  fromLocalPost, 
+  fromServiceFederatedPost, 
+  type UnifiedPost,
+  type ServiceFederatedPost,
+} from "@/lib/types/unified-post";
 
 type FeedTab = "for-you" | "following" | "federated";
 
@@ -35,13 +41,13 @@ export default function FeedScreen() {
   // Discovery modal for new users with 0 following
   const { showDiscovery, closeDiscovery } = useDiscoveryModal(myProfile?.following_count);
   
-  // Repost menu state
+  // Repost menu state - now uses UnifiedPost
   const [repostMenuVisible, setRepostMenuVisible] = useState(false);
-  const [repostMenuPost, setRepostMenuPost] = useState<PostWithAuthor | null>(null);
+  const [repostMenuPost, setRepostMenuPost] = useState<UnifiedPost | null>(null);
   
-  // Post options menu state
+  // Post options menu state - now uses UnifiedPost
   const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
-  const [optionsMenuPost, setOptionsMenuPost] = useState<PostWithAuthor | null>(null);
+  const [optionsMenuPost, setOptionsMenuPost] = useState<UnifiedPost | null>(null);
   
   // Cannect (For You) feed - all posts
   const forYouQuery = useFeed();
@@ -85,7 +91,19 @@ export default function FeedScreen() {
   };
   
   const currentQuery = getCurrentQuery();
-  const posts = currentQuery.data?.pages?.flat() || [];
+  const rawPosts = currentQuery.data?.pages?.flat() || [];
+  
+  // Convert all posts to UnifiedPost format
+  const unifiedPosts = useMemo(() => {
+    return rawPosts.map((item: any) => {
+      // Check if it's a federated post from the Global tab
+      if (item.is_federated === true && activeTab === "federated") {
+        return fromServiceFederatedPost(item as ServiceFederatedPost);
+      }
+      // Otherwise it's a local Cannect post
+      return fromLocalPost(item as PostWithAuthor, user?.id);
+    });
+  }, [rawPosts, activeTab, user?.id]);
   
   // Loading and error states based on active tab
   const isCurrentLoading = currentQuery.isLoading;
@@ -116,26 +134,8 @@ export default function FeedScreen() {
   }
 
   // ---------------------------------------------------------------------------
-  // Handlers - Clean, no "import" logic needed anymore!
+  // Handlers - Now using UnifiedPost for consistent interface
   // ---------------------------------------------------------------------------
-
-  const handleLike = useCallback((post: PostWithAuthor) => {
-    if (!user) {
-      router.push("/auth/login" as any);
-      return;
-    }
-
-    if (post.is_liked) {
-      unlikeMutation.mutate(post.id);
-    } else {
-      // Pass AT Protocol fields for federation
-      likeMutation.mutate({
-        postId: post.id,
-        subjectUri: (post as any).at_uri,
-        subjectCid: (post as any).at_cid,
-      });
-    }
-  }, [user, likeMutation, unlikeMutation, router]);
 
   const handleProfilePress = (identifier: string) => {
     // Unified routing - useResolveProfile handles UUID, handle, or username
@@ -144,69 +144,62 @@ export default function FeedScreen() {
     }
   };
 
-  const handlePostPress = (postId: string) => {
-    router.push(`/post/${postId}` as any);
-  };
-
-  const handleMore = (post: PostWithAuthor) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setOptionsMenuPost(post);
-    setOptionsMenuVisible(true);
-  };
-
   const handleOptionsDelete = () => {
-    if (optionsMenuPost) {
-      deleteMutation.mutate(optionsMenuPost.id);
+    if (optionsMenuPost?.localId) {
+      deleteMutation.mutate(optionsMenuPost.localId);
     }
   };
-
-  const handleRepost = useCallback((post: PostWithAuthor) => {
-    if (!user) {
-      router.push("/auth/login" as any);
-      return;
-    }
-
-    if (toggleRepostMutation.isPending) return;
-    
-    const isReposted = post.is_reposted_by_me === true;
-    
-    // If already reposted, show menu for undo option
-    // Otherwise show menu for repost/quote options
-    setRepostMenuPost(post);
-    setRepostMenuVisible(true);
-  }, [user, toggleRepostMutation, router]);
   
-  // Handlers for the repost menu
+  // Handlers for the repost menu - now using UnifiedPost
   const handleDoRepost = useCallback(() => {
     if (!repostMenuPost) return;
     
-    const isReposted = repostMenuPost.is_reposted_by_me === true;
-    const subjectUri = (repostMenuPost as any).at_uri;
-    const subjectCid = (repostMenuPost as any).at_cid;
+    const isReposted = repostMenuPost.viewer.isReposted;
     
-    if (isReposted) {
-      toggleRepostMutation.mutate({ post: repostMenuPost, undo: true });
-    } else {
-      toggleRepostMutation.mutate({ post: repostMenuPost, subjectUri, subjectCid });
+    // For external posts, use the Bluesky hooks
+    if (repostMenuPost.isExternal) {
+      // This will be handled by the UnifiedFeedItem component
+      // The menu just triggers the action
+      return;
+    }
+    
+    // For local posts
+    if (repostMenuPost.localId) {
+      const fakePost = {
+        id: repostMenuPost.localId,
+        is_reposted_by_me: isReposted,
+        at_uri: repostMenuPost.uri.startsWith("at://") ? repostMenuPost.uri : undefined,
+        at_cid: repostMenuPost.cid,
+      };
+      
+      if (isReposted) {
+        toggleRepostMutation.mutate({ post: fakePost, undo: true });
+      } else {
+        toggleRepostMutation.mutate({ 
+          post: fakePost, 
+          subjectUri: repostMenuPost.uri.startsWith("at://") ? repostMenuPost.uri : null,
+          subjectCid: repostMenuPost.cid || null,
+        });
+      }
     }
   }, [repostMenuPost, toggleRepostMutation]);
   
   const handleDoQuotePost = useCallback(() => {
     if (!repostMenuPost) return;
-    router.push(`/compose/quote?postId=${repostMenuPost.id}` as any);
-  }, [repostMenuPost, router]);
-
-  const handleShare = async (post: PostWithAuthor) => {
-    try {
-      await Share.share({
-        message: `Check out this post by @${post.author?.username}: ${post.content}`,
-      });
-    } catch (error) {
-      // User cancelled or error
+    
+    if (repostMenuPost.isExternal) {
+      // For external posts, pass the AT URI
+      router.push({
+        pathname: "/compose/quote",
+        params: { 
+          uri: repostMenuPost.uri,
+          cid: repostMenuPost.cid,
+        }
+      } as any);
+    } else if (repostMenuPost.localId) {
+      router.push(`/compose/quote?postId=${repostMenuPost.localId}` as any);
     }
-  };
+  }, [repostMenuPost, router]);
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
@@ -248,60 +241,24 @@ export default function FeedScreen() {
       ) : (
         <View style={{ flex: 1, minHeight: 2 }}>
           <FlashList
-            data={posts}
-            keyExtractor={(item, index) => `${activeTab}-${item.id}-${index}`}
-            renderItem={({ item }) => {
-              const isFederated = (item as any).is_federated === true;
-              
-              // Use BlueskyPost for federated posts
-              if (isFederated && activeTab === "federated") {
-                const federatedItem = item as FederatedPost;
-                return (
-                  <BlueskyPost
-                    post={{
-                      uri: federatedItem.uri,
-                      cid: federatedItem.cid,
-                      content: federatedItem.content,
-                      createdAt: federatedItem.created_at,
-                      author: {
-                        did: federatedItem.author.did,
-                        handle: federatedItem.author.handle,
-                        displayName: federatedItem.author.display_name,
-                        avatar: federatedItem.author.avatar_url || undefined,
-                      },
-                      likeCount: federatedItem.likes_count,
-                      repostCount: federatedItem.reposts_count,
-                      replyCount: federatedItem.replies_count,
-                      images: federatedItem.media_urls,
-                    }}
-                    onShare={() => {
-                      Share.share({
-                        message: `Check out this post by @${federatedItem.author.handle}: ${federatedItem.content?.slice(0, 100)}`,
-                      });
-                    }}
-                  />
-                );
-              }
-              
-              // Use SocialPost for Cannect posts
-              return (
-                <SocialPost 
-                  post={item}
-                  onLike={() => handleLike(item)}
-                  onReply={() => handlePostPress(item.id)}
-                  onRepost={() => handleRepost(item)}
-                  onProfilePress={() => {
-                    const identifier = (item as any).author?.handle || item.author?.username || item.author?.id;
-                    handleProfilePress(identifier);
-                  }}
-                  onRepostedByPress={(identifier) => handleProfilePress(identifier)}
-                  onPress={() => handlePostPress(item.id)}
-                  onQuotedPostPress={(quotedPostId) => router.push(`/post/${quotedPostId}` as any)}
-                  onMore={() => handleMore(item)}
-                  onShare={() => handleShare(item)}
-                />
-              );
-            }}
+            data={unifiedPosts}
+            keyExtractor={(item, index) => `${activeTab}-${item.uri}-${index}`}
+            renderItem={({ item }) => (
+              <UnifiedFeedItem
+                post={item}
+                onRepostMenu={(post) => {
+                  setRepostMenuPost(post);
+                  setRepostMenuVisible(true);
+                }}
+                onMoreMenu={(post) => {
+                  if (Platform.OS !== 'web') {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }
+                  setOptionsMenuPost(post);
+                  setOptionsMenuVisible(true);
+                }}
+              />
+            )}
             estimatedItemSize={200}
             refreshControl={
               <RefreshControl 
@@ -348,7 +305,7 @@ export default function FeedScreen() {
         onClose={() => setRepostMenuVisible(false)}
         onRepost={handleDoRepost}
         onQuotePost={handleDoQuotePost}
-        isReposted={repostMenuPost?.is_reposted_by_me === true}
+        isReposted={repostMenuPost?.viewer?.isReposted === true}
       />
       
       {/* Post Options Menu */}
@@ -356,9 +313,9 @@ export default function FeedScreen() {
         isVisible={optionsMenuVisible}
         onClose={() => setOptionsMenuVisible(false)}
         onDelete={handleOptionsDelete}
-        isOwnPost={optionsMenuPost?.user_id === user?.id}
-        postUrl={optionsMenuPost ? `https://cannect.app/post/${optionsMenuPost.id}` : undefined}
-        isReply={!!optionsMenuPost?.thread_parent_id}
+        isOwnPost={optionsMenuPost?.author?.id === user?.id}
+        postUrl={optionsMenuPost?.localId ? `https://cannect.app/post/${optionsMenuPost.localId}` : undefined}
+        isReply={optionsMenuPost?.type === "reply"}
       />
     </SafeAreaView>
   );

@@ -11,6 +11,7 @@ export * from "./use-pwa-persistence";
 export * from "./use-network-status";
 export * from "./use-thread";
 export * from "./use-thread-preferences";
+export * from "./use-unified-post";
 
 // Web push utilities
 export { 

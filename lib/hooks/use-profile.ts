@@ -4,6 +4,7 @@ import { queryKeys } from "@/lib/query-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import type { Profile } from "@/lib/types/database";
 import * as atprotoAgent from "@/lib/services/atproto-agent";
+import { emitFederationError } from "@/lib/utils/federation-events";
 
 // Fetch profile by ID
 export function useProfile(userId: string) {
@@ -305,7 +306,7 @@ export function useFollowUser() {
       
       return { previousIsFollowing, previousProfile, previousMyProfile };
     },
-    onError: (err, { targetUserId }, context) => {
+    onError: (err, { targetUserId, targetDid }, context) => {
       // Rollback on error
       if (context?.previousIsFollowing !== undefined) {
         queryClient.setQueryData(
@@ -324,6 +325,10 @@ export function useFollowUser() {
           queryKeys.profiles.detail(user.id),
           context.previousMyProfile
         );
+      }
+      // Only emit federation error if we used PDS-first path
+      if (profile?.did && targetDid) {
+        emitFederationError({ action: 'follow' });
       }
     },
     onSettled: (result, error, { targetUserId }) => {
@@ -413,7 +418,7 @@ export function useUnfollowUser() {
       
       return { previousIsFollowing, previousProfile, previousMyProfile, targetUserId };
     },
-    onError: (err, { targetUserId }, context) => {
+    onError: (err, { targetUserId, targetDid }, context) => {
       if (context?.previousIsFollowing !== undefined) {
         queryClient.setQueryData(
           queryKeys.follows.isFollowing("current", targetUserId),
@@ -431,6 +436,10 @@ export function useUnfollowUser() {
           queryKeys.profiles.detail(user.id),
           context.previousMyProfile
         );
+      }
+      // Only emit federation error if we used PDS-first path
+      if (profile?.did && targetDid) {
+        emitFederationError({ action: 'unfollow' });
       }
     },
     onSettled: (result, error, { targetUserId }) => {
@@ -557,6 +566,7 @@ export function useFollowBlueskyUser() {
           } : old
         );
       }
+      emitFederationError({ action: 'follow' });
     },
     onSettled: (did) => {
       queryClient.invalidateQueries({ queryKey: ["follows", "isFollowingDid", user?.id, did] });
@@ -629,6 +639,7 @@ export function useUnfollowBlueskyUser() {
           } : old
         );
       }
+      emitFederationError({ action: 'unfollow' });
     },
     onSettled: (targetDid) => {
       queryClient.invalidateQueries({ queryKey: ["follows", "isFollowingDid", user?.id, targetDid] });

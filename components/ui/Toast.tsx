@@ -19,6 +19,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, CheckCircle, AlertCircle, Info, RefreshCw } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { onFederationError, type FederationError } from '@/lib/utils/federation-events';
 
 // ============================================================================
 // Types
@@ -181,6 +182,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const hideAll = useCallback(() => {
     setToasts([]);
   }, []);
+
+  // Listen for federation errors from hooks
+  useEffect(() => {
+    const unsubscribe = onFederationError((error: FederationError) => {
+      showToast({
+        type: 'error',
+        title: `Failed to ${error.action}`,
+        message: error.retry ? 'Tap to retry' : 'Please try again later',
+        duration: 5000,
+        onRetry: error.retry,
+      });
+    });
+    return unsubscribe;
+  }, [showToast]);
 
   return (
     <ToastContext.Provider value={{ showToast, hideToast, hideAll }}>

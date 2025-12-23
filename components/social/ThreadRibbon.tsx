@@ -1,7 +1,7 @@
 /**
  * ThreadRibbon - Bluesky Gold Standard Thread View
  * 
- * Uses unified ThreadPost component for all post types.
+ * Uses UnifiedThreadItem component for all post types.
  * Thread lines connect posts vertically through avatar centers.
  * 
  * Gold Standard Features (matching Bluesky):
@@ -16,12 +16,12 @@ import React, { memo, useMemo, useCallback, useRef, useEffect, useState } from '
 import { View, Text, StyleSheet, ActivityIndicator, Pressable, Platform, LayoutChangeEvent } from 'react-native';
 import { FlashList, ListRenderItem } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import type { ThreadView, ThreadListItem } from '@/lib/types/thread';
+import type { ThreadView, ThreadListItem, ThreadItemUI } from '@/lib/types/thread';
 import type { PostWithAuthor } from '@/lib/types/database';
 import { flattenThreadToList, THREAD_DESIGN } from '@/lib/types/thread';
 import type { ThreadSort, ThreadView as ThreadViewOption } from '@/lib/hooks/use-thread-preferences';
 import { useAuthStore } from '@/lib/stores';
-import { ThreadPost } from './ThreadPost';
+import { UnifiedThreadItem } from './UnifiedThreadItem';
 
 interface ThreadRibbonProps {
   thread: ThreadView;
@@ -168,24 +168,18 @@ export const ThreadRibbon = memo(function ThreadRibbon({
     router.push({ pathname: '/user/[id]', params: { id: userId } });
   }, [router]);
 
-  // Render individual items - uses index to determine connector lines
+  /**
+   * Render individual items using UnifiedThreadItem
+   * UI state is pre-computed in flattenThreadToList
+   */
   const renderItem: ListRenderItem<ThreadListItem> = useCallback(({ item, index }) => {
-    // Check ancestors from allItems (not filtered items) for connector lines
-    const ancestorCount = items.filter(i => i.type === 'ancestor').length;
-    const showAncestorConnector = ancestorCount > 0 && !deferParents;
-    
     switch (item.type) {
       case 'ancestor':
-        // Find ancestor index (0-based among ancestors)
-        const ancestorIndex = index; // ancestors are first in list
-        const isFirstAncestor = ancestorIndex === 0;
-        
         return (
-          <ThreadPost
+          <UnifiedThreadItem
             post={item.post}
-            isAncestor
-            showParentLine={!isFirstAncestor} // Show line from above (except first)
-            showChildLine={true} // Always show line to next post
+            ui={item.ui}
+            viewMode={view === 'tree' ? 'tree' : 'linear'}
             onPress={() => navigateToPost(item.post.id)}
             onLike={() => onLike(item.post)}
             onReply={() => onReply(item.post, item.post.author?.username)}
@@ -197,11 +191,10 @@ export const ThreadRibbon = memo(function ThreadRibbon({
 
       case 'focused':
         return (
-          <ThreadPost
+          <UnifiedThreadItem
             post={item.post}
-            isFocused
-            showParentLine={showAncestorConnector} // Show line from last ancestor
-            showChildLine={false} // No line to replies
+            ui={item.ui}
+            viewMode={view === 'tree' ? 'tree' : 'linear'}
             onLike={() => onLike(item.post)}
             onReply={() => onReply(item.post, item.post.author?.username)}
             onRepost={() => onRepost(item.post)}
@@ -222,9 +215,11 @@ export const ThreadRibbon = memo(function ThreadRibbon({
 
       case 'reply':
         return (
-          <ThreadPost
+          <UnifiedThreadItem
             post={item.reply.post}
+            ui={item.ui}
             replyingTo={item.reply.replyingTo}
+            viewMode={view === 'tree' ? 'tree' : 'linear'}
             onPress={() => navigateToPost(item.reply.post.id)}
             onLike={() => onLike(item.reply.post)}
             onReply={() => onReply(item.reply.post, item.reply.post.author?.username)}
@@ -254,7 +249,7 @@ export const ThreadRibbon = memo(function ThreadRibbon({
       default:
         return null;
     }
-  }, [items, deferParents, navigateToPost, navigateToProfile, onLike, onReply, onRepost, onMore, onLoadMore, isLoadingMore]);
+  }, [view, navigateToPost, navigateToProfile, onLike, onReply, onRepost, onMore, onLoadMore, isLoadingMore]);
 
   // Key extractor
   const keyExtractor = useCallback((item: ThreadListItem, index: number) => {

@@ -28,6 +28,7 @@ import {
   type ThreadView as ThreadViewOption,
 } from './use-thread-preferences';
 import * as atprotoAgent from '@/lib/services/atproto-agent';
+import { emitFederationError } from '@/lib/utils/federation-events';
 
 const POST_SELECT = `
   *,
@@ -435,6 +436,10 @@ export function useThreadReply(threadPostId: string) {
     onError: (err, variables, context) => {
       if (context?.previousThread) {
         queryClient.setQueryData(['thread', threadPostId], context.previousThread);
+      }
+      // Emit federation error if user is federated
+      if (profile?.did) {
+        emitFederationError({ action: 'reply' });
       }
     },
     onSettled: () => {

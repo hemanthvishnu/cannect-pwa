@@ -16,6 +16,7 @@ import type { PostWithAuthor } from "@/lib/types/database";
 import type { ThreadView, ThreadReply } from "@/lib/types/thread";
 import { useAuthStore } from "@/lib/stores";
 import { generateTID, parseTextToFacets, buildAtUri } from "@/lib/utils/atproto";
+import { emitFederationError } from "@/lib/utils/federation-events";
 import * as atprotoAgent from "@/lib/services/atproto-agent";
 
 const POSTS_PER_PAGE = 20;
@@ -829,6 +830,10 @@ export function useLikePost() {
       context?.previousThreads?.forEach((thread, queryKey) => {
         queryClient.setQueryData(queryKey, thread);
       });
+      // Show federation error toast (only for federated users)
+      if (profile?.did) {
+        emitFederationError({ action: 'like' });
+      }
     },
     onSettled: (data, error, { postId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
@@ -923,6 +928,10 @@ export function useUnlikePost() {
       context?.previousThreads?.forEach((thread, queryKey) => {
         queryClient.setQueryData(queryKey, thread);
       });
+      // Show federation error toast (only for federated users)
+      if (profile?.did) {
+        emitFederationError({ action: 'unlike' });
+      }
     },
     onSettled: (data, error, { postId }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
@@ -1393,6 +1402,10 @@ export function useToggleRepost() {
       context?.previousThreads?.forEach((thread, queryKey) => {
         queryClient.setQueryData(queryKey, thread);
       });
+      // Show federation error toast (only for federated users)
+      if (profile?.did) {
+        emitFederationError({ action: vars.undo ? 'unrepost' : 'repost' });
+      }
     },
     onSettled: (data, error, { post }) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
@@ -1616,6 +1629,7 @@ export function useLikeBlueskyPost() {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousValue);
       }
+      emitFederationError({ action: 'like' });
     },
     onSettled: (uri) => {
       queryClient.invalidateQueries({ queryKey: ["likes", "external", user?.id, uri] });
@@ -1656,6 +1670,7 @@ export function useUnlikeBlueskyPost() {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousValue);
       }
+      emitFederationError({ action: 'unlike' });
     },
     onSettled: (uri) => {
       queryClient.invalidateQueries({ queryKey: ["likes", "external", user?.id, uri] });
@@ -1722,6 +1737,7 @@ export function useRepostBlueskyPost() {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousValue);
       }
+      emitFederationError({ action: 'repost' });
     },
     onSettled: (uri) => {
       queryClient.invalidateQueries({ queryKey: ["reposts", "external", user?.id, uri] });
@@ -1762,6 +1778,7 @@ export function useUnrepostBlueskyPost() {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousValue);
       }
+      emitFederationError({ action: 'unrepost' });
     },
     onSettled: (uri) => {
       queryClient.invalidateQueries({ queryKey: ["reposts", "external", user?.id, uri] });
