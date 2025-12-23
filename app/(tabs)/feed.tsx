@@ -63,8 +63,6 @@ export default function FeedScreen() {
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
-  const likeMutation = useLikePost();
-  const unlikeMutation = useUnlikePost();
   const deleteMutation = useDeletePost();
   const toggleRepostMutation = useToggleRepost();
   
