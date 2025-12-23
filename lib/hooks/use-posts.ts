@@ -1624,15 +1624,16 @@ export function useHasLikedBlueskyPost(subjectUri: string) {
     queryFn: async () => {
       if (!user) return false;
 
+      // Use limit(1) instead of maybeSingle() to avoid errors with duplicate rows
       const { data, error } = await supabase
         .from("likes")
         .select("id")
         .eq("user_id", user.id)
         .eq("subject_uri", subjectUri)
-        .maybeSingle();
+        .limit(1);
 
       if (error) throw error;
-      return !!data;
+      return data && data.length > 0;
     },
     enabled: !!subjectUri && !!user,
   });
@@ -1732,15 +1733,16 @@ export function useHasRepostedBlueskyPost(subjectUri: string) {
     queryFn: async () => {
       if (!user) return false;
 
+      // Use limit(1) instead of maybeSingle() to avoid errors with duplicate rows
       const { data, error } = await supabase
         .from("reposts")
         .select("id")
         .eq("user_id", user.id)
         .eq("subject_uri", subjectUri)
-        .maybeSingle();
+        .limit(1);
 
       if (error) throw error;
-      return !!data;
+      return data && data.length > 0;
     },
     enabled: !!subjectUri && !!user,
   });
