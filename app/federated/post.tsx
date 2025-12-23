@@ -5,7 +5,8 @@
  * Uses URI passed via query params or global search params.
  */
 
-import { View, Text, ScrollView, RefreshControl, Pressable, Share, ActivityIndicator } from "react-native";
+import { useState, useCallback } from "react";
+import { View, Text, ScrollView, RefreshControl, Pressable, Share, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, ExternalLink } from "lucide-react-native";
@@ -13,7 +14,9 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getBlueskyPostThread, type FederatedPost } from "@/lib/services/bluesky";
 import { UnifiedPostCard } from "@/components/social/UnifiedPostCard";
+import { ReplyBar } from "@/components/social/ReplyBar";
 import { fromBlueskyPost, type UnifiedPost } from "@/lib/types/unified-post";
+import { useReplyToBlueskyPost } from "@/lib/hooks";
 import type { BlueskyPostData } from "@/components/social/BlueskyPost";
 
 // Convert FederatedPost to BlueskyPostData format for the adapter
@@ -40,6 +43,9 @@ export default function FederatedPostScreen() {
   const { uri } = useLocalSearchParams<{ uri: string }>();
   const router = useRouter();
 
+  // Reply mutation for Bluesky posts
+  const replyMutation = useReplyToBlueskyPost();
+
   // Fetch the thread from Bluesky
   const { data: thread, isLoading, isRefetching, refetch, error } = useQuery({
     queryKey: ["bluesky-thread", uri],
@@ -47,6 +53,25 @@ export default function FederatedPostScreen() {
     enabled: !!uri,
     staleTime: 30000, // 30 seconds
   });
+
+  // Handle sending a reply
+  const handleReply = useCallback(async (text: string) => {
+    if (!thread?.post || !text.trim()) return;
+    
+    try {
+      await replyMutation.mutateAsync({
+        content: text.trim(),
+        parent: {
+          parentUri: thread.post.uri,
+          parentCid: thread.post.cid,
+        },
+      });
+      // Refetch thread to show the new reply
+      refetch();
+    } catch (err) {
+      console.error("Failed to reply:", err);
+    }
+  }, [thread?.post, replyMutation, refetch]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -89,7 +114,7 @@ export default function FederatedPostScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <Stack.Screen options={{ headerShown: false }} />
       
       {/* Header */}
@@ -111,36 +136,43 @@ export default function FederatedPostScreen() {
         </Pressable>
       </View>
 
-      {/* Content */}
-      {isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#10B981" />
-          <Text className="text-text-muted mt-4">Loading post...</Text>
-        </View>
-      ) : error || !thread ? (
-        <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-text-muted text-center">
-            Failed to load this post. It may have been deleted or is unavailable.
-          </Text>
-          <Pressable
-            onPress={() => refetch()}
-            className="mt-4 px-4 py-2 bg-primary rounded-lg"
-          >
-            <Text className="text-white font-medium">Try Again</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <ScrollView
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
-              tintColor="#10B981"
-              colors={["#10B981"]}
-            />
-          }
-          contentContainerStyle={{ paddingBottom: 100 }}
-        >
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        className="flex-1"
+        style={{ flex: 1 }}
+      >
+        {/* Content */}
+        {isLoading ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color="#10B981" />
+            <Text className="text-text-muted mt-4">Loading post...</Text>
+          </View>
+        ) : error || !thread ? (
+          <View className="flex-1 items-center justify-center px-6">
+            <Text className="text-text-muted text-center">
+              Failed to load this post. It may have been deleted or is unavailable.
+            </Text>
+            <Pressable
+              onPress={() => refetch()}
+              className="mt-4 px-4 py-2 bg-primary rounded-lg"
+            >
+              <Text className="text-white font-medium">Try Again</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <ScrollView
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefetching}
+                  onRefresh={refetch}
+                  tintColor="#10B981"
+                  colors={["#10B981"]}
+                />
+              }
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
           {/* Parent post (if replying to something) */}
           {thread.parent && (
             <View className="opacity-70">
@@ -188,8 +220,17 @@ export default function FederatedPostScreen() {
               </Text>
             </View>
           )}
-        </ScrollView>
-      )}
+            </ScrollView>
+
+            {/* Reply Bar */}
+            <ReplyBar
+              onSend={handleReply}
+              isPending={replyMutation.isPending}
+              placeholder="Reply to this post..."
+            />
+          </>
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
