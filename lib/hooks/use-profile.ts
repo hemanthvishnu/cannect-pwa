@@ -82,6 +82,41 @@ const getProxyHeaders = () => ({
 });
 
 /**
+ * Lazy sync: Update local profile counts from Bluesky
+ * Called when viewing a federated user's profile
+ * Fails silently - doesn't block the UI
+ */
+async function syncProfileCounts(profile: Profile): Promise<void> {
+  // Only sync if profile has a DID (is federated)
+  if (!profile.did) return;
+  
+  try {
+    // Fetch fresh stats from Bluesky
+    const profileUrl = `${SUPABASE_URL}/functions/v1/bluesky-proxy?action=getProfile&handle=${encodeURIComponent(profile.did)}`;
+    const res = await fetch(profileUrl, { headers: getProxyHeaders() });
+    
+    if (!res.ok) return;
+    
+    const blueskyProfile = await res.json();
+    
+    if (blueskyProfile && blueskyProfile.did) {
+      // Update local profile with fresh counts
+      await supabase
+        .from('profiles')
+        .update({
+          followers_count: blueskyProfile.followersCount || 0,
+          following_count: blueskyProfile.followsCount || 0,
+          posts_count: blueskyProfile.postsCount || 0,
+        })
+        .eq('id', profile.id);
+    }
+  } catch (err) {
+    // Silently fail - this is just an optimization
+    console.debug('[syncProfileCounts] Error:', err);
+  }
+}
+
+/**
  * Unified Profile Resolver - handles both local and external users
  * 
  * Resolution order:
@@ -107,6 +142,10 @@ export function useResolveProfile(identifier: string) {
           .maybeSingle();
         
         if (byId) {
+          // Lazy sync: Update counts from Bluesky for federated users
+          if (byId.did) {
+            syncProfileCounts(byId);
+          }
           return {
             ...byId,
             is_external: byId.is_local === false,
@@ -123,6 +162,10 @@ export function useResolveProfile(identifier: string) {
         .maybeSingle();
       
       if (byHandle) {
+        // Lazy sync: Update counts from Bluesky for federated users
+        if (byHandle.did) {
+          syncProfileCounts(byHandle);
+        }
         return {
           ...byHandle,
           is_external: byHandle.is_local === false,
@@ -137,6 +180,10 @@ export function useResolveProfile(identifier: string) {
         .maybeSingle();
       
       if (byUsername) {
+        // Lazy sync: Update counts from Bluesky for federated users
+        if (byUsername.did) {
+          syncProfileCounts(byUsername);
+        }
         return {
           ...byUsername,
           is_external: byUsername.is_local === false,
