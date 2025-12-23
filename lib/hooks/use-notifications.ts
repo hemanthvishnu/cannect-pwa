@@ -49,7 +49,8 @@ export function useNotifications() {
         .from("notifications")
         .select(`
           *,
-          actor:profiles!actor_id(id, display_name, username, avatar_url)
+          actor:profiles!actor_id(id, display_name, username, avatar_url),
+          post:posts!post_id(id, at_uri)
         `)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })

@@ -2,8 +2,15 @@ import React, { memo } from "react";
 import { View, Text, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Heart, Repeat2, MessageCircle, Quote, UserPlus, Globe2 } from "lucide-react-native";
+import { Heart, Repeat2, MessageCircle, Quote, UserPlus } from "lucide-react-native";
 import { formatDistanceToNow } from "@/lib/utils/date";
+
+// Bluesky butterfly logo component
+const BlueskyLogo = ({ size = 12 }: { size?: number }) => (
+  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+    <Text style={{ fontSize: size - 2, color: '#0085FF' }}>🦋</Text>
+  </View>
+);
 
 interface NotificationItemProps {
   notification: {
@@ -13,6 +20,11 @@ interface NotificationItemProps {
     is_read?: boolean;
     created_at: string;
     post_id?: string;
+    // Post details (for navigation)
+    post?: {
+      id: string;
+      at_uri?: string;
+    };
     // Internal actor
     actor?: {
       id: string;
@@ -35,20 +47,29 @@ export const NotificationItem = memo(function NotificationItem({
   const isExternal = notification.is_external;
   const isUnread = !notification.is_read;
 
-  // Get actor info from appropriate source
-  const actorName = isExternal
-    ? notification.actor_display_name || notification.actor_handle || "Bluesky User"
-    : notification.actor?.display_name || notification.actor?.username || "User";
-
+  // Get actor info - prefer display name, but use handle if they're the same
+  const rawDisplayName = isExternal 
+    ? notification.actor_display_name 
+    : notification.actor?.display_name;
+  
   const actorHandle = isExternal
     ? notification.actor_handle
     : notification.actor?.username;
+
+  // Only show display name if it's different from the handle
+  const displayNameIsDifferent = rawDisplayName && 
+    rawDisplayName !== actorHandle && 
+    rawDisplayName !== `@${actorHandle}`;
+
+  const actorName = displayNameIsDifferent 
+    ? rawDisplayName 
+    : (isExternal ? actorHandle?.split('.')[0] : actorHandle) || "User";
 
   const actorAvatar = isExternal
     ? notification.actor_avatar
     : notification.actor?.avatar_url;
 
-  const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(actorName)}&background=3B82F6&color=fff`;
+  const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(actorName || 'U')}&background=3B82F6&color=fff`;
 
   // Get icon and text based on reason
   const getNotificationDetails = () => {
@@ -101,7 +122,10 @@ export const NotificationItem = memo(function NotificationItem({
   const { icon, text } = getNotificationDetails();
 
   const handlePress = () => {
-    if (notification.post_id) {
+    // If post has an at_uri, use federated view for real-time Bluesky data
+    if (notification.post?.at_uri) {
+      router.push(`/federated/post?uri=${encodeURIComponent(notification.post.at_uri)}` as any);
+    } else if (notification.post_id) {
       router.push(`/post/${notification.post_id}` as any);
     } else {
       // Use best available identifier
@@ -128,46 +152,42 @@ export const NotificationItem = memo(function NotificationItem({
         {icon}
       </View>
 
-      {/* Avatar */}
-      <Pressable onPress={handleAvatarPress} className="mr-3">
+      {/* Avatar with Bluesky indicator */}
+      <Pressable onPress={handleAvatarPress} className="mr-3 relative">
         <Image
           source={{ uri: actorAvatar || fallbackAvatar }}
-          style={{ width: 40, height: 40, borderRadius: 20 }}
+          style={{ width: 44, height: 44, borderRadius: 22 }}
           contentFit="cover"
         />
+        {isExternal && (
+          <View className="absolute -bottom-0.5 -right-0.5 bg-white dark:bg-gray-900 rounded-full p-0.5">
+            <BlueskyLogo size={14} />
+          </View>
+        )}
       </Pressable>
 
       {/* Content */}
       <View className="flex-1">
-        {/* Actor name with external badge */}
-        <View className="flex-row items-center flex-wrap gap-1">
-          <Text className="font-bold text-text-primary" numberOfLines={1}>
-            {actorName}
-          </Text>
-          
-          {isExternal && (
-            <View className="flex-row items-center gap-1 bg-blue-500/20 px-1.5 py-0.5 rounded-full">
-              <Globe2 size={10} color="#3B82F6" />
-              <Text className="text-[10px] text-blue-500 font-medium">Bluesky</Text>
-            </View>
+        {/* Main notification line */}
+        <Text className="text-text-primary leading-5">
+          <Text className="font-bold">{actorName}</Text>
+          {displayNameIsDifferent && actorHandle && (
+            <Text className="text-text-muted"> @{actorHandle}</Text>
           )}
-          
-          <Text className="text-text-muted text-sm">
-            {text}
-          </Text>
-        </View>
-
-        {/* Handle */}
-        {actorHandle && (
-          <Text className="text-text-muted text-sm mt-0.5">
-            @{actorHandle}
-          </Text>
-        )}
-
-        {/* Timestamp */}
-        <Text className="text-text-muted text-xs mt-1">
-          {formatDistanceToNow(new Date(notification.created_at))}
+          <Text className="text-text-muted"> {text}</Text>
         </Text>
+
+        {/* Timestamp and source */}
+        <View className="flex-row items-center mt-1 gap-2">
+          <Text className="text-text-muted text-xs">
+            {formatDistanceToNow(new Date(notification.created_at))}
+          </Text>
+          {isExternal && (
+            <Text className="text-blue-500 text-xs">
+              via Bluesky
+            </Text>
+          )}
+        </View>
       </View>
 
       {/* Unread indicator */}
