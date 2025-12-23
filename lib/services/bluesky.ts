@@ -243,18 +243,15 @@ export async function getBlueskyPostThread(uri: string): Promise<BlueskyThread |
     // Fire and forget - don't await, don't block the UI
     syncPostCounts(mainPost);
     
-    // Parse replies recursively (flatten for now)
+    // Parse only direct replies (depth 1), not nested replies
     const replies: FederatedPost[] = [];
-    function collectReplies(node: any, depth = 0) {
-      if (!node.replies || depth > 10) return;
-      for (const reply of node.replies) {
+    if (thread.replies) {
+      for (const reply of thread.replies) {
         if (reply.$type === "app.bsky.feed.defs#threadViewPost" && reply.post) {
           replies.push(parseBlueskyPost(reply.post));
-          collectReplies(reply, depth + 1);
         }
       }
     }
-    collectReplies(thread);
     
     // Parse parent if exists
     let parent: FederatedPost | undefined;
