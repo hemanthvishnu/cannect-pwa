@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, Pressable, Platform, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { Send, X, LogIn } from "lucide-react-native";
 import { useRouter } from "expo-router";
@@ -83,70 +83,67 @@ export function ReplyBar({
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-    >
-      <View className="border-t border-border bg-background">
-        {/* Reply target indicator - shows when replying to a specific comment */}
-        {replyTargetUsername && (
-          <View className="flex-row items-center justify-between px-4 py-2 bg-surface/50">
-            <Text className="text-xs text-text-muted">
-              Replying to <Text className="text-primary font-medium">@{replyTargetUsername}</Text>
-            </Text>
-            <Pressable 
-              onPress={onCancelTarget}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <X size={16} color="#6B7280" />
-            </Pressable>
-          </View>
-        )}
-
-        <View className="px-4 py-3 flex-row items-center gap-3">
-          {/* User avatar */}
-          <Image
-            source={{ uri: avatarUrl }}
-            style={{ width: 32, height: 32, borderRadius: 16 }}
-            contentFit="cover"
-            placeholder={BLURHASH_PLACEHOLDERS.NEUTRAL}
-            transition={200}
-          />
-
-          {/* Input field */}
-          <View className="flex-1 bg-surface rounded-2xl px-4 py-2.5 border border-border/30">
-            <TextInput
-              className="text-text-primary text-[15px] max-h-32"
-              placeholder={placeholder}
-              placeholderTextColor="#6B7280"
-              value={text}
-              onChangeText={setText}
-              multiline
-              maxLength={280}
-              editable={!isPending}
-            />
-          </View>
-
-          {/* Send button */}
-          <Pressable
-            onPress={handleSend}
-            disabled={!hasContent || isPending}
-            className={`w-10 h-10 rounded-full items-center justify-center ${
-              hasContent && !isPending ? "bg-primary" : "bg-muted"
-            }`}
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.8 : 1,
-              transform: [{ scale: pressed ? 0.95 : 1 }],
-            })}
+    <View className="border-t border-border bg-background">
+      {/* Reply target indicator - shows when replying to a specific comment */}
+      {replyTargetUsername && (
+        <View className="flex-row items-center justify-between px-4 py-2 bg-surface/50">
+          <Text className="text-xs text-text-muted">
+            Replying to <Text className="text-primary font-medium">@{replyTargetUsername}</Text>
+          </Text>
+          <Pressable 
+            onPress={onCancelTarget}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            {isPending ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Send size={18} color={hasContent ? "white" : "#6B7280"} />
-            )}
+            <X size={16} color="#6B7280" />
           </Pressable>
         </View>
+      )}
+
+      <View className="px-4 py-3 flex-row items-center gap-3">
+        {/* User avatar */}
+        <Image
+          source={{ uri: avatarUrl }}
+          style={{ width: 32, height: 32, borderRadius: 16 }}
+          contentFit="cover"
+          placeholder={BLURHASH_PLACEHOLDERS.NEUTRAL}
+          transition={200}
+        />
+
+        {/* Input field */}
+        <View className="flex-1 bg-surface rounded-2xl px-4 py-2.5 border border-border/30">
+          <TextInput
+            className="text-text-primary text-[15px] max-h-32"
+            placeholder={placeholder}
+            placeholderTextColor="#6B7280"
+            value={text}
+            onChangeText={setText}
+            multiline
+            maxLength={280}
+            editable={!isPending}
+          />
+        </View>
+
+        {/* Send button */}
+        <Pressable
+          onPress={handleSend}
+          disabled={!hasContent || isPending}
+          className={`w-10 h-10 rounded-full items-center justify-center ${
+            hasContent && !isPending ? "bg-primary" : "bg-muted"
+          }`}
+          style={({ pressed }) => ({
+            opacity: pressed ? 0.8 : 1,
+            transform: [{ scale: pressed ? 0.95 : 1 }],
+          })}
+        >
+          {isPending ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Send size={18} color={hasContent ? "white" : "#6B7280"} />
+          )}
+        </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
+  );
+}
   );
 }
