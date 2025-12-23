@@ -468,7 +468,9 @@ async function enrichPostsWithStatus(posts: any[], userId?: string) {
     is_liked: likedPostIds.has(post.id),
     is_reposted_by_me: repostedPostIds.has(post.id),
     is_quoted_by_me: quotedPostIds.has(post.id),
-    likes_count: post.likes?.[0]?.count ?? post.likes_count ?? 0,
+    // Prefer the synced likes_count from the posts table (includes external likes)
+    // Fall back to aggregate count only for pure local posts
+    likes_count: post.likes_count ?? post.likes?.[0]?.count ?? 0,
   }));
 }
 
