@@ -1596,28 +1596,6 @@ export function useHasLikedBlueskyPost(subjectUri: string) {
 }
 
 /**
- * Helper to optimistically update like count in federated feed cache
- */
-function updateFederatedFeedLikeCount(
-  queryClient: ReturnType<typeof useQueryClient>,
-  postUri: string,
-  increment: number
-) {
-  queryClient.setQueryData<any[]>(["federated-feed"], (old) => {
-    if (!old) return old;
-    return old.map((post: any) => {
-      if (post.uri === postUri) {
-        return {
-          ...post,
-          likes_count: Math.max(0, (post.likes_count || 0) + increment),
-        };
-      }
-      return post;
-    });
-  });
-}
-
-/**
  * Like an external Bluesky post (PDS-first approach)
  * Creates the like on PDS first, then mirrors to database
  */
@@ -1636,7 +1614,7 @@ export function useLikeBlueskyPost() {
         subjectCid: postRef.cid,
       });
       
-      return postRef;
+      return postRef.uri;
     },
     onMutate: async (postRef) => {
       const queryKey = ["likes", "external", user?.id, postRef.uri];
@@ -1645,26 +1623,16 @@ export function useLikeBlueskyPost() {
       const previousValue = queryClient.getQueryData(queryKey);
       queryClient.setQueryData(queryKey, true);
       
-      // Optimistically increment like count in federated feed
-      const previousFeed = queryClient.getQueryData<any[]>(["federated-feed"]);
-      updateFederatedFeedLikeCount(queryClient, postRef.uri, 1);
-      
-      return { previousValue, queryKey, previousFeed };
+      return { previousValue, queryKey };
     },
     onError: (err, postRef, context) => {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousValue);
       }
-      // Restore feed on error
-      if (context?.previousFeed) {
-        queryClient.setQueryData(["federated-feed"], context.previousFeed);
-      }
       emitFederationError({ action: 'like' });
     },
-    onSettled: (postRef) => {
-      if (postRef) {
-        queryClient.invalidateQueries({ queryKey: ["likes", "external", user?.id, postRef.uri] });
-      }
+    onSettled: (uri) => {
+      queryClient.invalidateQueries({ queryKey: ["likes", "external", user?.id, uri] });
     },
   });
 }
@@ -1696,19 +1664,11 @@ export function useUnlikeBlueskyPost() {
       const previousValue = queryClient.getQueryData(queryKey);
       queryClient.setQueryData(queryKey, false);
       
-      // Optimistically decrement like count in federated feed
-      const previousFeed = queryClient.getQueryData<any[]>(["federated-feed"]);
-      updateFederatedFeedLikeCount(queryClient, subjectUri, -1);
-      
-      return { previousValue, queryKey, previousFeed };
+      return { previousValue, queryKey };
     },
     onError: (err, subjectUri, context) => {
       if (context?.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousValue);
-      }
-      // Restore feed on error
-      if (context?.previousFeed) {
-        queryClient.setQueryData(["federated-feed"], context.previousFeed);
       }
       emitFederationError({ action: 'unlike' });
     },
