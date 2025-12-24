@@ -3,6 +3,9 @@
  * 
  * Similar to SocialPost but designed for posts that don't exist
  * in our local database. Uses AT Protocol URIs for interactions.
+ * 
+ * @deprecated Consider using UnifiedFeedItem with fromBlueskyPost() adapter instead.
+ * This component uses the unified hooks for interactions.
  */
 
 import { View, Text, Pressable } from "react-native";
@@ -11,12 +14,12 @@ import { useRouter } from "expo-router";
 import { Heart, MessageCircle, Repeat2, Share } from "lucide-react-native";
 import { formatDistanceToNow } from "@/lib/utils/date";
 import { 
-  useHasLikedBlueskyPost, 
-  useLikeBlueskyPost, 
-  useUnlikeBlueskyPost,
-  useHasRepostedBlueskyPost,
-  useRepostBlueskyPost,
-  useUnrepostBlueskyPost,
+  useUnifiedHasLiked, 
+  useUnifiedLike, 
+  useUnifiedUnlike,
+  useUnifiedHasReposted,
+  useUnifiedRepost,
+  useUnifiedUnrepost,
 } from "@/lib/hooks/use-posts";
 import { cn } from "@/lib/utils";
 
@@ -66,29 +69,29 @@ export function BlueskyPost({
 }: BlueskyPostProps) {
   const router = useRouter();
   
-  // Interaction state
-  const { data: isLiked } = useHasLikedBlueskyPost(post.uri);
-  const { data: isReposted } = useHasRepostedBlueskyPost(post.uri);
+  // Unified interaction state (works for all posts by subject_uri)
+  const { data: isLiked } = useUnifiedHasLiked(post.uri);
+  const { data: isReposted } = useUnifiedHasReposted(post.uri);
   
-  // Mutations
-  const likeMutation = useLikeBlueskyPost();
-  const unlikeMutation = useUnlikeBlueskyPost();
-  const repostMutation = useRepostBlueskyPost();
-  const unrepostMutation = useUnrepostBlueskyPost();
+  // Unified mutations (single code path for all posts)
+  const likeMutation = useUnifiedLike();
+  const unlikeMutation = useUnifiedUnlike();
+  const repostMutation = useUnifiedRepost();
+  const unrepostMutation = useUnifiedUnrepost();
 
   const handleLike = () => {
     if (isLiked) {
-      unlikeMutation.mutate(post.uri);
+      unlikeMutation.mutate({ subjectUri: post.uri });
     } else {
-      likeMutation.mutate({ uri: post.uri, cid: post.cid });
+      likeMutation.mutate({ subjectUri: post.uri, subjectCid: post.cid });
     }
   };
 
   const handleRepost = () => {
     if (isReposted) {
-      unrepostMutation.mutate(post.uri);
+      unrepostMutation.mutate({ subjectUri: post.uri });
     } else {
-      repostMutation.mutate({ uri: post.uri, cid: post.cid });
+      repostMutation.mutate({ subjectUri: post.uri, subjectCid: post.cid });
     }
   };
 

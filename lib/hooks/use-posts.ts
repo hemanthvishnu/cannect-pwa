@@ -781,7 +781,484 @@ export function useUserPosts(userId: string, tab: ProfileTab = 'posts') {
 
 // --- Mutations with Optimistic Updates ---
 
+// ============================================================================
+// UNIFIED INTERACTION HOOKS (Phase 4 - Version 2.1)
+// ============================================================================
+// These hooks work for ALL posts (Cannect and cached) with a single code path.
+// Key principle: subjectUri (AT URI) is the universal identifier.
+// postId is optional - only set for Cannect posts (in posts table).
+// ============================================================================
+
+/** Input for unified like/unlike operations */
+export interface UnifiedLikeInput {
+  /** AT URI of the post (required - universal identifier) */
+  subjectUri: string;
+  /** CID of the post (required for like, optional for unlike) */
+  subjectCid?: string;
+  /** UUID from posts table (optional - only for Cannect posts) */
+  postId?: string;
+}
+
+/** Input for unified repost operations */
+export interface UnifiedRepostInput {
+  /** AT URI of the post (required - universal identifier) */
+  subjectUri: string;
+  /** CID of the post (required for repost) */
+  subjectCid: string;
+  /** UUID from posts table (optional - only for Cannect posts) */
+  postId?: string;
+}
+
 /**
+ * UNIFIED: Like any post (Cannect or cached)
+ * 
+ * Single code path for all posts:
+ * 1. Federates to PDS via atproto-agent (always)
+ * 2. atproto-agent writes to likes table (with actor_did, subject_uri)
+ * 3. Trigger updates counts (if Cannect post)
+ * 
+ * Optimistic updates use subject_uri to find post in all caches.
+ */
+export function useUnifiedLike() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async ({ subjectUri, subjectCid, postId }: UnifiedLikeInput) => {
+      if (!user) throw new Error("Not authenticated");
+      if (!subjectCid) throw new Error("Missing CID for like operation");
+      if (!profile?.did) throw new Error("User not federated");
+      
+      // Always federate via atproto-agent (all Cannect users are federated)
+      await atprotoAgent.likePost({
+        userId: user.id,
+        subjectUri,
+        subjectCid,
+        postId, // Optional - atproto-agent will use it if provided
+      });
+      
+      return { subjectUri, postId };
+    },
+    onMutate: async ({ subjectUri, postId }) => {
+      // Cancel related queries
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.all });
+      if (postId) {
+        await queryClient.cancelQueries({ queryKey: queryKeys.posts.detail(postId) });
+      }
+      
+      // Capture previous states for rollback
+      const previousFeed = queryClient.getQueryData(queryKeys.posts.all);
+      const previousDetail = postId ? queryClient.getQueryData(queryKeys.posts.detail(postId)) : undefined;
+      const previousLikeState = queryClient.getQueryData(["likes", "unified", user?.id, subjectUri]);
+      
+      // Capture thread caches
+      const threadQueries = queryClient.getQueriesData<ThreadView>({ queryKey: ['thread'] });
+      const previousThreads = new Map(threadQueries);
+      
+      // Capture bluesky-thread caches
+      const bskyThreadQueries = queryClient.getQueriesData({ queryKey: ["bluesky-thread"] });
+      const previousBskyThreads = new Map(bskyThreadQueries as [any, any][]);
+      
+      // Set optimistic like state
+      queryClient.setQueryData(["likes", "unified", user?.id, subjectUri], true);
+      
+      // Update feed cache (find by at_uri OR uri)
+      queryClient.setQueryData(queryKeys.posts.all, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => 
+            (Array.isArray(page) ? page : page.posts || []).map((p: any) =>
+              (p.at_uri === subjectUri || p.uri === subjectUri)
+                ? { ...p, is_liked: true, likes_count: (p.likes_count || 0) + 1 }
+                : p
+            )
+          ),
+        };
+      });
+      
+      // Update detail cache if Cannect post
+      if (postId) {
+        queryClient.setQueryData(queryKeys.posts.detail(postId), (old: any) => {
+          if (!old) return old;
+          return { ...old, is_liked: true, likes_count: (old.likes_count || 0) + 1 };
+        });
+      }
+      
+      // Update thread caches
+      threadQueries.forEach(([queryKey, thread]) => {
+        if (!thread) return;
+        // Check if any post in thread matches the subjectUri
+        const updateThread = (t: ThreadView): ThreadView => ({
+          ...t,
+          focusedPost: t.focusedPost.at_uri === subjectUri
+            ? { ...t.focusedPost, is_liked: true, likes_count: (t.focusedPost.likes_count || 0) + 1 }
+            : t.focusedPost,
+          ancestors: t.ancestors.map(p => 
+            p.at_uri === subjectUri ? { ...p, is_liked: true, likes_count: (p.likes_count || 0) + 1 } : p
+          ),
+          replies: t.replies.map(r => 
+            r.post.at_uri === subjectUri ? { ...r, post: { ...r.post, is_liked: true, likes_count: (r.post.likes_count || 0) + 1 } } : r
+          ),
+        });
+        queryClient.setQueryData(queryKey, updateThread(thread));
+      });
+      
+      // Update bluesky-thread caches
+      bskyThreadQueries.forEach(([key, data]: [any, any]) => {
+        if (!data) return;
+        if (data.post?.uri === subjectUri) {
+          queryClient.setQueryData(key, { 
+            ...data, 
+            post: { ...data.post, likes_count: (data.post.likes_count || 0) + 1 } 
+          });
+        } else if (data.replies?.some((r: any) => r.uri === subjectUri)) {
+          queryClient.setQueryData(key, {
+            ...data,
+            replies: data.replies.map((r: any) =>
+              r.uri === subjectUri ? { ...r, likes_count: (r.likes_count || 0) + 1 } : r
+            ),
+          });
+        }
+      });
+      
+      return { previousFeed, previousDetail, previousLikeState, previousThreads, previousBskyThreads, subjectUri, postId };
+    },
+    onError: (err, input, context) => {
+      // Rollback all caches
+      if (context?.previousFeed) {
+        queryClient.setQueryData(queryKeys.posts.all, context.previousFeed);
+      }
+      if (context?.postId && context?.previousDetail) {
+        queryClient.setQueryData(queryKeys.posts.detail(context.postId), context.previousDetail);
+      }
+      queryClient.setQueryData(["likes", "unified", user?.id, context?.subjectUri], context?.previousLikeState);
+      context?.previousThreads?.forEach((data, key) => queryClient.setQueryData(key, data));
+      context?.previousBskyThreads?.forEach((data, key) => queryClient.setQueryData(key, data));
+      
+      emitFederationError({ action: 'like' });
+    },
+    onSettled: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+      queryClient.invalidateQueries({ queryKey: ["likes", "unified", user?.id, data?.subjectUri] });
+      if (data?.postId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.posts.detail(data.postId) });
+      }
+      queryClient.invalidateQueries({ queryKey: ['thread'] });
+      queryClient.invalidateQueries({ queryKey: ["bluesky-thread"] });
+    },
+  });
+}
+
+/**
+ * UNIFIED: Unlike any post (Cannect or cached)
+ */
+export function useUnifiedUnlike() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async ({ subjectUri, postId }: UnifiedLikeInput) => {
+      if (!user) throw new Error("Not authenticated");
+      if (!profile?.did) throw new Error("User not federated");
+      
+      // Always federate via atproto-agent
+      await atprotoAgent.unlikePost({
+        userId: user.id,
+        subjectUri,
+        postId,
+      });
+      
+      return { subjectUri, postId };
+    },
+    onMutate: async ({ subjectUri, postId }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.all });
+      if (postId) {
+        await queryClient.cancelQueries({ queryKey: queryKeys.posts.detail(postId) });
+      }
+      
+      const previousFeed = queryClient.getQueryData(queryKeys.posts.all);
+      const previousDetail = postId ? queryClient.getQueryData(queryKeys.posts.detail(postId)) : undefined;
+      const previousLikeState = queryClient.getQueryData(["likes", "unified", user?.id, subjectUri]);
+      
+      const threadQueries = queryClient.getQueriesData<ThreadView>({ queryKey: ['thread'] });
+      const previousThreads = new Map(threadQueries);
+      
+      const bskyThreadQueries = queryClient.getQueriesData({ queryKey: ["bluesky-thread"] });
+      const previousBskyThreads = new Map(bskyThreadQueries as [any, any][]);
+      
+      // Set optimistic unlike state
+      queryClient.setQueryData(["likes", "unified", user?.id, subjectUri], false);
+      
+      // Update feed cache
+      queryClient.setQueryData(queryKeys.posts.all, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => 
+            (Array.isArray(page) ? page : page.posts || []).map((p: any) =>
+              (p.at_uri === subjectUri || p.uri === subjectUri)
+                ? { ...p, is_liked: false, likes_count: Math.max(0, (p.likes_count || 0) - 1) }
+                : p
+            )
+          ),
+        };
+      });
+      
+      if (postId) {
+        queryClient.setQueryData(queryKeys.posts.detail(postId), (old: any) => {
+          if (!old) return old;
+          return { ...old, is_liked: false, likes_count: Math.max(0, (old.likes_count || 0) - 1) };
+        });
+      }
+      
+      // Update thread caches
+      threadQueries.forEach(([queryKey, thread]) => {
+        if (!thread) return;
+        const updateThread = (t: ThreadView): ThreadView => ({
+          ...t,
+          focusedPost: t.focusedPost.at_uri === subjectUri
+            ? { ...t.focusedPost, is_liked: false, likes_count: Math.max(0, (t.focusedPost.likes_count || 0) - 1) }
+            : t.focusedPost,
+          ancestors: t.ancestors.map(p => 
+            p.at_uri === subjectUri ? { ...p, is_liked: false, likes_count: Math.max(0, (p.likes_count || 0) - 1) } : p
+          ),
+          replies: t.replies.map(r => 
+            r.post.at_uri === subjectUri ? { ...r, post: { ...r.post, is_liked: false, likes_count: Math.max(0, (r.post.likes_count || 0) - 1) } } : r
+          ),
+        });
+        queryClient.setQueryData(queryKey, updateThread(thread));
+      });
+      
+      // Update bluesky-thread caches
+      bskyThreadQueries.forEach(([key, data]: [any, any]) => {
+        if (!data) return;
+        if (data.post?.uri === subjectUri) {
+          queryClient.setQueryData(key, { 
+            ...data, 
+            post: { ...data.post, likes_count: Math.max(0, (data.post.likes_count || 0) - 1) } 
+          });
+        } else if (data.replies?.some((r: any) => r.uri === subjectUri)) {
+          queryClient.setQueryData(key, {
+            ...data,
+            replies: data.replies.map((r: any) =>
+              r.uri === subjectUri ? { ...r, likes_count: Math.max(0, (r.likes_count || 0) - 1) } : r
+            ),
+          });
+        }
+      });
+      
+      return { previousFeed, previousDetail, previousLikeState, previousThreads, previousBskyThreads, subjectUri, postId };
+    },
+    onError: (err, input, context) => {
+      if (context?.previousFeed) {
+        queryClient.setQueryData(queryKeys.posts.all, context.previousFeed);
+      }
+      if (context?.postId && context?.previousDetail) {
+        queryClient.setQueryData(queryKeys.posts.detail(context.postId), context.previousDetail);
+      }
+      queryClient.setQueryData(["likes", "unified", user?.id, context?.subjectUri], context?.previousLikeState);
+      context?.previousThreads?.forEach((data, key) => queryClient.setQueryData(key, data));
+      context?.previousBskyThreads?.forEach((data, key) => queryClient.setQueryData(key, data));
+      
+      emitFederationError({ action: 'unlike' });
+    },
+    onSettled: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+      queryClient.invalidateQueries({ queryKey: ["likes", "unified", user?.id, data?.subjectUri] });
+      if (data?.postId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.posts.detail(data.postId) });
+      }
+      queryClient.invalidateQueries({ queryKey: ['thread'] });
+      queryClient.invalidateQueries({ queryKey: ["bluesky-thread"] });
+    },
+  });
+}
+
+/**
+ * UNIFIED: Repost any post (Cannect or cached)
+ */
+export function useUnifiedRepost() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async ({ subjectUri, subjectCid, postId }: UnifiedRepostInput) => {
+      if (!user) throw new Error("Not authenticated");
+      if (!profile?.did) throw new Error("User not federated");
+      
+      await atprotoAgent.repostPost({
+        userId: user.id,
+        subjectUri,
+        subjectCid,
+      });
+      
+      return { subjectUri, postId };
+    },
+    onMutate: async ({ subjectUri, postId }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.all });
+      
+      const previousFeed = queryClient.getQueryData(queryKeys.posts.all);
+      const previousRepostState = queryClient.getQueryData(["reposts", "unified", user?.id, subjectUri]);
+      
+      queryClient.setQueryData(["reposts", "unified", user?.id, subjectUri], true);
+      
+      // Update feed cache
+      queryClient.setQueryData(queryKeys.posts.all, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => 
+            (Array.isArray(page) ? page : page.posts || []).map((p: any) =>
+              (p.at_uri === subjectUri || p.uri === subjectUri)
+                ? { ...p, is_reposted_by_me: true, reposts_count: (p.reposts_count || 0) + 1 }
+                : p
+            )
+          ),
+        };
+      });
+      
+      return { previousFeed, previousRepostState, subjectUri, postId };
+    },
+    onError: (err, input, context) => {
+      if (context?.previousFeed) {
+        queryClient.setQueryData(queryKeys.posts.all, context.previousFeed);
+      }
+      queryClient.setQueryData(["reposts", "unified", user?.id, context?.subjectUri], context?.previousRepostState);
+      emitFederationError({ action: 'repost' });
+    },
+    onSettled: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+      queryClient.invalidateQueries({ queryKey: ["reposts", "unified", user?.id, data?.subjectUri] });
+    },
+  });
+}
+
+/**
+ * UNIFIED: Un-repost any post (Cannect or cached)
+ */
+export function useUnifiedUnrepost() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuthStore();
+
+  return useMutation({
+    mutationFn: async ({ subjectUri, postId }: Omit<UnifiedRepostInput, 'subjectCid'>) => {
+      if (!user) throw new Error("Not authenticated");
+      if (!profile?.did) throw new Error("User not federated");
+      
+      await atprotoAgent.unrepostPost({
+        userId: user.id,
+        subjectUri,
+      });
+      
+      return { subjectUri, postId };
+    },
+    onMutate: async ({ subjectUri, postId }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.all });
+      
+      const previousFeed = queryClient.getQueryData(queryKeys.posts.all);
+      const previousRepostState = queryClient.getQueryData(["reposts", "unified", user?.id, subjectUri]);
+      
+      queryClient.setQueryData(["reposts", "unified", user?.id, subjectUri], false);
+      
+      queryClient.setQueryData(queryKeys.posts.all, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => 
+            (Array.isArray(page) ? page : page.posts || []).map((p: any) =>
+              (p.at_uri === subjectUri || p.uri === subjectUri)
+                ? { ...p, is_reposted_by_me: false, reposts_count: Math.max(0, (p.reposts_count || 0) - 1) }
+                : p
+            )
+          ),
+        };
+      });
+      
+      return { previousFeed, previousRepostState, subjectUri, postId };
+    },
+    onError: (err, input, context) => {
+      if (context?.previousFeed) {
+        queryClient.setQueryData(queryKeys.posts.all, context.previousFeed);
+      }
+      queryClient.setQueryData(["reposts", "unified", user?.id, context?.subjectUri], context?.previousRepostState);
+      emitFederationError({ action: 'unrepost' });
+    },
+    onSettled: (data) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
+      queryClient.invalidateQueries({ queryKey: ["reposts", "unified", user?.id, data?.subjectUri] });
+    },
+  });
+}
+
+/**
+ * UNIFIED: Check if current user has liked a post (by subject_uri)
+ * Works for ALL posts - queries likes table by actor_did + subject_uri
+ */
+export function useUnifiedHasLiked(subjectUri: string) {
+  const { user, profile } = useAuthStore();
+  
+  return useQuery({
+    queryKey: ["likes", "unified", user?.id, subjectUri],
+    queryFn: async () => {
+      if (!user || !profile?.did || !subjectUri) return false;
+      
+      const { data, error } = await supabase
+        .from("likes")
+        .select("id")
+        .eq("actor_did", profile.did)
+        .eq("subject_uri", subjectUri)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("[useUnifiedHasLiked] Error:", error);
+        return false;
+      }
+      
+      return !!data;
+    },
+    enabled: !!user && !!profile?.did && !!subjectUri,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+/**
+ * UNIFIED: Check if current user has reposted a post (by subject_uri)
+ * Works for ALL posts - queries reposts table by actor_did + subject_uri
+ */
+export function useUnifiedHasReposted(subjectUri: string) {
+  const { user, profile } = useAuthStore();
+  
+  return useQuery({
+    queryKey: ["reposts", "unified", user?.id, subjectUri],
+    queryFn: async () => {
+      if (!user || !profile?.did || !subjectUri) return false;
+      
+      const { data, error } = await supabase
+        .from("reposts")
+        .select("id")
+        .eq("actor_did", profile.did)
+        .eq("subject_uri", subjectUri)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("[useUnifiedHasReposted] Error:", error);
+        return false;
+      }
+      
+      return !!data;
+    },
+    enabled: !!user && !!profile?.did && !!subjectUri,
+    staleTime: 30 * 1000,
+  });
+}
+
+// ============================================================================
+// LEGACY HOOKS (Kept for backwards compatibility - use unified hooks instead)
+// ============================================================================
+
+/**
+ * @deprecated Use useUnifiedLike instead
  * Like a post (PDS-first for federated users)
  * 
  * For federated users: Creates like on PDS first, then mirrors to database
@@ -1623,10 +2100,10 @@ export function useDeletePost() {
 }
 
 // =============================================================================
-// External Bluesky Post Interactions
+// External Bluesky Post Interactions (DEPRECATED)
 // =============================================================================
-// These hooks allow interacting with posts that don't exist in our local DB
-// They use AT Protocol URIs and CIDs directly
+// @deprecated Use useUnifiedLike, useUnifiedUnlike, useUnifiedRepost, etc. instead.
+// These hooks are kept for backwards compatibility but will be removed.
 
 export interface BlueskyPostRef {
   uri: string;  // at://did:plc:xxx/app.bsky.feed.post/rkey
@@ -1634,6 +2111,7 @@ export interface BlueskyPostRef {
 }
 
 /**
+ * @deprecated Use useUnifiedHasLiked instead
  * Check if current user has liked an external Bluesky post
  */
 export function useHasLikedBlueskyPost(subjectUri: string) {
