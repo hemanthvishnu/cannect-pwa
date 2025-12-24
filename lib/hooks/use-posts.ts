@@ -1684,6 +1684,7 @@ export function useLikeBlueskyPost() {
     onMutate: async (postRef) => {
       const queryKey = ["likes", "external", user?.id, postRef.uri];
       await queryClient.cancelQueries({ queryKey });
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.all });
       
       const previousValue = queryClient.getQueryData(queryKey);
       queryClient.setQueryData(queryKey, true);
@@ -1714,7 +1715,24 @@ export function useLikeBlueskyPost() {
         }
       });
       
-      return { previousValue, queryKey, previousThreads };
+      // Also update main feed cache (for posts that exist locally with at_uri)
+      const previousFeed = queryClient.getQueryData(queryKeys.posts.all);
+      queryClient.setQueryData(queryKeys.posts.all, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((p: any) =>
+              p.at_uri === postRef.uri
+                ? { ...p, likes_count: (p.likes_count || 0) + 1, is_liked: true }
+                : p
+            ),
+          })),
+        };
+      });
+      
+      return { previousValue, queryKey, previousThreads, previousFeed };
     },
     onError: (err, postRef, context) => {
       if (context?.queryKey) {
@@ -1724,10 +1742,16 @@ export function useLikeBlueskyPost() {
       context?.previousThreads?.forEach((data, keyStr) => {
         queryClient.setQueryData(JSON.parse(keyStr), data);
       });
+      // Restore feed cache on error
+      if (context?.previousFeed) {
+        queryClient.setQueryData(queryKeys.posts.all, context.previousFeed);
+      }
       emitFederationError({ action: 'like' });
     },
     onSettled: (uri) => {
       queryClient.invalidateQueries({ queryKey: ["likes", "external", user?.id, uri] });
+      // Also invalidate main feed to sync with DB
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
     },
   });
 }
@@ -1755,6 +1779,7 @@ export function useUnlikeBlueskyPost() {
     onMutate: async (subjectUri) => {
       const queryKey = ["likes", "external", user?.id, subjectUri];
       await queryClient.cancelQueries({ queryKey });
+      await queryClient.cancelQueries({ queryKey: queryKeys.posts.all });
       
       const previousValue = queryClient.getQueryData(queryKey);
       queryClient.setQueryData(queryKey, false);
@@ -1784,7 +1809,24 @@ export function useUnlikeBlueskyPost() {
         }
       });
       
-      return { previousValue, queryKey, previousThreads };
+      // Also update main feed cache (for posts that exist locally with at_uri)
+      const previousFeed = queryClient.getQueryData(queryKeys.posts.all);
+      queryClient.setQueryData(queryKeys.posts.all, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            posts: page.posts.map((p: any) =>
+              p.at_uri === subjectUri
+                ? { ...p, likes_count: Math.max(0, (p.likes_count || 0) - 1), is_liked: false }
+                : p
+            ),
+          })),
+        };
+      });
+      
+      return { previousValue, queryKey, previousThreads, previousFeed };
     },
     onError: (err, subjectUri, context) => {
       if (context?.queryKey) {
@@ -1794,10 +1836,16 @@ export function useUnlikeBlueskyPost() {
       context?.previousThreads?.forEach((data, keyStr) => {
         queryClient.setQueryData(JSON.parse(keyStr), data);
       });
+      // Restore feed cache on error
+      if (context?.previousFeed) {
+        queryClient.setQueryData(queryKeys.posts.all, context.previousFeed);
+      }
       emitFederationError({ action: 'unlike' });
     },
     onSettled: (uri) => {
       queryClient.invalidateQueries({ queryKey: ["likes", "external", user?.id, uri] });
+      // Also invalidate main feed to sync with DB
+      queryClient.invalidateQueries({ queryKey: queryKeys.posts.all });
     },
   });
 }

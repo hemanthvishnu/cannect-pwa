@@ -243,12 +243,26 @@ async function handleLike(
 
   const atUri = `at://${session.did}/app.bsky.feed.like/${rkey}`;
 
+  // If no postId provided, try to look up the local post by AT URI
+  let postId = req.postId || null;
+  if (!postId && req.subjectUri) {
+    const { data: post } = await supabase
+      .from('posts')
+      .select('id')
+      .eq('at_uri', req.subjectUri)
+      .single();
+    
+    if (post) {
+      postId = post.id;
+    }
+  }
+
   // Mirror to database
   const { error: dbError } = await supabase
     .from('likes')
     .insert({
       user_id: req.userId,
-      post_id: req.postId || null,
+      post_id: postId,
       subject_uri: req.subjectUri,
       subject_cid: req.subjectCid,
       rkey,
