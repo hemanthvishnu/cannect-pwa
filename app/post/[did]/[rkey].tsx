@@ -5,8 +5,8 @@
  * Displays a single post thread using the DID and record key.
  */
 
-import { useState, useCallback } from "react";
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform, TextInput, KeyboardAvoidingView } from "react-native";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform, TextInput, KeyboardAvoidingView, LayoutChangeEvent } from "react-native";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Heart, MessageCircle, Repeat2, MoreHorizontal, Share, Send } from "lucide-react-native";
@@ -223,6 +223,11 @@ export default function PostDetailsScreen() {
   const router = useRouter();
   const { profile, session, handle } = useAuthStore();
   
+  // Scroll ref for auto-scrolling to main post
+  const scrollViewRef = useRef<ScrollView>(null);
+  const mainPostYRef = useRef<number>(0);
+  const hasScrolledRef = useRef(false);
+  
   // Reply state
   const [replyText, setReplyText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -236,6 +241,23 @@ export default function PostDetailsScreen() {
   const repostMutation = useRepost();
   const unrepostMutation = useDeleteRepost();
   const createPostMutation = useCreatePost();
+
+  // Auto-scroll to main post when thread loads (if there are parents)
+  const handleMainPostLayout = useCallback((event: LayoutChangeEvent) => {
+    mainPostYRef.current = event.nativeEvent.layout.y;
+    
+    // Scroll to main post after layout, but only once
+    if (!hasScrolledRef.current && mainPostYRef.current > 0) {
+      hasScrolledRef.current = true;
+      // Small delay to ensure layout is complete
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ 
+          y: mainPostYRef.current - 10, // Small offset for visual comfort
+          animated: false 
+        });
+      }, 100);
+    }
+  }, []);
   
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -459,7 +481,7 @@ export default function PostDetailsScreen() {
           ),
         }}
       />
-      <ScrollView className="flex-1">
+      <ScrollView ref={scrollViewRef} className="flex-1">
         {/* Parent Posts (Thread Ancestors) */}
         {hasParents && (
           <View>
@@ -474,7 +496,10 @@ export default function PostDetailsScreen() {
         )}
 
         {/* Main Post */}
-        <View className={`px-4 ${hasParents ? 'pt-2' : 'pt-3'} pb-3 border-b border-border`}>
+        <View 
+          onLayout={hasParents ? handleMainPostLayout : undefined}
+          className={`px-4 ${hasParents ? 'pt-2' : 'pt-3'} pb-3 border-b border-border`}
+        >
           {/* Replying To indicator */}
           {hasParents && (
             <View className="flex-row items-center mb-2">
