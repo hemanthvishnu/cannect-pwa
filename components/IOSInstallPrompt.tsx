@@ -202,10 +202,8 @@ const styles = StyleSheet.create({
     borderColor: '#27272A',
     borderRadius: 20,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
+    // @ts-ignore - boxShadow for web, elevation for native
+    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)',
     elevation: 8,
   },
   header: {
