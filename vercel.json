@@ -1,7 +1,15 @@
 {
   "rewrites": [
     {
-      "source": "/((?!api|_next|_expo|.*\\..*).*)",
+      "source": "/user/:handle*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/post/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!api|_next|_expo|sw\\.js|manifest\\.json|offline\\.html|icons|screenshots).*)",
       "destination": "/index.html"
     }
   ],
