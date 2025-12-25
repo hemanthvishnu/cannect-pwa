@@ -142,14 +142,14 @@ function FeedItem({
           )}
 
           {/* Actions */}
-          <View className="flex-row items-center mt-3 gap-6">
+          <View className="flex-row items-center justify-between mt-3 pr-4">
             {/* Reply */}
             <Pressable 
               onPress={onReply}
-              className="flex-row items-center"
+              className="flex-row items-center py-1"
             >
               <MessageCircle size={18} color="#6B7280" />
-              <Text className="text-text-muted text-sm ml-1">
+              <Text className="text-text-muted text-sm ml-1.5">
                 {post.replyCount || ''}
               </Text>
             </Pressable>
@@ -157,13 +157,13 @@ function FeedItem({
             {/* Repost */}
             <Pressable 
               onPress={onRepost}
-              className="flex-row items-center"
+              className="flex-row items-center py-1"
             >
               <Repeat2 
                 size={18} 
                 color={post.viewer?.repost ? "#10B981" : "#6B7280"} 
               />
-              <Text className={`text-sm ml-1 ${post.viewer?.repost ? 'text-primary' : 'text-text-muted'}`}>
+              <Text className={`text-sm ml-1.5 ${post.viewer?.repost ? 'text-primary' : 'text-text-muted'}`}>
                 {post.repostCount || ''}
               </Text>
             </Pressable>
@@ -171,20 +171,20 @@ function FeedItem({
             {/* Like */}
             <Pressable 
               onPress={onLike}
-              className="flex-row items-center"
+              className="flex-row items-center py-1"
             >
               <Heart 
                 size={18} 
                 color={post.viewer?.like ? "#EF4444" : "#6B7280"}
                 fill={post.viewer?.like ? "#EF4444" : "none"}
               />
-              <Text className={`text-sm ml-1 ${post.viewer?.like ? 'text-red-500' : 'text-text-muted'}`}>
+              <Text className={`text-sm ml-1.5 ${post.viewer?.like ? 'text-red-500' : 'text-text-muted'}`}>
                 {post.likeCount || ''}
               </Text>
             </Pressable>
 
             {/* Share */}
-            <Pressable onPress={onShare} className="flex-row items-center">
+            <Pressable onPress={onShare} className="flex-row items-center py-1">
               <Share size={18} color="#6B7280" />
             </Pressable>
           </View>
