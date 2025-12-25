@@ -294,6 +294,8 @@ export async function getProfile(actor: string) {
 
 /**
  * Update profile
+ * Note: upsertProfile may log a 400 error if profile record doesn't exist yet - this is normal
+ * and the profile will be created successfully anyway.
  */
 export async function updateProfile(update: {
   displayName?: string;
@@ -302,6 +304,9 @@ export async function updateProfile(update: {
   banner?: any;
 }) {
   const bskyAgent = getAgent();
+  
+  // upsertProfile internally tries to get the existing profile first,
+  // which may fail with 400 if no profile exists yet. This is expected behavior.
   return bskyAgent.upsertProfile((existing) => ({
     ...existing,
     ...update,
