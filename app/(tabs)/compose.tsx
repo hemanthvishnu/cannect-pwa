@@ -45,7 +45,7 @@ export default function ComposeScreen() {
   const [error, setError] = useState<string | null>(null);
   
   const createPostMutation = useCreatePost();
-  const { isAuthenticated, profile } = useAuthStore();
+  const { isAuthenticated, profile, handle } = useAuthStore();
 
   const remainingChars = MAX_LENGTH - content.length;
   const isOverLimit = remainingChars < 0;
@@ -193,7 +193,7 @@ export default function ComposeScreen() {
             ) : (
               <View className="w-10 h-10 rounded-full bg-surface-elevated items-center justify-center">
                 <Text className="text-text-muted text-lg">
-                  {(profile?.handle || '?')[0].toUpperCase()}
+                  {(profile?.handle || handle || 'U')[0].toUpperCase()}
                 </Text>
               </View>
             )}
