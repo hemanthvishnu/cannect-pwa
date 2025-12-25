@@ -429,4 +429,20 @@ export async function getCannectFeed(cursor?: string, limit = 30) {
   }
 }
 
+/**
+ * Request password reset - sends email with reset token
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const bskyAgent = getAgent();
+  await bskyAgent.com.atproto.server.requestPasswordReset({ email });
+}
+
+/**
+ * Reset password using token from email
+ */
+export async function resetPassword(token: string, password: string): Promise<void> {
+  const bskyAgent = getAgent();
+  await bskyAgent.com.atproto.server.resetPassword({ token, password });
+}
+
 export { RichText };

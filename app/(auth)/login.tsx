@@ -68,9 +68,11 @@ export default function LoginScreen() {
                   {showPassword ? <EyeOff size={20} color="#6B6B6B" /> : <Eye size={20} color="#6B6B6B" />}
                 </Pressable>
               </View>
-              <Text className="text-text-tertiary text-sm">
-                Enter your password to sign in
-              </Text>
+              <Link href="/(auth)/forgot-password" asChild>
+                <Pressable className="self-end">
+                  <Text className="text-primary text-sm">Forgot password?</Text>
+                </Pressable>
+              </Link>
             </View>
           </View>
           <View className="px-6 pb-8">
