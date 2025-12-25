@@ -130,6 +130,8 @@ function AppContent() {
             headerShown: false,
             contentStyle: { backgroundColor: "#0A0A0A" },
             animation: "slide_from_right",
+            // Disable automatic safe area insets - we handle them manually
+            headerShadowVisible: false,
           }}
         />
         

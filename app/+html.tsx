@@ -23,7 +23,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
             iOS/Safari Support
         ================================ */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black" />
         <meta name="apple-mobile-web-app-title" content="Cannect" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
         
@@ -42,22 +42,42 @@ export default function Root({ children }: { children: React.ReactNode }) {
         ================================ */}
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: `
-          html, body {
+          html, body, #root {
             -webkit-text-size-adjust: 100%;
             background-color: #0A0A0A;
             color: #FAFAFA;
-            /* 💎 Gold Standard: Remove padding - let SafeAreaView handle notch internally */
             margin: 0;
             padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
           }
-          /* Prevent overscroll bounce on iOS */
+          /* PWA Full Screen - Use safe area insets properly */
           body {
             overscroll-behavior: none;
             overscroll-behavior-y: none;
+            /* Fill entire viewport including notch area */
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            /* iOS PWA: Remove any automatic padding */
+            padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+            padding: 0 !important;
+            box-sizing: border-box;
+          }
+          /* Ensure #root fills the screen */
+          #root {
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            display: flex;
+            flex-direction: column;
           }
           /* Hide scrollbar but keep functionality */
           ::-webkit-scrollbar {
             display: none;
+          }
+          /* Fix iOS PWA input zoom */
+          input, textarea, select {
+            font-size: 16px;
           }
         `}} />
       </head>
