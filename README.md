@@ -1,15 +1,17 @@
 # 🌿 Cannect
 
-A modern social media app built with React Native, Expo, and Supabase.
+A decentralized cannabis social network built on the AT Protocol (Bluesky).
 
 ## ✨ Features
 
-- **Authentication** - Email/password and social login
-- **Feed** - Infinite scrolling feed with posts
-- **Posts** - Create, like, repost, and reply to posts
+- **Decentralized Identity** - You own your data on the AT Protocol
+- **Federation** - Connect with users across the entire Bluesky network
+- **Feed** - Cannect curated feed + Following timeline
+- **Posts** - Create, like, repost, and reply with rich text & media
 - **Profiles** - User profiles with followers/following
-- **Search** - Search users and posts
+- **Search** - Search users and posts across the network
 - **Notifications** - Real-time notifications
+- **PWA Support** - Install on iOS/Android as a web app
 - **Dark Theme** - Premium green & dark design
 
 ## 🛠️ Tech Stack
@@ -22,15 +24,19 @@ A modern social media app built with React Native, Expo, and Supabase.
 - **TanStack Query** - Data fetching & caching
 - **Zustand** - State management
 
-### Backend
-- **Supabase** - Backend-as-a-Service
-  - PostgreSQL database
-  - Authentication
-  - Real-time subscriptions
-  - Storage (for media)
-
-### Optional
-- **Cloudflare** - CDN, R2 storage, Workers
+### Backend (AT Protocol)
+- **Personal Data Server (PDS)** - `cannect.space`
+  - User accounts & authentication
+  - Post storage (AT Protocol records)
+  - Media blob storage
+  - Federation with Bluesky network
+- **Feed Generator** - `feed.cannect.space`
+  - Curated cannabis content feed
+  - Aggregates posts from cannect.space users
+- **AppView** - `api.bsky.app` (Bluesky infrastructure)
+  - Global search & discovery
+  - Notification routing
+  - Content indexing
 
 ## 🚀 Getting Started
 
@@ -39,12 +45,12 @@ A modern social media app built with React Native, Expo, and Supabase.
 - Node.js 18+
 - npm or yarn
 - Expo CLI
-- Supabase account
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
+   git clone https://github.com/hemanthvishnu/cannect.git
    cd cannect
    ```
 
@@ -53,30 +59,23 @@ A modern social media app built with React Native, Expo, and Supabase.
    npm install
    ```
 
-3. **Set up Supabase**
-   - Create a new Supabase project at [supabase.com](https://supabase.com)
-   - Run the schema in `supabase/schema.sql` in the SQL Editor
-   - Get your project URL and anon key
-
-4. **Configure environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   Then edit `.env`:
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-   ```
-
-5. **Start the development server**
+3. **Start the development server**
    ```bash
    npm start
    ```
 
-6. **Run on device/simulator**
+4. **Run on device/simulator**
    - Press `i` for iOS simulator
    - Press `a` for Android emulator
+   - Press `w` for web browser
    - Scan QR code with Expo Go app
+
+### Creating an Account
+
+Accounts are created on the Cannect PDS (`cannect.space`):
+- Your handle will be `username.cannect.space`
+- You can also use a custom domain handle
+- Your data is portable - you can migrate to any AT Protocol PDS
 
 ## 📁 Project Structure
 
@@ -88,26 +87,34 @@ cannect/
 │   │   ├── login.tsx
 │   │   └── register.tsx
 │   ├── (tabs)/            # Main tab screens
-│   │   ├── feed.tsx
-│   │   ├── search.tsx
-│   │   ├── compose.tsx
+│   │   ├── feed.tsx       # Cannect + Following feeds
+│   │   ├── search.tsx     # User & post search
+│   │   ├── compose.tsx    # Create post
 │   │   ├── notifications.tsx
-│   │   └── profile.tsx
-│   ├── post/[id].tsx      # Post detail
-│   └── user/[username].tsx # User profile
+│   │   └── profile.tsx    # Own profile
+│   ├── post/[did]/[rkey].tsx  # Thread view
+│   └── user/[handle].tsx      # User profile
 ├── components/
-│   ├── Post/              # Post components
-│   ├── Profile/           # Profile components
-│   └── ui/                # Reusable UI components
+│   ├── social/            # Social feature components
+│   ├── ui/                # Reusable UI components
+│   ├── Post/              # Post display components
+│   └── Profile/           # Profile components
 ├── lib/
+│   ├── atproto/           # AT Protocol agent
+│   │   └── agent.ts       # BskyAgent singleton
 │   ├── hooks/             # React Query hooks
+│   │   ├── use-atp-auth.ts
+│   │   ├── use-atp-feed.ts
+│   │   └── use-atp-profile.ts
 │   ├── stores/            # Zustand stores
+│   │   └── auth-store-atp.ts
 │   ├── types/             # TypeScript types
-│   ├── utils/             # Utilities
-│   ├── supabase.ts        # Supabase client
 │   └── query-client.ts    # TanStack Query config
-├── assets/                # Images, fonts
-├── supabase/              # Database schema
+├── public/                # PWA assets
+│   ├── manifest.json
+│   └── sw.js              # Service worker
+├── docs/                  # Documentation
+│   └── ARCHITECTURE_DIAGRAM.md
 └── tailwind.config.js     # NativeWind theme
 ```
 
@@ -117,7 +124,7 @@ Premium dark theme with emerald green accents:
 
 | Color | Hex | Usage |
 |-------|-----|-------|
-| Primary | `#10B981` | Buttons, links |
+| Primary | `#10B981` | Buttons, links, accents |
 | Background | `#0A0A0A` | Main background |
 | Surface | `#141414` | Cards, modals |
 | Text Primary | `#FAFAFA` | Headings |
@@ -134,23 +141,54 @@ npm run lint       # Run ESLint
 npm run typecheck  # Run TypeScript check
 ```
 
+## 🌐 AT Protocol Architecture
+
+```
+┌─────────────────┐         ┌─────────────────┐
+│  Cannect App    │◄───────►│  cannect.space  │
+│  (This repo)    │         │  (Our PDS)      │
+└─────────────────┘         └────────┬────────┘
+                                     │
+                            Federation (firehose)
+                                     │
+                                     ▼
+                            ┌─────────────────┐
+                            │  Bluesky Relay  │
+                            │  + AppView      │
+                            │  api.bsky.app   │
+                            └─────────────────┘
+```
+
+- **PDS (Personal Data Server)** - Stores user data, handles auth
+- **Relay** - Aggregates data from all PDS instances
+- **AppView** - Indexes content for search and feeds
+- **Feed Generator** - Custom algorithms for curated feeds
+
 ## 🔧 Development
 
 ### Adding a new screen
 
 1. Create a file in `app/` directory
 2. Export a default React component
-3. The route is automatically created
+3. The route is automatically created by Expo Router
 
-### Adding a new hook
+### Using AT Protocol hooks
 
-1. Create hook in `lib/hooks/`
-2. Export from `lib/hooks/index.ts`
-3. Import with `import { useHook } from "@/lib/hooks"`
+```tsx
+import { useTimeline, useCreatePost, useProfile } from "@/lib/hooks";
 
-### Styling
+// Get feed
+const { data, fetchNextPage } = useTimeline();
 
-Use NativeWind (Tailwind) classes:
+// Create a post
+const createPost = useCreatePost();
+await createPost.mutateAsync({ text: "Hello Cannect! 🌿" });
+
+// Get a profile
+const { data: profile } = useProfile("user.cannect.space");
+```
+
+### Styling with NativeWind
 
 ```tsx
 <View className="bg-surface rounded-xl p-4 border border-border">
@@ -164,4 +202,6 @@ MIT License - feel free to use this for your own projects!
 
 ---
 
-Built with 💚 using Expo & Supabase
+Built with 💚 on the AT Protocol
+
+**Version:** 1.1.0 | **PDS:** cannect.space | **Feed:** feed.cannect.space
