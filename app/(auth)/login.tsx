@@ -35,7 +35,7 @@ export default function LoginScreen() {
           </View>
           <View className="flex-1 px-6 pt-8">
             <Text className="text-3xl font-bold text-text-primary mb-2">Welcome back</Text>
-            <Text className="text-text-secondary mb-8 text-base">Sign in with your Bluesky account</Text>
+            <Text className="text-text-secondary mb-8 text-base">Sign in to your Cannect account</Text>
             {error && (
               <View className="bg-accent-error/20 border border-accent-error/50 rounded-xl p-4 mb-6">
                 <Text className="text-accent-error text-center">{error}</Text>
@@ -45,7 +45,7 @@ export default function LoginScreen() {
               <View className="bg-surface-elevated border border-border rounded-xl flex-row items-center px-4">
                 <AtSign size={20} color="#6B6B6B" />
                 <TextInput 
-                  placeholder="Handle (e.g. user.bsky.social)" 
+                  placeholder="Handle (e.g. user.cannect.space)" 
                   placeholderTextColor="#6B6B6B" 
                   value={identifier}
                   onChangeText={setIdentifier} 
@@ -57,7 +57,7 @@ export default function LoginScreen() {
               <View className="bg-surface-elevated border border-border rounded-xl flex-row items-center px-4">
                 <Lock size={20} color="#6B6B6B" />
                 <TextInput 
-                  placeholder="App Password" 
+                  placeholder="Password" 
                   placeholderTextColor="#6B6B6B" 
                   value={password}
                   onChangeText={setPassword} 
@@ -69,7 +69,7 @@ export default function LoginScreen() {
                 </Pressable>
               </View>
               <Text className="text-text-tertiary text-sm">
-                Use an App Password from bsky.app → Settings → App Passwords
+                Enter your password to sign in
               </Text>
             </View>
           </View>
@@ -87,9 +87,11 @@ export default function LoginScreen() {
             </Pressable>
             <View className="flex-row justify-center mt-6">
               <Text className="text-text-secondary">Don't have an account? </Text>
-              <Pressable onPress={() => { /* Open Bluesky signup */ }}>
-                <Text className="text-primary font-semibold">Join Bluesky</Text>
-              </Pressable>
+              <Link href="/(auth)/register" asChild>
+                <Pressable>
+                  <Text className="text-primary font-semibold">Create Account</Text>
+                </Pressable>
+              </Link>
             </View>
           </View>
         </ScrollView>
