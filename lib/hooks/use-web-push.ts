@@ -26,6 +26,7 @@ interface WebPushState {
   isIOSPWA: boolean;
   permission: NotificationPermission | 'unsupported';
   isLoading: boolean;
+  isInitialized: boolean;
   error: string | null;
 }
 
@@ -87,14 +88,21 @@ export function useWebPush() {
     isSubscribed: false,
     isIOSPWA: false,
     permission: 'unsupported',
-    isLoading: false,
+    isLoading: true,  // Start as loading
+    isInitialized: false,
     error: null,
   });
 
   // Initialize state on mount
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    if (typeof window === 'undefined') return;
+    if (Platform.OS !== 'web') {
+      setState(s => ({ ...s, isLoading: false, isInitialized: true }));
+      return;
+    }
+    if (typeof window === 'undefined') {
+      setState(s => ({ ...s, isLoading: false, isInitialized: true }));
+      return;
+    }
 
     const checkState = async () => {
       const supported = isPushSupported();
@@ -119,6 +127,7 @@ export function useWebPush() {
         isIOSPWA: iosPWA,
         permission,
         isLoading: false,
+        isInitialized: true,
         error: null,
       });
     };
