@@ -41,15 +41,40 @@ export function useTimeline() {
 }
 
 /**
- * The Weed Feed - Most popular cannabis feed on Bluesky (308 likes)
- * Created by @whatsmypot.com
- * Listens for: cannabis, weed, marijuana, 420, etc.
+ * Top cannabis feeds on Bluesky - aggregated for Global feed
+ * Multiple feeds combined for diverse, high-quality content
  */
-const WEED_FEED_URI = 'at://did:plc:kil6rach2ost5soyq4qc3yyj/app.bsky.feed.generator/aaacchngc7ky4';
+const CANNABIS_FEEDS = [
+  {
+    name: 'The Weed Feed',
+    uri: 'at://did:plc:kil6rach2ost5soyq4qc3yyj/app.bsky.feed.generator/aaacchngc7ky4',
+    likes: 307,
+  },
+  {
+    name: 'WeedMob',
+    uri: 'at://did:plc:bz77aitjmyojh2gcrzle55qt/app.bsky.feed.generator/aaajk2dvt3bnu',
+    likes: 224,
+  },
+  {
+    name: 'Cannabis Community 420',
+    uri: 'at://did:plc:ofa3uzadvnxtusxbpr6yvdck/app.bsky.feed.generator/aaanpawlgfvb6',
+    likes: 79,
+  },
+  {
+    name: 'Weedsky',
+    uri: 'at://did:plc:icrcghfflckt22o7dhyyuzfl/app.bsky.feed.generator/aaakxsdsjsy64',
+    likes: 71,
+  },
+  {
+    name: 'Cannabis',
+    uri: 'at://did:plc:lr32wj3jvvt3reue6wexabfh/app.bsky.feed.generator/aaahmzu672jva',
+    likes: 51,
+  },
+];
 
 /**
- * Get Global feed - high quality cannabis content from Bluesky network
- * Uses "The Weed Feed" - the most popular cannabis feed generator
+ * Get Global feed - aggregated cannabis content from multiple Bluesky feeds
+ * Fetches from top 5 cannabis feeds, deduplicates, and sorts by recency
  */
 export function useGlobalFeed() {
   const { isAuthenticated } = useAuthStore();
@@ -57,8 +82,64 @@ export function useGlobalFeed() {
   return useInfiniteQuery({
     queryKey: ['globalFeed'],
     queryFn: async ({ pageParam }) => {
-      const result = await atproto.getExternalFeed(WEED_FEED_URI, pageParam, 30);
-      return result.data;
+      // Parse cursors for each feed (stored as JSON)
+      const cursors: Record<string, string | undefined> = pageParam 
+        ? JSON.parse(pageParam) 
+        : {};
+      
+      // Fetch from all feeds in parallel
+      const feedResults = await Promise.allSettled(
+        CANNABIS_FEEDS.map(async (feed) => {
+          try {
+            const result = await atproto.getExternalFeed(
+              feed.uri, 
+              cursors[feed.uri], 
+              10  // Get 10 from each feed
+            );
+            return { 
+              feedUri: feed.uri, 
+              data: result.data,
+              name: feed.name 
+            };
+          } catch (error) {
+            console.warn(`Failed to fetch ${feed.name}:`, error);
+            return null;
+          }
+        })
+      );
+
+      // Collect posts and new cursors
+      const allPosts: FeedViewPost[] = [];
+      const newCursors: Record<string, string | undefined> = {};
+      const seenUris = new Set<string>();
+
+      for (const result of feedResults) {
+        if (result.status === 'fulfilled' && result.value) {
+          const { feedUri, data } = result.value;
+          newCursors[feedUri] = data.cursor;
+          
+          // Deduplicate by post URI
+          for (const item of data.feed) {
+            if (!seenUris.has(item.post.uri)) {
+              seenUris.add(item.post.uri);
+              allPosts.push(item);
+            }
+          }
+        }
+      }
+
+      // Sort by recency
+      const sorted = allPosts.sort((a, b) => 
+        new Date(b.post.indexedAt).getTime() - new Date(a.post.indexedAt).getTime()
+      );
+
+      // Check if any feed has more content
+      const hasMore = Object.values(newCursors).some(c => c !== undefined);
+
+      return {
+        feed: sorted,
+        cursor: hasMore ? JSON.stringify(newCursors) : undefined,
+      };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
