@@ -16,20 +16,13 @@ export type ProfileViewDetailed = AppBskyActorDefs.ProfileViewDetailed;
 
 /**
  * Get a user's profile by DID or handle
- * Uses Cannect AppView for cannect.space users (includes accurate post counts)
+ * Uses Bluesky's official API
  */
 export function useProfile(actor: string | undefined) {
   return useQuery({
     queryKey: ['profile', actor],
     queryFn: async () => {
       if (!actor) throw new Error('Actor required');
-      
-      // Use our AppView for Cannect users to get accurate data
-      if (atproto.isCannectUser(actor)) {
-        const result = await atproto.getProfileFromAppView(actor);
-        return result.data;
-      }
-      
       const result = await atproto.getProfile(actor);
       return result.data;
     },
