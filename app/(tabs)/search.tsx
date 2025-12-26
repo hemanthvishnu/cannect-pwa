@@ -248,9 +248,9 @@ export default function SearchScreen() {
   // Suggested users when no query
   const suggestedUsers = useMemo(() => {
     const allUsers = suggestedUsersQuery.data || [];
-    return allUsers.filter(user => 
-      user.did !== currentUserDid && !user.viewer?.following
-    );
+    // Only filter out current user - show all others including those we follow
+    // The UI will show "Following" badge for those already followed
+    return allUsers.filter(user => user.did !== currentUserDid);
   }, [suggestedUsersQuery.data, currentUserDid]);
 
   // Build unified search results
