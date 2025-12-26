@@ -241,10 +241,12 @@ export default function FeedScreen() {
 
   const posts = useMemo(() => {
     const allPosts = activeQuery.data?.pages?.flatMap(page => page.feed) || [];
-    // Sort by date (newest first) to ensure proper chronological order
-    return allPosts.sort((a, b) => 
-      new Date(b.post.indexedAt).getTime() - new Date(a.post.indexedAt).getTime()
-    );
+    // Sort by createdAt (when user posted) - not indexedAt (when network indexed)
+    return allPosts.sort((a, b) => {
+      const aDate = (a.post.record as any)?.createdAt || a.post.indexedAt;
+      const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
+    });
   }, [activeQuery.data]);
 
   const handleTabChange = useCallback((feed: FeedType) => {
