@@ -405,6 +405,20 @@ export async function searchPosts(query: string, cursor?: string, limit = 25) {
 }
 
 /**
+ * Get posts from an external feed generator
+ * @param feedUri - The AT URI of the feed generator (e.g., at://did:plc:.../app.bsky.feed.generator/feedname)
+ */
+export async function getExternalFeed(feedUri: string, cursor?: string, limit = 30) {
+  const bskyAgent = getAgent();
+  const result = await bskyAgent.app.bsky.feed.getFeed({
+    feed: feedUri,
+    cursor,
+    limit,
+  });
+  return result;
+}
+
+/**
  * Get recent posts from Cannect users
  * Fetches posts directly from a sample of active users on the PDS
  */

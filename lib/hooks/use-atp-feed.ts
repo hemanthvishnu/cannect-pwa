@@ -41,13 +41,15 @@ export function useTimeline() {
 }
 
 /**
- * Cannabis search keywords for Global feed
+ * The Weed Feed - Most popular cannabis feed on Bluesky (308 likes)
+ * Created by @whatsmypot.com
+ * Listens for: cannabis, weed, marijuana, 420, etc.
  */
-const CANNABIS_KEYWORDS = 'cannabis OR weed OR marijuana OR 420 OR thc OR cbd OR dispensary OR indica OR sativa';
+const WEED_FEED_URI = 'at://did:plc:kil6rach2ost5soyq4qc3yyj/app.bsky.feed.generator/aaacchngc7ky4';
 
 /**
  * Get Global feed - high quality cannabis content from Bluesky network
- * Uses searchPosts API with cannabis-related keywords
+ * Uses "The Weed Feed" - the most popular cannabis feed generator
  */
 export function useGlobalFeed() {
   const { isAuthenticated } = useAuthStore();
@@ -55,12 +57,8 @@ export function useGlobalFeed() {
   return useInfiniteQuery({
     queryKey: ['globalFeed'],
     queryFn: async ({ pageParam }) => {
-      const result = await atproto.searchPosts(CANNABIS_KEYWORDS, pageParam, 30);
-      // Transform searchPosts response to match feed format
-      return {
-        feed: result.data.posts.map(post => ({ post })),
-        cursor: result.data.cursor,
-      };
+      const result = await atproto.getExternalFeed(WEED_FEED_URI, pageParam, 30);
+      return result.data;
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
