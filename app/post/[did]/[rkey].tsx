@@ -242,7 +242,7 @@ function collectParents(thread: ThreadViewPost): PostView[] {
 export default function PostDetailsScreen() {
   const { did, rkey } = useLocalSearchParams<{ did: string; rkey: string }>();
   const router = useRouter();
-  const { profile, session, handle } = useAuthStore();
+  const { profile, session, handle, did: myDid } = useAuthStore();
   
   // Scroll ref for auto-scrolling to main post
   const scrollViewRef = useRef<ScrollView>(null);
@@ -875,7 +875,7 @@ export default function PostDetailsScreen() {
                 onRepost={() => handleReplyRepost(reply.post)}
                 onReply={() => handleReplyToReply(reply.post)}
                 onOptionsPress={() => handleReplyOptionsPress(reply.post)}
-                currentUserDid={did}
+                currentUserDid={myDid}
               />
             ))}
           </View>
@@ -941,8 +941,8 @@ export default function PostDetailsScreen() {
         }}
         onDelete={selectedReply ? handleReplyDelete : handleDelete}
         isOwnPost={selectedReply 
-          ? selectedReply.author.did === did 
-          : post.author.did === did}
+          ? selectedReply.author.did === myDid 
+          : post.author.did === myDid}
         postUrl={selectedReply 
           ? `https://bsky.app/profile/${selectedReply.author.handle}/post/${selectedReply.uri.split('/').pop()}`
           : `https://bsky.app/profile/${post.author.handle}/post/${rkey}`}
