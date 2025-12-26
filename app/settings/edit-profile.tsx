@@ -13,18 +13,157 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Camera } from "lucide-react-native";
+import { ArrowLeft, Camera, Bell, BellOff } from "lucide-react-native";
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { useMyProfile, useUpdateProfile } from "@/lib/hooks";
+import { useMyProfile, useUpdateProfile, useWebPush } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 
 // AT Protocol max blob size is ~1MB, aim for 900KB to be safe
 const MAX_IMAGE_SIZE_BYTES = 900 * 1024;
+
+/**
+ * Push Notification Toggle Component (Web only)
+ * Shows on web platforms, handles iOS PWA detection
+ */
+function PushNotificationToggle() {
+  const webPush = useWebPush();
+  
+  // Only show on web
+  if (Platform.OS !== 'web') return null;
+  
+  // Not supported on this browser
+  if (!webPush.isSupported) {
+    return (
+      <View className="px-4 mt-6 mb-4">
+        <View className="border-t border-border pt-6">
+          <Text className="text-text-muted text-sm mb-3">Notifications</Text>
+          <View className="bg-surface-elevated rounded-xl p-4 flex-row items-center">
+            <BellOff size={20} color="#6B7280" />
+            <View className="flex-1 ml-3">
+              <Text className="text-text-muted text-sm">
+                Push notifications not supported
+              </Text>
+              <Text className="text-text-muted text-xs mt-1">
+                {webPush.isIOSPWA ? 'Requires iOS 16.4+' : 'Your browser doesn\'t support push notifications'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  
+  // iOS but not installed as PWA
+  const isIOSSafari = Platform.OS === 'web' && 
+    typeof navigator !== 'undefined' && 
+    /iPad|iPhone|iPod/.test(navigator.userAgent) && 
+    !webPush.isIOSPWA;
+  
+  if (isIOSSafari) {
+    return (
+      <View className="px-4 mt-6 mb-4">
+        <View className="border-t border-border pt-6">
+          <Text className="text-text-muted text-sm mb-3">Notifications</Text>
+          <View className="bg-surface-elevated rounded-xl p-4 flex-row items-center">
+            <Bell size={20} color="#6B7280" />
+            <View className="flex-1 ml-3">
+              <Text className="text-text-muted text-sm">
+                Add to Home Screen first
+              </Text>
+              <Text className="text-text-muted text-xs mt-1">
+                Install Cannect as an app to enable push notifications
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  
+  // Permission denied
+  if (webPush.permission === 'denied') {
+    return (
+      <View className="px-4 mt-6 mb-4">
+        <View className="border-t border-border pt-6">
+          <Text className="text-text-muted text-sm mb-3">Notifications</Text>
+          <View className="bg-surface-elevated rounded-xl p-4 flex-row items-center">
+            <BellOff size={20} color="#EF4444" />
+            <View className="flex-1 ml-3">
+              <Text className="text-text-muted text-sm">
+                Notifications blocked
+              </Text>
+              <Text className="text-text-muted text-xs mt-1">
+                Enable in your browser/device settings
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+  
+  const handleToggle = async () => {
+    if (Platform.OS !== 'web') return;
+    
+    if (webPush.isSubscribed) {
+      await webPush.unsubscribe();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      const success = await webPush.subscribe();
+      if (success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    }
+  };
+  
+  return (
+    <View className="px-4 mt-6 mb-4">
+      <View className="border-t border-border pt-6">
+        <Text className="text-text-muted text-sm mb-3">Notifications</Text>
+        <View className="bg-surface-elevated rounded-xl p-4 flex-row items-center">
+          {webPush.isSubscribed ? (
+            <Bell size={20} color="#10B981" />
+          ) : (
+            <BellOff size={20} color="#6B7280" />
+          )}
+          <View className="flex-1 ml-3">
+            <Text className="text-text-primary text-sm">
+              Push Notifications
+            </Text>
+            <Text className="text-text-muted text-xs mt-1">
+              {webPush.isSubscribed 
+                ? 'Receive notifications for likes, replies, and follows' 
+                : 'Get notified when someone interacts with your posts'}
+            </Text>
+            {webPush.error && (
+              <Text className="text-accent-error text-xs mt-1">
+                {webPush.error}
+              </Text>
+            )}
+          </View>
+          {webPush.isLoading ? (
+            <ActivityIndicator size="small" color="#10B981" />
+          ) : (
+            <Switch
+              value={webPush.isSubscribed}
+              onValueChange={handleToggle}
+              trackColor={{ false: '#3A3A3A', true: '#10B981' }}
+              thumbColor="#FAFAFA"
+            />
+          )}
+        </View>
+      </View>
+    </View>
+  );
+}
 
 /**
  * Compress and resize image to fit within size limit
@@ -314,6 +453,9 @@ export default function EditProfileScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Push Notifications Section - Web only */}
+          <PushNotificationToggle />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
