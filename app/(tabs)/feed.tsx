@@ -596,12 +596,12 @@ export default function FeedScreen() {
       await deletePostMutation.mutateAsync(selectedPost.uri);
       setOptionsMenuVisible(false);
       setSelectedPost(null);
-      // Refetch feed to reflect deletion
-      activeQuery.refetch();
+      // Don't refetch - optimistic update already removed the post
+      // Refetching would bring it back due to AppView caching delays
     } catch (error) {
       console.error('Failed to delete post:', error);
     }
-  }, [selectedPost, deletePostMutation, activeQuery]);
+  }, [selectedPost, deletePostMutation]);
 
   if (activeQuery.isError) {
     return (
