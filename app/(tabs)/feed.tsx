@@ -569,16 +569,10 @@ export default function FeedScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     
-    // Navigate to compose with reply params
-    router.push({
-      pathname: '/compose',
-      params: {
-        replyToUri: post.uri,
-        replyToCid: post.cid,
-        rootUri: post.uri,
-        rootCid: post.cid,
-      }
-    });
+    // Navigate to thread view - user can reply from there
+    const uriParts = post.uri.split('/');
+    const rkey = uriParts[uriParts.length - 1];
+    router.push(`/post/${post.author.did}/${rkey}`);
   }, [router]);
 
   // Open options menu
