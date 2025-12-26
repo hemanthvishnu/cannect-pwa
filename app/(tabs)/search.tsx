@@ -6,7 +6,7 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
-import { View, Text, TextInput, Pressable, ActivityIndicator, Image, Platform } from "react-native";
+import { View, Text, TextInput, Pressable, ActivityIndicator, Image, Platform, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { Search as SearchIcon, X, Users, Sparkles, UserPlus, Check, FileText } from "lucide-react-native";
@@ -384,6 +384,14 @@ export default function SearchScreen() {
           data={suggestedUsers}
           keyExtractor={(item) => item.did}
           estimatedItemSize={80}
+          refreshControl={
+            <RefreshControl
+              refreshing={suggestedUsersQuery.isRefetching}
+              onRefresh={() => suggestedUsersQuery.refetch()}
+              tintColor="#10B981"
+              colors={["#10B981"]}
+            />
+          }
           ListHeaderComponent={
             <View className="px-4 pt-4 pb-2">
               <View className="flex-row items-center gap-2 mb-3">
@@ -441,6 +449,17 @@ export default function SearchScreen() {
           }}
           getItemType={getItemType}
           estimatedItemSize={100}
+          refreshControl={
+            <RefreshControl
+              refreshing={usersQuery.isRefetching || postsQuery.isRefetching}
+              onRefresh={() => {
+                usersQuery.refetch();
+                postsQuery.refetch();
+              }}
+              tintColor="#10B981"
+              colors={["#10B981"]}
+            />
+          }
           renderItem={renderItem}
           onEndReached={() => {
             // Load more posts when scrolling

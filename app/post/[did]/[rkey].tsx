@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform, TextInput, KeyboardAvoidingView, LayoutChangeEvent } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform, TextInput, KeyboardAvoidingView, LayoutChangeEvent, RefreshControl } from "react-native";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Heart, MessageCircle, Repeat2, MoreHorizontal, Share, Send, ExternalLink } from "lucide-react-native";
@@ -582,7 +582,18 @@ export default function PostDetailsScreen() {
           ),
         }}
       />
-      <ScrollView ref={scrollViewRef} className="flex-1">
+      <ScrollView 
+        ref={scrollViewRef} 
+        className="flex-1"
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={() => refetch()}
+            tintColor="#10B981"
+            colors={["#10B981"]}
+          />
+        }
+      >
         {/* Parent Posts (Thread Ancestors) */}
         {hasParents && (
           <View>
