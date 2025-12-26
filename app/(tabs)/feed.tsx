@@ -439,6 +439,9 @@ export default function FeedScreen() {
   const [mediaViewerImages, setMediaViewerImages] = useState<string[]>([]);
   const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
   
+  // Web refresh indicator - show when scrolled to top
+  const [showRefreshHint, setShowRefreshHint] = useState(false);
+  
   // All three feeds
   const globalQuery = useGlobalFeed();
   const localQuery = useCannectFeed();
@@ -672,7 +675,7 @@ export default function FeedScreen() {
             estimatedItemSize={280}
             drawDistance={300}
             ListHeaderComponent={
-              Platform.OS === 'web' ? (
+              Platform.OS === 'web' && (showRefreshHint || activeQuery.isRefetching) ? (
                 <Pressable 
                   onPress={handleRefresh}
                   className="py-3 items-center border-b border-border"
@@ -687,6 +690,13 @@ export default function FeedScreen() {
                 </Pressable>
               ) : null
             }
+            onScroll={(e) => {
+              if (Platform.OS === 'web') {
+                const y = e.nativeEvent.contentOffset.y;
+                setShowRefreshHint(y <= 0);
+              }
+            }}
+            scrollEventThrottle={16}
             refreshControl={
               <RefreshControl 
                 refreshing={activeQuery.isRefetching} 
