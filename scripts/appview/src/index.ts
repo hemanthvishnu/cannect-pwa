@@ -112,22 +112,28 @@ app.get('/xrpc/app.bsky.feed.getTimeline', (req, res) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100)
     const cursor = req.query.cursor as string | undefined
 
-    // Get viewer DID from auth header (simplified - in real implementation, verify JWT)
-    const authHeader = req.headers.authorization
+    // Get viewer DID from custom header or auth header
     let viewerDid: string | null = null
-
-    if (authHeader?.startsWith('Bearer ')) {
-      // For now, extract DID from a simple token format: did:plc:xxx
-      // In production, this would be JWT verification
-      const token = authHeader.slice(7)
-      if (token.startsWith('did:')) {
-        viewerDid = token
+    
+    // Option 1: Custom header (preferred - simple and direct)
+    const viewerHeader = req.headers['x-viewer-did'] as string | undefined
+    if (viewerHeader?.startsWith('did:')) {
+      viewerDid = viewerHeader
+    }
+    
+    // Option 2: Bearer token as DID (fallback for testing)
+    if (!viewerDid) {
+      const authHeader = req.headers.authorization
+      if (authHeader?.startsWith('Bearer ') && authHeader.slice(7).startsWith('did:')) {
+        viewerDid = authHeader.slice(7)
       }
     }
 
     if (!viewerDid) {
       return res.status(401).json({ error: 'Unauthorized', message: 'Authentication required' })
     }
+
+    console.log('[Timeline] Fetching for viewer:', viewerDid)
 
     // Parse cursor (format: timestamp:uri)
     let cursorTimestamp = new Date().toISOString()

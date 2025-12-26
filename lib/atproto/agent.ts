@@ -316,6 +316,12 @@ export async function getTimelineFromAppView(cursor?: string, limit = 50) {
   const bskyAgent = getAgent();
   const session = bskyAgent.session;
   
+  console.log('[AppView Timeline] Session info:', {
+    did: session?.did,
+    handle: session?.handle,
+    hasSession: !!session,
+  });
+  
   if (!session?.did) {
     console.warn('[AppView] No session for timeline, falling back to Bluesky');
     return bskyAgent.getTimeline({ cursor, limit });
@@ -327,21 +333,27 @@ export async function getTimelineFromAppView(cursor?: string, limit = 50) {
     });
     if (cursor) params.append('cursor', cursor);
     
-    const response = await fetch(
-      `${CANNECT_APPVIEW}/xrpc/app.bsky.feed.getTimeline?${params}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${session.accessJwt}`,
-        },
-      }
-    );
+    const url = `${CANNECT_APPVIEW}/xrpc/app.bsky.feed.getTimeline?${params}`;
+    console.log('[AppView Timeline] Fetching:', url);
+    console.log('[AppView Timeline] X-Viewer-Did:', session.did);
+    
+    const response = await fetch(url, {
+      headers: {
+        // Pass DID directly - our AppView uses this for timeline queries
+        'X-Viewer-Did': session.did,
+      },
+    });
+    
+    console.log('[AppView Timeline] Response status:', response.status);
     
     if (!response.ok) {
-      console.warn('[AppView] getTimeline failed, falling back to Bluesky');
+      const errorText = await response.text();
+      console.warn('[AppView] getTimeline failed:', response.status, errorText);
       return bskyAgent.getTimeline({ cursor, limit });
     }
     
     const data = await response.json();
+    console.log('[AppView Timeline] Got', data.feed?.length || 0, 'posts');
     return { data };
   } catch (error) {
     console.error('[AppView] Timeline error:', error);
