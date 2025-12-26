@@ -19,6 +19,8 @@ interface VideoPlayerProps {
   muted?: boolean;
   loop?: boolean;
   onFullscreen?: () => void;
+  /** If true, video loads immediately. If false (default), shows thumbnail until tapped. */
+  autoLoad?: boolean;
 }
 
 export function VideoPlayer({
@@ -29,6 +31,7 @@ export function VideoPlayer({
   muted: initialMuted = true,
   loop = true,
   onFullscreen,
+  autoLoad = false, // Default to NOT loading video until user taps
 }: VideoPlayerProps) {
   const videoRef = useRef<Video>(null);
   const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
@@ -37,6 +40,7 @@ export function VideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [isMuted, setIsMuted] = useState(initialMuted);
   const [isMounted, setIsMounted] = useState(false);
+  const [isVideoLoaded, setIsVideoLoaded] = useState(autoLoad); // Only load video when user taps
 
   // Derived state (moved before hooks that depend on them)
   const isPlaying = status?.isLoaded && status.isPlaying;
@@ -107,6 +111,14 @@ export function VideoPlayer({
     setShowControls(prev => !prev);
   }, []);
 
+  // Handler to load video on first tap (lazy loading)
+  const handleLoadVideo = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setIsVideoLoaded(true);
+  }, []);
+
   const formatTime = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
     const mins = Math.floor(seconds / 60);
@@ -154,13 +166,37 @@ export function VideoPlayer({
     );
   }
 
+  // Show thumbnail with play button until user taps (lazy loading to save resources)
+  if (!isVideoLoaded) {
+    return (
+      <Pressable 
+        onPress={handleLoadVideo}
+        className="relative rounded-xl overflow-hidden bg-black items-center justify-center"
+        style={{ aspectRatio }}
+      >
+        {thumbnailUrl && (
+          <RNImage
+            source={{ uri: thumbnailUrl }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+        )}
+        <View className="absolute inset-0 items-center justify-center bg-black/40">
+          <View className="bg-black/60 rounded-full p-4">
+            <Play size={32} color="white" fill="white" />
+          </View>
+        </View>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable 
       onPress={handlePress}
       className="relative rounded-xl overflow-hidden bg-black"
       style={{ aspectRatio }}
     >
-      {/* Video */}
+      {/* Video - autoplay since user explicitly tapped to load */}
       <Video
         ref={videoRef}
         source={{ uri: url }}
@@ -169,7 +205,7 @@ export function VideoPlayer({
         posterStyle={{ resizeMode: 'cover' }}
         style={StyleSheet.absoluteFill}
         resizeMode={ResizeMode.CONTAIN}
-        shouldPlay={shouldPlay}
+        shouldPlay={true} // Autoplay since user tapped to load
         isMuted={isMuted}
         isLooping={loop}
         onPlaybackStatusUpdate={(s) => {

@@ -619,7 +619,7 @@ export default function FeedScreen() {
       {activeQuery.isLoading ? (
         <FeedSkeleton />
       ) : (
-        <View style={{ flex: 1, minHeight: 2 }}>
+        <View style={{ flex: 1, minHeight: 100 }} className="flex-1">
           <FlashList
             data={posts}
             keyExtractor={(item, index) => `${activeFeed}-${item.post.uri}-${index}`}
