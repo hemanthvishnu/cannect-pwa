@@ -9,9 +9,11 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform, TextInput, KeyboardAvoidingView, LayoutChangeEvent } from "react-native";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Heart, MessageCircle, Repeat2, MoreHorizontal, Share, Send } from "lucide-react-native";
+import { ArrowLeft, Heart, MessageCircle, Repeat2, MoreHorizontal, Share, Send, ExternalLink } from "lucide-react-native";
 import { Image } from "expo-image";
+import { Linking } from "react-native";
 import * as Haptics from "expo-haptics";
+import { VideoPlayer } from "@/components/ui/VideoPlayer";
 import { usePostThread, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useCreatePost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
@@ -463,10 +465,43 @@ export default function PostDetailsScreen() {
     .filter((r: any) => r.$type === 'app.bsky.feed.defs#threadViewPost' && r.post)
     .map((r: any) => r as ThreadViewPost);
 
-  // Get embed images
-  const embedImages = post.embed?.$type === 'app.bsky.embed.images#view' 
-    ? (post.embed as any).images 
+  // Get embed content
+  const embed = post.embed;
+  const embedType = embed?.$type;
+  
+  // Images embed
+  const embedImages = embedType === 'app.bsky.embed.images#view' 
+    ? (embed as any).images 
     : [];
+  
+  // Link preview embed
+  const linkPreview = embedType === 'app.bsky.embed.external#view'
+    ? (embed as any).external
+    : null;
+  
+  // Quote post embed
+  const quotedPost = embedType === 'app.bsky.embed.record#view'
+    ? (embed as any).record
+    : null;
+  
+  // Video embed
+  const videoEmbed = embedType === 'app.bsky.embed.video#view'
+    ? embed as any
+    : null;
+  
+  // Record with media (quote + images/video)
+  const recordWithMedia = embedType === 'app.bsky.embed.recordWithMedia#view'
+    ? embed as any
+    : null;
+  
+  // Extract media from recordWithMedia
+  const recordWithMediaImages = recordWithMedia?.media?.$type === 'app.bsky.embed.images#view'
+    ? recordWithMedia.media.images
+    : [];
+  const recordWithMediaVideo = recordWithMedia?.media?.$type === 'app.bsky.embed.video#view'
+    ? recordWithMedia.media
+    : null;
+  const recordWithMediaQuote = recordWithMedia?.record?.record;
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['bottom']}>
@@ -563,6 +598,159 @@ export default function PostDetailsScreen() {
                 </View>
               )}
             </View>
+          )}
+          
+          {/* Link Preview Card */}
+          {linkPreview && (
+            <Pressable 
+              onPress={() => Linking.openURL(linkPreview.uri)}
+              className="mt-3 border border-border rounded-xl overflow-hidden"
+            >
+              {linkPreview.thumb && (
+                <Image 
+                  source={{ uri: linkPreview.thumb }}
+                  className="w-full h-40"
+                  contentFit="cover"
+                />
+              )}
+              <View className="p-3">
+                <Text className="text-text-primary font-medium" numberOfLines={2}>
+                  {linkPreview.title}
+                </Text>
+                {linkPreview.description && (
+                  <Text className="text-text-muted text-sm mt-1" numberOfLines={2}>
+                    {linkPreview.description}
+                  </Text>
+                )}
+                <View className="flex-row items-center mt-2">
+                  <ExternalLink size={12} color="#6B7280" />
+                  <Text className="text-text-muted text-xs ml-1">
+                    {new URL(linkPreview.uri).hostname}
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+          )}
+          
+          {/* Quote Post */}
+          {quotedPost && quotedPost.$type === 'app.bsky.embed.record#viewRecord' && (
+            <Pressable 
+              onPress={() => {
+                const uriParts = quotedPost.uri.split('/');
+                const qRkey = uriParts[uriParts.length - 1];
+                const qDid = uriParts[2];
+                router.push(`/post/${qDid}/${qRkey}`);
+              }}
+              className="mt-3 border border-border rounded-xl p-3"
+            >
+              <View className="flex-row items-center mb-2">
+                {quotedPost.author?.avatar && (
+                  <Image 
+                    source={{ uri: quotedPost.author.avatar }}
+                    className="w-5 h-5 rounded-full mr-2"
+                    contentFit="cover"
+                  />
+                )}
+                <Text className="text-text-primary font-medium text-sm">
+                  {quotedPost.author?.displayName || quotedPost.author?.handle}
+                </Text>
+                <Text className="text-text-muted text-sm ml-1">
+                  @{quotedPost.author?.handle}
+                </Text>
+              </View>
+              <Text className="text-text-primary" numberOfLines={4}>
+                {(quotedPost.value as any)?.text}
+              </Text>
+            </Pressable>
+          )}
+          
+          {/* Video Embed */}
+          {videoEmbed && (
+            <View className="mt-3 rounded-xl overflow-hidden">
+              <VideoPlayer
+                url={videoEmbed.playlist}
+                thumbnailUrl={videoEmbed.thumbnail}
+                aspectRatio={videoEmbed.aspectRatio?.width && videoEmbed.aspectRatio?.height 
+                  ? videoEmbed.aspectRatio.width / videoEmbed.aspectRatio.height 
+                  : 16 / 9}
+                autoLoad={true}
+              />
+            </View>
+          )}
+          
+          {/* Record with Media (Quote + Images/Video) */}
+          {recordWithMedia && (
+            <>
+              {/* Images from recordWithMedia */}
+              {recordWithMediaImages.length > 0 && (
+                <View className="mt-3 rounded-xl overflow-hidden">
+                  {recordWithMediaImages.length === 1 ? (
+                    <Image 
+                      source={{ uri: recordWithMediaImages[0].fullsize || recordWithMediaImages[0].thumb }} 
+                      className="w-full h-72"
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View className="flex-row flex-wrap">
+                      {recordWithMediaImages.map((img: any, i: number) => (
+                        <Image 
+                          key={i}
+                          source={{ uri: img.thumb }} 
+                          className="w-1/2 h-40"
+                          contentFit="cover"
+                        />
+                      ))}
+                    </View>
+                  )}
+                </View>
+              )}
+              
+              {/* Video from recordWithMedia */}
+              {recordWithMediaVideo && (
+                <View className="mt-3 rounded-xl overflow-hidden">
+                  <VideoPlayer
+                    url={recordWithMediaVideo.playlist}
+                    thumbnailUrl={recordWithMediaVideo.thumbnail}
+                    aspectRatio={recordWithMediaVideo.aspectRatio?.width && recordWithMediaVideo.aspectRatio?.height 
+                      ? recordWithMediaVideo.aspectRatio.width / recordWithMediaVideo.aspectRatio.height 
+                      : 16 / 9}
+                    autoLoad={true}
+                  />
+                </View>
+              )}
+              
+              {/* Quoted record from recordWithMedia */}
+              {recordWithMediaQuote && recordWithMediaQuote.$type === 'app.bsky.embed.record#viewRecord' && (
+                <Pressable 
+                  onPress={() => {
+                    const uriParts = recordWithMediaQuote.uri.split('/');
+                    const qRkey = uriParts[uriParts.length - 1];
+                    const qDid = uriParts[2];
+                    router.push(`/post/${qDid}/${qRkey}`);
+                  }}
+                  className="mt-3 border border-border rounded-xl p-3"
+                >
+                  <View className="flex-row items-center mb-2">
+                    {recordWithMediaQuote.author?.avatar && (
+                      <Image 
+                        source={{ uri: recordWithMediaQuote.author.avatar }}
+                        className="w-5 h-5 rounded-full mr-2"
+                        contentFit="cover"
+                      />
+                    )}
+                    <Text className="text-text-primary font-medium text-sm">
+                      {recordWithMediaQuote.author?.displayName || recordWithMediaQuote.author?.handle}
+                    </Text>
+                    <Text className="text-text-muted text-sm ml-1">
+                      @{recordWithMediaQuote.author?.handle}
+                    </Text>
+                  </View>
+                  <Text className="text-text-primary" numberOfLines={3}>
+                    {(recordWithMediaQuote.value as any)?.text}
+                  </Text>
+                </Pressable>
+              )}
+            </>
           )}
 
           {/* Timestamp */}
