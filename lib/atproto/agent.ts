@@ -16,8 +16,11 @@ const SESSION_KEY = 'atproto_session';
 // Cannect's own PDS
 const PDS_SERVICE = 'https://cannect.space';
 
-// AppView for reading (Bluesky's infrastructure)
-const APPVIEW_SERVICE = 'https://api.bsky.app';
+// Cannect AppView (our own - has all migrated posts)
+const CANNECT_APPVIEW = 'https://appview.cannect.space';
+
+// Bluesky AppView for fallback (external network content)
+const BSKY_APPVIEW = 'https://public.api.bsky.app';
 
 // Singleton agent instance
 let agent: BskyAgent | null = null;
@@ -266,6 +269,115 @@ export async function getAuthorFeed(
 ) {
   const bskyAgent = getAgent();
   return bskyAgent.getAuthorFeed({ actor, cursor, limit, filter });
+}
+
+/**
+ * Get author's feed from Cannect AppView (includes migrated posts)
+ * Use this for cannect.space users to see all their posts
+ */
+export async function getAuthorFeedFromAppView(
+  actor: string, 
+  cursor?: string, 
+  limit = 50,
+  filter?: string
+) {
+  try {
+    const params = new URLSearchParams({
+      actor,
+      limit: limit.toString(),
+    });
+    if (cursor) params.append('cursor', cursor);
+    if (filter) params.append('filter', filter);
+    
+    const response = await fetch(
+      `${CANNECT_APPVIEW}/xrpc/app.bsky.feed.getAuthorFeed?${params}`
+    );
+    
+    if (!response.ok) {
+      console.warn('[AppView] getAuthorFeed failed, falling back to Bluesky');
+      const bskyAgent = getAgent();
+      return bskyAgent.getAuthorFeed({ actor, cursor, limit });
+    }
+    
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    console.error('[AppView] Error:', error);
+    // Fallback to Bluesky
+    const bskyAgent = getAgent();
+    return bskyAgent.getAuthorFeed({ actor, cursor, limit });
+  }
+}
+
+/**
+ * Get timeline from Cannect AppView (includes migrated posts from people you follow)
+ */
+export async function getTimelineFromAppView(cursor?: string, limit = 50) {
+  const bskyAgent = getAgent();
+  const session = bskyAgent.session;
+  
+  if (!session?.did) {
+    console.warn('[AppView] No session for timeline, falling back to Bluesky');
+    return bskyAgent.getTimeline({ cursor, limit });
+  }
+  
+  try {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+    });
+    if (cursor) params.append('cursor', cursor);
+    
+    const response = await fetch(
+      `${CANNECT_APPVIEW}/xrpc/app.bsky.feed.getTimeline?${params}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${session.accessJwt}`,
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      console.warn('[AppView] getTimeline failed, falling back to Bluesky');
+      return bskyAgent.getTimeline({ cursor, limit });
+    }
+    
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    console.error('[AppView] Timeline error:', error);
+    return bskyAgent.getTimeline({ cursor, limit });
+  }
+}
+
+/**
+ * Get profile from Cannect AppView
+ */
+export async function getProfileFromAppView(actor: string) {
+  try {
+    const response = await fetch(
+      `${CANNECT_APPVIEW}/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(actor)}`
+    );
+    
+    if (!response.ok) {
+      // Fallback to Bluesky
+      const bskyAgent = getAgent();
+      return bskyAgent.getProfile({ actor });
+    }
+    
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    console.error('[AppView] Profile error:', error);
+    const bskyAgent = getAgent();
+    return bskyAgent.getProfile({ actor });
+  }
+}
+
+/**
+ * Check if an actor is on Cannect (ends with .cannect.space)
+ */
+export function isCannectUser(actor: string): boolean {
+  return actor.endsWith('.cannect.space') || actor.startsWith('did:plc:');
 }
 
 /**

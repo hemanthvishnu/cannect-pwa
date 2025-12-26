@@ -42,7 +42,7 @@ export function useTimeline() {
 
 /**
  * Get Cannect Following feed - posts from people you follow
- * Uses our feed generator which includes migrated posts
+ * Uses our AppView which includes all migrated posts
  */
 export function useCannectFollowing() {
   const { isAuthenticated } = useAuthStore();
@@ -50,7 +50,8 @@ export function useCannectFollowing() {
   return useInfiniteQuery({
     queryKey: ['cannectFollowing'],
     queryFn: async ({ pageParam }) => {
-      const result = await atproto.getCannectFollowingFeed(pageParam, 30);
+      // Use our AppView for timeline - has all migrated posts
+      const result = await atproto.getTimelineFromAppView(pageParam, 30);
       return result.data;
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
@@ -84,6 +85,7 @@ export function useCannectFeed() {
 
 /**
  * Get a specific user's feed with optional filter
+ * Uses Cannect AppView for cannect.space users (includes migrated posts)
  */
 export function useAuthorFeed(
   actor: string | undefined, 
@@ -93,6 +95,14 @@ export function useAuthorFeed(
     queryKey: ['authorFeed', actor, filter],
     queryFn: async ({ pageParam }) => {
       if (!actor) throw new Error('Actor required');
+      
+      // Use our AppView for Cannect users to get migrated posts
+      if (atproto.isCannectUser(actor)) {
+        const result = await atproto.getAuthorFeedFromAppView(actor, pageParam, 30, filter);
+        return result.data;
+      }
+      
+      // Use Bluesky for external users
       const result = await atproto.getAuthorFeed(actor, pageParam, 30, filter);
       return result.data;
     },
