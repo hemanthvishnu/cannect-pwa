@@ -64,10 +64,12 @@ export function useTimeline() {
         }
       }
       
-      // Sort ALL posts by date (globally)
-      const sorted = allPosts.sort((a, b) => 
-        new Date(b.post.indexedAt).getTime() - new Date(a.post.indexedAt).getTime()
-      );
+      // Sort by createdAt (when user posted) - not indexedAt (when network indexed)
+      const sorted = allPosts.sort((a, b) => {
+        const aDate = (a.post.record as any)?.createdAt || a.post.indexedAt;
+        const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
+      });
       
       // Parse cursor for pagination through sorted results
       const offset = pageParam ? parseInt(pageParam, 10) : 0;
@@ -180,10 +182,12 @@ export function useGlobalFeed() {
         }
       }
 
-      // Sort by recency
-      const sorted = allPosts.sort((a, b) => 
-        new Date(b.post.indexedAt).getTime() - new Date(a.post.indexedAt).getTime()
-      );
+      // Sort by createdAt (when user posted) - not indexedAt (when network indexed)
+      const sorted = allPosts.sort((a, b) => {
+        const aDate = (a.post.record as any)?.createdAt || a.post.indexedAt;
+        const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
+      });
 
       // Check if any feed has more content
       const hasMore = Object.values(newCursors).some(c => c !== undefined);
@@ -237,10 +241,12 @@ export function useCannectFeed() {
         }
       }
       
-      // Sort ALL posts by date (globally)
-      const sorted = allPosts.sort((a, b) => 
-        new Date(b.post.indexedAt).getTime() - new Date(a.post.indexedAt).getTime()
-      );
+      // Sort by createdAt (when user posted) - not indexedAt (when network indexed)
+      const sorted = allPosts.sort((a, b) => {
+        const aDate = (a.post.record as any)?.createdAt || a.post.indexedAt;
+        const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
+      });
       
       // Parse cursor for pagination through sorted results
       const offset = pageParam ? parseInt(pageParam, 10) : 0;

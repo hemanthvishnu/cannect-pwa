@@ -446,11 +446,13 @@ export async function getCannectPosts(limit = 30) {
     })
   );
   
-  // Flatten and sort by date, most recent first
+  // Flatten and sort by createdAt (when user posted)
   const allPosts = results.flat();
-  const sorted = allPosts.sort((a, b) => 
-    new Date(b.indexedAt).getTime() - new Date(a.indexedAt).getTime()
-  );
+  const sorted = allPosts.sort((a, b) => {
+    const aDate = (a.record as any)?.createdAt || a.indexedAt;
+    const bDate = (b.record as any)?.createdAt || b.indexedAt;
+    return new Date(bDate).getTime() - new Date(aDate).getTime();
+  });
   
   return sorted.slice(0, limit);
 }
