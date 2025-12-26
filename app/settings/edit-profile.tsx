@@ -33,6 +33,22 @@ const MAX_IMAGE_SIZE_BYTES = 900 * 1024;
  */
 function PushNotificationToggle() {
   const webPush = useWebPush();
+  const [debugInfo, setDebugInfo] = useState<string>('');
+  
+  // Collect debug info on mount
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const info = {
+        sw: 'serviceWorker' in navigator,
+        push: 'PushManager' in window,
+        notif: 'Notification' in window,
+        standalone: (window.navigator as any).standalone,
+        displayMode: window.matchMedia('(display-mode: standalone)').matches,
+        isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
+      };
+      setDebugInfo(JSON.stringify(info));
+    }
+  }, []);
   
   // Only show on web
   if (Platform.OS !== 'web') return null;
@@ -51,6 +67,10 @@ function PushNotificationToggle() {
               </Text>
               <Text className="text-text-muted text-xs mt-1">
                 {webPush.isIOSPWA ? 'Requires iOS 16.4+' : 'Your browser doesn\'t support push notifications'}
+              </Text>
+              {/* Debug info - remove after testing */}
+              <Text className="text-text-muted text-xs mt-2 font-mono">
+                {debugInfo}
               </Text>
             </View>
           </View>
