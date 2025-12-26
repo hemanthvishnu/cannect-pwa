@@ -83,6 +83,7 @@ export default function EditProfileScreen() {
   const [banner, setBanner] = useState<{ uri: string; mimeType: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Initialize form with current profile data
   useEffect(() => {
@@ -138,6 +139,7 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     setError(null);
+    setIsSaving(true);
     
     try {
       const update: any = {
@@ -163,14 +165,17 @@ export default function EditProfileScreen() {
         update.bannerMimeType = banner.mimeType;
       }
 
+      // Navigate back FIRST to avoid white flash from query invalidation
+      router.back();
+      
+      // Then update in background - the onSuccess will update the store
       await updateProfileMutation.mutateAsync(update);
 
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      
-      router.back();
     } catch (err: any) {
+      setIsSaving(false);
       setError(err.message || "Failed to update profile");
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -178,17 +183,18 @@ export default function EditProfileScreen() {
     }
   };
 
-  const canSave = !updateProfileMutation.isPending && !isCompressing;
+  const canSave = !updateProfileMutation.isPending && !isCompressing && !isSaving;
   const currentAvatar = avatar?.uri || profileQuery.data?.avatar;
   const currentBanner = banner?.uri || profileQuery.data?.banner;
 
-  if (profileQuery.isLoading || isCompressing) {
+  // Show full-screen loader during initial load, compression, or saving
+  if (profileQuery.isLoading || isCompressing || isSaving) {
     return (
       <SafeAreaView className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator size="large" color="#10B981" />
-        {isCompressing && (
-          <Text className="text-text-muted mt-2">Optimizing image...</Text>
-        )}
+        <Text className="text-text-muted mt-2">
+          {isCompressing ? 'Optimizing image...' : isSaving ? 'Saving...' : 'Loading...'}
+        </Text>
       </SafeAreaView>
     );
   }

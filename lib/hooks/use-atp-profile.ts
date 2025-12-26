@@ -91,7 +91,7 @@ export function useUpdateProfile() {
       });
     },
     onSuccess: async () => {
-      // Refresh profile data
+      // Refresh profile data - use setProfile directly (no invalidation to avoid flash)
       if (did) {
         const result = await atproto.getProfile(did);
         setProfile({
@@ -105,7 +105,9 @@ export function useUpdateProfile() {
           followsCount: result.data.followsCount,
           postsCount: result.data.postsCount,
         });
-        queryClient.invalidateQueries({ queryKey: ['profile'] });
+        // Only invalidate the specific profile query, not all profile queries
+        // This prevents the cascade of re-renders across the app
+        queryClient.setQueryData(['profile', 'self', did], result.data);
       }
     },
   });
