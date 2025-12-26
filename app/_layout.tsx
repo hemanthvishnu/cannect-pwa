@@ -14,6 +14,7 @@ import * as atproto from "@/lib/atproto/agent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PWAUpdater } from "@/components/PWAUpdater";
 import { IOSInstallPrompt } from "@/components/IOSInstallPrompt";
+import { WebPushPrompt } from "@/components/WebPushPrompt";
 import { WhatsNewToast } from "@/components/WhatsNewToast";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { ToastProvider } from "@/components/ui/Toast";
@@ -151,6 +152,9 @@ function AppContent() {
         
         {/* 💎 iOS Install Prompt - Guides Safari users to install */}
         <IOSInstallPrompt />
+        
+        {/* 💎 Web Push Prompt - For iOS 16.4+ and other browsers */}
+        <WebPushPrompt />
         
         {/* 💎 What's New Toast - Shows after app updates */}
         <WhatsNewToast />
