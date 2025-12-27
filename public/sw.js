@@ -4,7 +4,7 @@
 // =====================================================
 
 // 💎 ATOMIC VERSIONING - INCREMENT THIS ON EVERY DEPLOY
-const CACHE_VERSION = 'v1.4.0';
+const CACHE_VERSION = 'v1.5.0';
 const CACHE_NAME = `cannect-atomic-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
@@ -39,6 +39,21 @@ const CACHE_BYPASS_PATTERNS = [
 // =====================================================
 self.addEventListener('install', (event) => {
   console.log(`[SW] Installing version ${CACHE_VERSION}`);
+  
+  // 💎 Remote log for debugging iOS PWA
+  fetch('https://fmloudndgtxglvgruyjl.supabase.co/rest/v1/app_logs', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtbG91ZG5kZ3R4Z2x2Z3J1eWpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4MTM3ODgsImV4cCI6MjA4MjM4OTc4OH0.YmbdTjzy32j34iu0nZA3n0fT-cAHAsUBcVtGWXIPNOY',
+    },
+    body: JSON.stringify({
+      category: 'sw',
+      action: 'install',
+      status: 'start',
+      message: `Installing ${CACHE_VERSION}`,
+    }),
+  }).catch(() => {});
   
   event.waitUntil(
     (async () => {
@@ -98,6 +113,21 @@ self.addEventListener('install', (event) => {
 // =====================================================
 self.addEventListener('activate', (event) => {
   console.log(`[SW] Activating version ${CACHE_VERSION}`);
+  
+  // 💎 Remote log for debugging iOS PWA
+  fetch('https://fmloudndgtxglvgruyjl.supabase.co/rest/v1/app_logs', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtbG91ZG5kZ3R4Z2x2Z3J1eWpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4MTM3ODgsImV4cCI6MjA4MjM4OTc4OH0.YmbdTjzy32j34iu0nZA3n0fT-cAHAsUBcVtGWXIPNOY',
+    },
+    body: JSON.stringify({
+      category: 'sw',
+      action: 'activate',
+      status: 'start',
+      message: `Activating ${CACHE_VERSION}`,
+    }),
+  }).catch(() => {});
   
   event.waitUntil(
     (async () => {
