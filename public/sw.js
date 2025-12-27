@@ -4,7 +4,7 @@
 // =====================================================
 
 // 💎 ATOMIC VERSIONING - INCREMENT THIS ON EVERY DEPLOY
-const CACHE_VERSION = 'v1.2.0';
+const CACHE_VERSION = 'v1.3.0';
 const CACHE_NAME = `cannect-atomic-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
 
@@ -71,14 +71,27 @@ self.addEventListener('install', (event) => {
         ).length;
         console.log(`[SW] Pre-cached ${successCount}/${PRECACHE_ASSETS.length} assets`);
         
+        // 💎 CRITICAL: On FIRST INSTALL (no controller), activate immediately
+        // This is needed for push notifications to work on fresh installs
+        // On UPDATES (controller exists), PWAUpdater will call skipWaiting via postMessage
+        const clients = await self.clients.matchAll({ includeUncontrolled: true });
+        const hasController = clients.some(c => c.url); // If we have clients, check if any are controlled
+        
+        // Check if this is a first install by seeing if there's no active worker
+        const isFirstInstall = !self.registration?.active;
+        
+        if (isFirstInstall) {
+          console.log('[SW] First install detected - activating immediately');
+          self.skipWaiting();
+        } else {
+          console.log('[SW] Update detected - waiting for PWAUpdater to activate');
+        }
+        
       } catch (error) {
         console.error('[SW] Pre-cache failed:', error);
       }
     })()
   );
-  
-  // 💎 Don't skipWaiting here - let PWAUpdater control this
-  // This prevents the "surprise reload" problem
 });
 
 // =====================================================

@@ -19,7 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft, Camera, Bell, BellOff } from "lucide-react-native";
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as Haptics from "expo-haptics";
+import { triggerNotification } from "@/lib/utils/haptics";
 import { router } from "expo-router";
 import { useMyProfile, useUpdateProfile, useWebPush } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
@@ -128,13 +128,13 @@ function PushNotificationToggle() {
     
     if (webPush.isSubscribed) {
       await webPush.unsubscribe();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      triggerNotification('success');
     } else {
       const success = await webPush.subscribe();
       if (success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        triggerNotification('success');
       } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        triggerNotification('error');
       }
     }
   };
@@ -325,15 +325,11 @@ export default function EditProfileScreen() {
       // Then update in background - the onSuccess will update the store
       await updateProfileMutation.mutateAsync(update);
 
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+      triggerNotification('success');
     } catch (err: any) {
       setIsSaving(false);
       setError(err.message || "Failed to update profile");
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
+      triggerNotification('error');
     }
   };
 
