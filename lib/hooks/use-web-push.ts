@@ -105,31 +105,40 @@ export function useWebPush() {
     }
 
     const checkState = async () => {
-      const supported = isPushSupported();
-      const iosPWA = isIOSInstalledPWA();
-      const permission = supported ? Notification.permission : 'unsupported';
-      
-      let isSubscribed = false;
-      
-      if (supported && permission === 'granted') {
-        try {
-          const registration = await navigator.serviceWorker.ready;
-          const subscription = await registration.pushManager.getSubscription();
-          isSubscribed = !!subscription;
-        } catch (e) {
-          console.error('[WebPush] Error checking subscription:', e);
+      try {
+        const supported = isPushSupported();
+        const iosPWA = isIOSInstalledPWA();
+        const permission = supported ? Notification.permission : 'unsupported';
+        
+        let isSubscribed = false;
+        
+        if (supported && permission === 'granted') {
+          try {
+            // Add timeout to prevent hanging
+            const registration = await Promise.race([
+              navigator.serviceWorker.ready,
+              new Promise((_, reject) => setTimeout(() => reject(new Error('SW timeout')), 5000))
+            ]) as ServiceWorkerRegistration;
+            const subscription = await registration.pushManager.getSubscription();
+            isSubscribed = !!subscription;
+          } catch (e) {
+            console.error('[WebPush] Error checking subscription:', e);
+          }
         }
-      }
 
-      setState({
-        isSupported: supported,
-        isSubscribed,
-        isIOSPWA: iosPWA,
-        permission,
-        isLoading: false,
-        isInitialized: true,
-        error: null,
-      });
+        setState({
+          isSupported: supported,
+          isSubscribed,
+          isIOSPWA: iosPWA,
+          permission,
+          isLoading: false,
+          isInitialized: true,
+          error: null,
+        });
+      } catch (e) {
+        console.error('[WebPush] Init error:', e);
+        setState(s => ({ ...s, isLoading: false, isInitialized: true }));
+      }
     };
 
     checkState();

@@ -428,10 +428,18 @@ export async function updateProfile(update: {
   
   // upsertProfile internally tries to get the existing profile first,
   // which may fail with 400 if no profile exists yet. This is expected behavior.
-  return bskyAgent.upsertProfile((existing) => ({
-    ...existing,
-    ...update,
-  }));
+  // Only include fields that are explicitly set (not undefined) to avoid overwriting
+  return bskyAgent.upsertProfile((existing) => {
+    const result = { ...existing };
+    
+    // Only update fields that are explicitly provided
+    if (update.displayName !== undefined) result.displayName = update.displayName;
+    if (update.description !== undefined) result.description = update.description;
+    if (update.avatar !== undefined) result.avatar = update.avatar;
+    if (update.banner !== undefined) result.banner = update.banner;
+    
+    return result;
+  });
 }
 
 /**
