@@ -757,8 +757,9 @@ export default function FeedScreen() {
               if (now - lastFetchTime.current < FETCH_COOLDOWN_MS) {
                 return;
               }
-              // Also check if currently fetching (double protection)
-              if (activeQuery.hasNextPage && !activeQuery.isFetchingNextPage && !activeQuery.isFetching) {
+              // Check if ANY feed is currently fetching (prevents race conditions on tab switch)
+              const anyFetching = globalQuery.isFetching || localQuery.isFetching || followingQuery.isFetching;
+              if (activeQuery.hasNextPage && !activeQuery.isFetchingNextPage && !anyFetching) {
                 lastFetchTime.current = now;
                 activeQuery.fetchNextPage();
               }
