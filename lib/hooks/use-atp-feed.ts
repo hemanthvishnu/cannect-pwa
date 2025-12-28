@@ -355,6 +355,7 @@ export function useAuthorFeed(
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
+    maxPages: 10, // Memory optimization: keep max 10 pages (300 posts) to prevent crashes
     enabled: !!actor,
     staleTime: 1000 * 60,
   });
@@ -373,6 +374,7 @@ export function useActorLikes(actor: string | undefined) {
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
+    maxPages: 10, // Memory optimization: keep max 10 pages (300 likes) to prevent crashes
     enabled: !!actor,
     staleTime: 1000 * 60,
   });

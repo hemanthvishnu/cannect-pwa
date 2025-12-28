@@ -126,6 +126,7 @@ export function useFollowers(actor: string | undefined) {
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
+    maxPages: 20, // Memory optimization: keep max 20 pages (1000 followers) to prevent crashes
     enabled: !!actor,
     staleTime: 1000 * 60 * 2,
   });
@@ -144,6 +145,7 @@ export function useFollowing(actor: string | undefined) {
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
+    maxPages: 20, // Memory optimization: keep max 20 pages (1000 following) to prevent crashes
     enabled: !!actor,
     staleTime: 1000 * 60 * 2,
   });
