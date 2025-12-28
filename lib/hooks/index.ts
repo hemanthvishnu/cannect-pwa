@@ -68,6 +68,19 @@ export {
 export { useDebounce } from './use-debounce';
 export { useNetworkStatus } from './use-network-status';
 
+// Optimistic Updates utilities
+export {
+  createOptimisticContext,
+  postUpdaters,
+  cancelFeedQueries,
+  snapshotFeedState,
+  restoreFeedState,
+  updatePostInFeeds,
+  removePostFromFeeds,
+  invalidateFeeds,
+  FEED_KEYS,
+} from './optimistic-updates';
+
 // PWA Diamond Standard APIs
 export { usePWA } from './use-pwa';
 export { useWebPush } from './use-web-push';

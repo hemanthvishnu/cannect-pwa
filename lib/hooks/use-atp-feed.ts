@@ -12,6 +12,10 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import * as atproto from '@/lib/atproto/agent';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
 import { logger, perf } from '@/lib/utils/logger';
+import {
+  createOptimisticContext,
+  postUpdaters,
+} from './optimistic-updates';
 import type { 
   AppBskyFeedDefs, 
   AppBskyFeedPost,
@@ -446,6 +450,7 @@ export function useCreatePost() {
  */
 export function useDeletePost() {
   const queryClient = useQueryClient();
+  const optimistic = createOptimisticContext(queryClient);
 
   return useMutation({
     mutationFn: async (uri: string) => {
@@ -460,67 +465,17 @@ export function useDeletePost() {
       }
     },
     onMutate: async (uri: string) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['timeline'] });
-      await queryClient.cancelQueries({ queryKey: ['cannectFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['globalFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['authorFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['actorLikes'] });
-
-      // Snapshot previous values for rollback
-      const previousTimeline = queryClient.getQueryData(['timeline']);
-      const previousCannectFeed = queryClient.getQueryData(['cannectFeed']);
-      const previousGlobalFeed = queryClient.getQueryData(['globalFeed']);
-      const previousAuthorFeed = queryClient.getQueriesData({ queryKey: ['authorFeed'] });
-      const previousActorLikes = queryClient.getQueriesData({ queryKey: ['actorLikes'] });
-
-      // Helper to remove post from feed data
-      const removePostFromFeed = (old: any) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            feed: page.feed.filter((item: FeedViewPost) => item.post.uri !== uri),
-          })),
-        };
-      };
-
-      // Optimistically remove from all feeds
-      queryClient.setQueryData(['timeline'], removePostFromFeed);
-      queryClient.setQueryData(['cannectFeed'], removePostFromFeed);
-      queryClient.setQueryData(['globalFeed'], removePostFromFeed);
-      queryClient.setQueriesData({ queryKey: ['authorFeed'] }, removePostFromFeed);
-      queryClient.setQueriesData({ queryKey: ['actorLikes'] }, removePostFromFeed);
-
-      return { previousTimeline, previousCannectFeed, previousGlobalFeed, previousAuthorFeed, previousActorLikes };
+      await optimistic.cancel();
+      const snapshots = optimistic.snapshot();
+      optimistic.removePost(uri);
+      return snapshots;
     },
     onError: (err, uri, context) => {
-      // Rollback on error
-      if (context?.previousTimeline) {
-        queryClient.setQueryData(['timeline'], context.previousTimeline);
-      }
-      if (context?.previousCannectFeed) {
-        queryClient.setQueryData(['cannectFeed'], context.previousCannectFeed);
-      }
-      if (context?.previousGlobalFeed) {
-        queryClient.setQueryData(['globalFeed'], context.previousGlobalFeed);
-      }
-      if (context?.previousAuthorFeed) {
-        context.previousAuthorFeed.forEach(([queryKey, data]: [any, any]) => {
-          queryClient.setQueryData(queryKey, data);
-        });
-      }
-      if (context?.previousActorLikes) {
-        context.previousActorLikes.forEach(([queryKey, data]: [any, any]) => {
-          queryClient.setQueryData(queryKey, data);
-        });
-      }
+      if (context) optimistic.restore(context);
     },
     // NOTE: We intentionally do NOT refetch after delete
     // The optimistic update already removed the post from cache
     // Refetching would bring back the post due to AppView caching delays
-    // The next natural refetch (pull-to-refresh, navigation, etc.) will sync
   });
 }
 
@@ -529,6 +484,7 @@ export function useDeletePost() {
  */
 export function useLikePost() {
   const queryClient = useQueryClient();
+  const optimistic = createOptimisticContext(queryClient);
 
   return useMutation({
     mutationFn: async ({ uri, cid }: { uri: string; cid: string }) => {
@@ -537,100 +493,21 @@ export function useLikePost() {
       return result;
     },
     onMutate: async ({ uri }) => {
-      // Log optimistic update start
       logger.mutation.optimisticStart('like', uri, { liked: true, likeCountDelta: 1 });
-      
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['timeline'] });
-      await queryClient.cancelQueries({ queryKey: ['cannectFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['globalFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['authorFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['thread'] });
-
-      // Snapshot previous values for rollback
-      const previousTimeline = queryClient.getQueryData(['timeline']);
-      const previousCannectFeed = queryClient.getQueryData(['cannectFeed']);
-      const previousglobalFeed = queryClient.getQueryData(['globalFeed']);
-
-      // Helper to update post in feed data
-      const updatePostInFeed = (old: any) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            feed: page.feed.map((item: FeedViewPost) => {
-              if (item.post.uri === uri) {
-                return {
-                  ...item,
-                  post: {
-                    ...item.post,
-                    likeCount: (item.post.likeCount || 0) + 1,
-                    viewer: { ...item.post.viewer, like: 'pending' },
-                  },
-                };
-              }
-              return item;
-            }),
-          })),
-        };
-      };
-
-      // Optimistically update all feeds (use partial key match for authorFeed)
-      queryClient.setQueryData(['timeline'], updatePostInFeed);
-      queryClient.setQueryData(['cannectFeed'], updatePostInFeed);
-      queryClient.setQueryData(['globalFeed'], updatePostInFeed);
-      // Update all authorFeed queries
-      queryClient.setQueriesData({ queryKey: ['authorFeed'] }, updatePostInFeed);
-      // Update thread queries
-      queryClient.setQueriesData({ queryKey: ['thread'] }, (old: any) => {
-        if (!old?.thread?.post) return old;
-        if (old.thread.post.uri === uri) {
-          return {
-            ...old,
-            thread: {
-              ...old.thread,
-              post: {
-                ...old.thread.post,
-                likeCount: (old.thread.post.likeCount || 0) + 1,
-                viewer: { ...old.thread.post.viewer, like: 'pending' },
-              },
-            },
-          };
-        }
-        return old;
-      });
-
-      return { previousTimeline, previousCannectFeed, previousglobalFeed };
+      await optimistic.cancel();
+      const snapshots = optimistic.snapshot();
+      optimistic.updatePost(uri, postUpdaters.like);
+      return snapshots;
     },
     onError: (err, variables, context) => {
-      // Log rollback
       logger.mutation.rollback('like', variables.uri, err.message || 'Unknown error');
-      
-      // Rollback on error
-      if (context?.previousTimeline) {
-        queryClient.setQueryData(['timeline'], context.previousTimeline);
-      }
-      if (context?.previousCannectFeed) {
-        queryClient.setQueryData(['cannectFeed'], context.previousCannectFeed);
-      }
-      if (context?.previousglobalFeed) {
-        queryClient.setQueryData(['globalFeed'], context.previousglobalFeed);
-      }
-      // Note: authorFeed rollback handled by invalidation
+      if (context) optimistic.restore(context);
     },
     onSuccess: (result, variables) => {
-      // Log successful server response
       logger.mutation.serverResponse('like', variables.uri, { likeUri: result.uri }, true);
     },
     onSettled: () => {
-      // Refetch to sync with server
-      queryClient.invalidateQueries({ queryKey: ['timeline'] });
-      queryClient.invalidateQueries({ queryKey: ['cannectFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['globalFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['authorFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['actorLikes'] });
-      queryClient.invalidateQueries({ queryKey: ['thread'] });
+      optimistic.invalidate();
     },
   });
 }
@@ -640,6 +517,7 @@ export function useLikePost() {
  */
 export function useUnlikePost() {
   const queryClient = useQueryClient();
+  const optimistic = createOptimisticContext(queryClient);
 
   return useMutation({
     mutationFn: async ({ likeUri, postUri }: { likeUri: string; postUri: string }) => {
@@ -647,116 +525,24 @@ export function useUnlikePost() {
       logger.post.unlike(postUri);
     },
     onMutate: async ({ postUri }) => {
-      // Log optimistic update start
       logger.mutation.optimisticStart('unlike', postUri, { liked: false, likeCountDelta: -1 });
-      
-      await queryClient.cancelQueries({ queryKey: ['timeline'] });
-      await queryClient.cancelQueries({ queryKey: ['cannectFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['globalFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['authorFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['actorLikes'] });
-
-      const previousTimeline = queryClient.getQueryData(['timeline']);
-      const previousCannectFeed = queryClient.getQueryData(['cannectFeed']);
-      const previousglobalFeed = queryClient.getQueryData(['globalFeed']);
-      const previousActorLikes = queryClient.getQueriesData({ queryKey: ['actorLikes'] });
-
-      const updatePostInFeed = (old: any) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            feed: page.feed.map((item: FeedViewPost) => {
-              if (item.post.uri === postUri) {
-                return {
-                  ...item,
-                  post: {
-                    ...item.post,
-                    likeCount: Math.max((item.post.likeCount || 1) - 1, 0),
-                    viewer: { ...item.post.viewer, like: undefined },
-                  },
-                };
-              }
-              return item;
-            }),
-          })),
-        };
-      };
-
-      // Remove post from actorLikes (Likes tab on profile)
-      const removeFromLikes = (old: any) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            feed: page.feed.filter((item: FeedViewPost) => item.post.uri !== postUri),
-          })),
-        };
-      };
-
-      queryClient.setQueryData(['timeline'], updatePostInFeed);
-      queryClient.setQueryData(['cannectFeed'], updatePostInFeed);
-      queryClient.setQueryData(['globalFeed'], updatePostInFeed);
-      queryClient.setQueriesData({ queryKey: ['authorFeed'] }, updatePostInFeed);
-      queryClient.setQueriesData({ queryKey: ['actorLikes'] }, removeFromLikes);
-      
-      // Update thread queries for unlike
-      queryClient.setQueriesData({ queryKey: ['thread'] }, (old: any) => {
-        if (!old?.thread?.post) return old;
-        if (old.thread.post.uri === postUri) {
-          return {
-            ...old,
-            thread: {
-              ...old.thread,
-              post: {
-                ...old.thread.post,
-                likeCount: Math.max((old.thread.post.likeCount || 1) - 1, 0),
-                viewer: { ...old.thread.post.viewer, like: undefined },
-              },
-            },
-          };
-        }
-        return old;
-      });
-
-      return { previousTimeline, previousCannectFeed, previousglobalFeed, previousActorLikes };
+      await optimistic.cancel();
+      const snapshots = optimistic.snapshot();
+      // Update like count in all feeds, and REMOVE from Likes tab
+      optimistic.updatePost(postUri, postUpdaters.unlike, { removeFromLikes: true });
+      return snapshots;
     },
     onError: (err, variables, context) => {
-      // Log rollback
       logger.mutation.rollback('unlike', variables.postUri, err.message || 'Unknown error');
-      
-      if (context?.previousTimeline) {
-        queryClient.setQueryData(['timeline'], context.previousTimeline);
-      }
-      if (context?.previousCannectFeed) {
-        queryClient.setQueryData(['cannectFeed'], context.previousCannectFeed);
-      }
-      if (context?.previousglobalFeed) {
-        queryClient.setQueryData(['globalFeed'], context.previousglobalFeed);
-      }
-      // Restore actorLikes on error
-      if (context?.previousActorLikes) {
-        context.previousActorLikes.forEach(([queryKey, data]: [any, any]) => {
-          queryClient.setQueryData(queryKey, data);
-        });
-      }
+      if (context) optimistic.restore(context);
     },
     onSuccess: (_, variables) => {
-      // Log successful server response
       logger.mutation.serverResponse('unlike', variables.postUri, { removed: true }, true);
     },
     onSettled: () => {
-      // Update feeds to reflect new like state (count, viewer.like)
-      queryClient.invalidateQueries({ queryKey: ['timeline'] });
-      queryClient.invalidateQueries({ queryKey: ['cannectFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['globalFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['authorFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['thread'] });
-      // NOTE: We intentionally do NOT invalidate actorLikes
-      // The optimistic update already removed the post from the Likes tab
-      // Refetching would bring back the post due to AppView caching delays
+      // NOTE: Exclude actorLikes - the post was removed optimistically
+      // Refetching would bring it back due to AppView caching delays
+      optimistic.invalidate({ exclude: ['actorLikes'] });
     },
   });
 }
@@ -766,6 +552,7 @@ export function useUnlikePost() {
  */
 export function useRepost() {
   const queryClient = useQueryClient();
+  const optimistic = createOptimisticContext(queryClient);
 
   return useMutation({
     mutationFn: async ({ uri, cid }: { uri: string; cid: string }) => {
@@ -774,90 +561,21 @@ export function useRepost() {
       return result;
     },
     onMutate: async ({ uri }) => {
-      // Log optimistic update start
       logger.mutation.optimisticStart('repost', uri, { reposted: true, repostCountDelta: 1 });
-      
-      await queryClient.cancelQueries({ queryKey: ['timeline'] });
-      await queryClient.cancelQueries({ queryKey: ['cannectFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['globalFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['authorFeed'] });
-
-      const previousTimeline = queryClient.getQueryData(['timeline']);
-      const previousCannectFeed = queryClient.getQueryData(['cannectFeed']);
-      const previousglobalFeed = queryClient.getQueryData(['globalFeed']);
-
-      const updatePostInFeed = (old: any) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            feed: page.feed.map((item: FeedViewPost) => {
-              if (item.post.uri === uri) {
-                return {
-                  ...item,
-                  post: {
-                    ...item.post,
-                    repostCount: (item.post.repostCount || 0) + 1,
-                    viewer: { ...item.post.viewer, repost: 'pending' },
-                  },
-                };
-              }
-              return item;
-            }),
-          })),
-        };
-      };
-
-      queryClient.setQueryData(['timeline'], updatePostInFeed);
-      queryClient.setQueryData(['cannectFeed'], updatePostInFeed);
-      queryClient.setQueryData(['globalFeed'], updatePostInFeed);
-      queryClient.setQueriesData({ queryKey: ['authorFeed'] }, updatePostInFeed);
-      // Update thread queries for repost
-      queryClient.setQueriesData({ queryKey: ['thread'] }, (old: any) => {
-        if (!old?.thread?.post) return old;
-        if (old.thread.post.uri === uri) {
-          return {
-            ...old,
-            thread: {
-              ...old.thread,
-              post: {
-                ...old.thread.post,
-                repostCount: (old.thread.post.repostCount || 0) + 1,
-                viewer: { ...old.thread.post.viewer, repost: 'pending' },
-              },
-            },
-          };
-        }
-        return old;
-      });
-
-      return { previousTimeline, previousCannectFeed, previousglobalFeed };
+      await optimistic.cancel();
+      const snapshots = optimistic.snapshot();
+      optimistic.updatePost(uri, postUpdaters.repost);
+      return snapshots;
     },
     onError: (err, variables, context) => {
-      // Log rollback
       logger.mutation.rollback('repost', variables.uri, err.message || 'Unknown error');
-      
-      if (context?.previousTimeline) {
-        queryClient.setQueryData(['timeline'], context.previousTimeline);
-      }
-      if (context?.previousCannectFeed) {
-        queryClient.setQueryData(['cannectFeed'], context.previousCannectFeed);
-      }
-      if (context?.previousglobalFeed) {
-        queryClient.setQueryData(['globalFeed'], context.previousglobalFeed);
-      }
+      if (context) optimistic.restore(context);
     },
     onSuccess: (result, variables) => {
-      // Log successful server response
       logger.mutation.serverResponse('repost', variables.uri, { repostUri: result.uri }, true);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['timeline'] });
-      queryClient.invalidateQueries({ queryKey: ['cannectFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['globalFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['authorFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['thread'] });
+      optimistic.invalidate();
     },
   });
 }
@@ -867,6 +585,7 @@ export function useRepost() {
  */
 export function useDeleteRepost() {
   const queryClient = useQueryClient();
+  const optimistic = createOptimisticContext(queryClient);
 
   return useMutation({
     mutationFn: async ({ repostUri, postUri }: { repostUri: string; postUri: string }) => {
@@ -874,91 +593,21 @@ export function useDeleteRepost() {
       logger.post.unrepost(postUri);
     },
     onMutate: async ({ postUri }) => {
-      // Log optimistic update start
       logger.mutation.optimisticStart('unrepost', postUri, { reposted: false, repostCountDelta: -1 });
-      
-      await queryClient.cancelQueries({ queryKey: ['timeline'] });
-      await queryClient.cancelQueries({ queryKey: ['cannectFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['globalFeed'] });
-      await queryClient.cancelQueries({ queryKey: ['authorFeed'] });
-
-      const previousTimeline = queryClient.getQueryData(['timeline']);
-      const previousCannectFeed = queryClient.getQueryData(['cannectFeed']);
-      const previousglobalFeed = queryClient.getQueryData(['globalFeed']);
-
-      const updatePostInFeed = (old: any) => {
-        if (!old?.pages) return old;
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            feed: page.feed.map((item: FeedViewPost) => {
-              if (item.post.uri === postUri) {
-                return {
-                  ...item,
-                  post: {
-                    ...item.post,
-                    repostCount: Math.max((item.post.repostCount || 1) - 1, 0),
-                    viewer: { ...item.post.viewer, repost: undefined },
-                  },
-                };
-              }
-              return item;
-            }),
-          })),
-        };
-      };
-
-      queryClient.setQueryData(['timeline'], updatePostInFeed);
-      queryClient.setQueryData(['cannectFeed'], updatePostInFeed);
-      queryClient.setQueryData(['globalFeed'], updatePostInFeed);
-      queryClient.setQueriesData({ queryKey: ['authorFeed'] }, updatePostInFeed);
-
-      // Also update thread queries
-      queryClient.setQueriesData({ queryKey: ['thread'] }, (old: any) => {
-        if (!old?.thread?.post) return old;
-        if (old.thread.post.uri === postUri) {
-          return {
-            ...old,
-            thread: {
-              ...old.thread,
-              post: {
-                ...old.thread.post,
-                repostCount: Math.max((old.thread.post.repostCount || 1) - 1, 0),
-                viewer: { ...old.thread.post.viewer, repost: undefined },
-              },
-            },
-          };
-        }
-        return old;
-      });
-
-      return { previousTimeline, previousCannectFeed, previousglobalFeed };
+      await optimistic.cancel();
+      const snapshots = optimistic.snapshot();
+      optimistic.updatePost(postUri, postUpdaters.unrepost);
+      return snapshots;
     },
     onError: (err, variables, context) => {
-      // Log rollback
       logger.mutation.rollback('unrepost', variables.postUri, err.message || 'Unknown error');
-      
-      if (context?.previousTimeline) {
-        queryClient.setQueryData(['timeline'], context.previousTimeline);
-      }
-      if (context?.previousCannectFeed) {
-        queryClient.setQueryData(['cannectFeed'], context.previousCannectFeed);
-      }
-      if (context?.previousglobalFeed) {
-        queryClient.setQueryData(['globalFeed'], context.previousglobalFeed);
-      }
+      if (context) optimistic.restore(context);
     },
     onSuccess: (_, variables) => {
-      // Log successful server response
       logger.mutation.serverResponse('unrepost', variables.postUri, { removed: true }, true);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['timeline'] });
-      queryClient.invalidateQueries({ queryKey: ['cannectFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['globalFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['authorFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['thread'] });
+      optimistic.invalidate();
     },
   });
 }
