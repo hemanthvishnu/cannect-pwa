@@ -678,76 +678,53 @@ export function useSuggestedPosts() {
 export function useLocalFeed() {
   const { isAuthenticated } = useAuthStore();
   
-  // Cannect PDS - we fetch posts directly using com.atproto.repo.listRecords
-  const CANNECT_PDS = 'https://cannect.space';
+  // Use the VPS which hydrates posts with full profile data
+  const FEED_SERVICE_URL = 'https://feed.cannect.space';
   
   return useInfiniteQuery({
     queryKey: ['localFeed'],
     queryFn: async ({ pageParam }) => {
-      // Get all DIDs from our PDS
-      const dids = await atproto.listPdsRepos(100);
-      if (dids.length === 0) {
-        return { feed: [], cursor: undefined };
-      }
+      // First page or subsequent pages
+      const url = pageParam 
+        ? `${FEED_SERVICE_URL}/feed/local/more`
+        : `${FEED_SERVICE_URL}/feed/local`;
       
-      // Fetch posts directly from PDS using com.atproto.repo.listRecords
-      // This works because the PDS hosts the actual post data
-      const results = await Promise.all(
-        dids.map(async (did) => {
-          try {
-            const res = await fetch(
-              `${CANNECT_PDS}/xrpc/com.atproto.repo.listRecords?repo=${encodeURIComponent(did)}&collection=app.bsky.feed.post&limit=10`
-            );
-            if (!res.ok) return [];
-            const data = await res.json();
-            
-            // Convert raw records to FeedViewPost-like structure
-            return (data.records || []).map((record: any) => ({
-              post: {
-                uri: record.uri,
-                cid: record.cid,
-                author: {
-                  did: did,
-                  handle: did.split(':')[2] + '.cannect.space', // Fallback handle
-                  displayName: '',
-                  avatar: '',
-                },
-                record: record.value,
-                indexedAt: record.value?.createdAt || new Date().toISOString(),
-                likeCount: 0,
-                repostCount: 0,
-                replyCount: 0,
-              }
-            }));
-          } catch {
-            return [];
-          }
-        })
-      );
-      
-      // Flatten all posts
-      const allPosts = results.flat();
-      
-      // Sort by createdAt (newest first)
-      const sorted = allPosts.sort((a: any, b: any) => {
-        const aDate = a.post?.record?.createdAt || a.post?.indexedAt;
-        const bDate = b.post?.record?.createdAt || b.post?.indexedAt;
-        return new Date(bDate).getTime() - new Date(aDate).getTime();
+      const res = await fetch(url, {
+        method: pageParam ? 'POST' : 'GET',
+        headers: pageParam ? { 
+          'Content-Type': 'application/json',
+          'X-Session': pageParam 
+        } : undefined,
       });
       
-      // Simple pagination: use page number as cursor
-      const page = pageParam || 0;
-      const pageSize = 30;
-      const start = page * pageSize;
-      const paginated = sorted.slice(start, start + pageSize);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      
+      const data = await res.json();
+      
+      // Convert VPS format to FeedViewPost format
+      const feed = (data.posts || []).map((p: any) => ({
+        post: {
+          uri: p.uri,
+          cid: p.cid,
+          author: p.author,
+          record: p.record,
+          embed: p.embed,
+          likeCount: p.likeCount || 0,
+          repostCount: p.repostCount || 0,
+          replyCount: p.replyCount || 0,
+          indexedAt: p.indexedAt,
+        }
+      }));
       
       return { 
-        feed: paginated, 
-        cursor: paginated.length === pageSize ? page + 1 : undefined 
+        feed, 
+        cursor: data.hasMore ? data.session : undefined 
       };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
-    initialPageParam: 0,
+    initialPageParam: null as string | null,
     enabled: isAuthenticated,
     staleTime: 1000 * 60, // 1 minute
     maxPages: 5, // Limit pages to prevent memory issues
