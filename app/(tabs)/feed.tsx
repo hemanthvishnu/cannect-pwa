@@ -7,7 +7,8 @@
  * - Following: Posts from users you follow
  */
 
-import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, Image, Share as RNShare, Linking, useWindowDimensions, AppState, AppStateStatus } from "react-native";
+import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, Share as RNShare, Linking, useWindowDimensions, AppState, AppStateStatus } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
@@ -131,6 +132,8 @@ function FeedItem({
             <Image 
               source={{ uri: author.avatar }} 
               className="w-10 h-10 rounded-full bg-surface-elevated"
+              contentFit="cover"
+              transition={200}
             />
           ) : (
             <View className="w-10 h-10 rounded-full bg-surface-elevated items-center justify-center">
@@ -172,8 +175,9 @@ function FeedItem({
                 >
                   <Image 
                     source={{ uri: embedImages[0].thumb }} 
-                    className="w-full h-48 rounded-xl"
-                    resizeMode="cover"
+                    className="w-full h-48 rounded-xl bg-surface-elevated"
+                    contentFit="cover"
+                    transition={200}
                   />
                 </Pressable>
               ) : (
@@ -189,8 +193,9 @@ function FeedItem({
                     >
                       <Image 
                         source={{ uri: img.thumb }} 
-                        className="w-full h-32 rounded-lg"
-                        resizeMode="cover"
+                        className="w-full h-32 rounded-lg bg-surface-elevated"
+                        contentFit="cover"
+                        transition={200}
                       />
                     </Pressable>
                   ))}
@@ -208,8 +213,9 @@ function FeedItem({
               {linkPreview.thumb && (
                 <Image 
                   source={{ uri: linkPreview.thumb }}
-                  className="w-full h-32"
-                  resizeMode="cover"
+                  className="w-full h-32 bg-surface-elevated"
+                  contentFit="cover"
+                  transition={200}
                 />
               )}
               <View className="p-3">
@@ -238,7 +244,9 @@ function FeedItem({
                 {quotedPost.author?.avatar && (
                   <Image 
                     source={{ uri: quotedPost.author.avatar }}
-                    className="w-5 h-5 rounded-full mr-2"
+                    className="w-5 h-5 rounded-full mr-2 bg-surface-elevated"
+                    contentFit="cover"
+                    transition={150}
                   />
                 )}
                 <Text className="text-text-primary font-medium text-sm">
@@ -281,8 +289,9 @@ function FeedItem({
                     >
                       <Image 
                         source={{ uri: recordWithMediaImages[0].thumb }} 
-                        className="w-full h-48 rounded-xl"
-                        resizeMode="cover"
+                        className="w-full h-48 rounded-xl bg-surface-elevated"
+                        contentFit="cover"
+                        transition={200}
                       />
                     </Pressable>
                   ) : (
@@ -298,8 +307,9 @@ function FeedItem({
                         >
                           <Image 
                             source={{ uri: img.thumb }} 
-                            className="w-full h-32 rounded-lg"
-                            resizeMode="cover"
+                            className="w-full h-32 rounded-lg bg-surface-elevated"
+                            contentFit="cover"
+                            transition={200}
                           />
                         </Pressable>
                       ))}
@@ -330,7 +340,9 @@ function FeedItem({
                     {recordWithMediaQuote.author?.avatar && (
                       <Image 
                         source={{ uri: recordWithMediaQuote.author.avatar }}
-                        className="w-5 h-5 rounded-full mr-2"
+                        className="w-5 h-5 rounded-full mr-2 bg-surface-elevated"
+                        contentFit="cover"
+                        transition={150}
                       />
                     )}
                     <Text className="text-text-primary font-medium text-sm">
@@ -408,14 +420,37 @@ function FeedItem({
 
 function FeedSkeleton() {
   return (
-    <View className="px-4 py-3">
+    <View className="px-4">
       {[1, 2, 3, 4, 5].map((i) => (
-        <View key={i} className="flex-row mb-4 pb-4 border-b border-border">
-          <View className="w-10 h-10 rounded-full bg-surface-elevated" />
-          <View className="flex-1 ml-3">
-            <View className="h-4 w-32 bg-surface-elevated rounded mb-2" />
-            <View className="h-4 w-full bg-surface-elevated rounded mb-1" />
-            <View className="h-4 w-3/4 bg-surface-elevated rounded" />
+        <View key={i} className="py-3 border-b border-border">
+          <View className="flex-row">
+            {/* Avatar skeleton */}
+            <View className="w-10 h-10 rounded-full bg-surface-elevated" />
+            <View className="flex-1 ml-3">
+              {/* Header skeleton - name + time */}
+              <View className="flex-row items-center mb-1">
+                <View className="h-4 w-24 bg-surface-elevated rounded" />
+                <View className="h-3 w-3 bg-surface-elevated rounded-full mx-2" />
+                <View className="h-3 w-8 bg-surface-elevated rounded" />
+              </View>
+              {/* Handle skeleton */}
+              <View className="h-3 w-32 bg-surface-elevated rounded mb-2" />
+              {/* Text content skeleton - 2-3 lines */}
+              <View className="h-4 w-full bg-surface-elevated rounded mb-1" />
+              <View className="h-4 w-11/12 bg-surface-elevated rounded mb-1" />
+              <View className="h-4 w-3/4 bg-surface-elevated rounded mb-3" />
+              {/* Image placeholder (every other item) */}
+              {i % 2 === 0 && (
+                <View className="h-48 w-full bg-surface-elevated rounded-xl mb-3" />
+              )}
+              {/* Action bar skeleton */}
+              <View className="flex-row justify-between pr-8 mt-1">
+                <View className="h-5 w-12 bg-surface-elevated rounded" />
+                <View className="h-5 w-12 bg-surface-elevated rounded" />
+                <View className="h-5 w-12 bg-surface-elevated rounded" />
+                <View className="h-5 w-8 bg-surface-elevated rounded" />
+              </View>
+            </View>
           </View>
         </View>
       ))}
@@ -698,7 +733,11 @@ export default function FeedScreen() {
       {/* Offline Banner */}
       <OfflineBanner />
 
-      {activeQuery.isLoading ? (
+      {/* Show skeleton when:
+          1. Initial loading (no data yet)
+          2. Fetching but no cached data for this feed
+      */}
+      {(activeQuery.isLoading || (activeQuery.isFetching && !posts.length)) ? (
         <FeedSkeleton />
       ) : (
         <View style={{ flex: 1, minHeight: Math.max(200, height - 200) }} className="flex-1">
