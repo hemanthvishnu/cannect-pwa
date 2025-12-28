@@ -19,38 +19,36 @@ const JETSTREAM_URL = 'wss://jetstream2.us-west.bsky.network/subscribe';
 
 // Curated cannabis community accounts for global feed
 // Verified accounts that actively post about cannabis (reviewed 2024-12-28)
-// Rating: percentage of recent posts about cannabis
+// Managed by: node manage-accounts.mjs
+// Rating: percentage of recent posts about cannabis (minimum 10% to qualify)
 const CANNABIS_ACCOUNTS = [
   // === 🟢 HIGH CONFIDENCE (50%+ cannabis posts) ===
-  'normlorg.bsky.social',           // 100% - NORML, cannabis reform since 1970
-  'weedjesus.bsky.social',          // 100% - OG cannabis cultivator
-  'oglesby.bsky.social',            // 100% - Tax lawyer turned marijuana law reformer
-  'junglecae.bsky.social',          // 100% - Cannabis educator
-  'montelwilliams.bsky.social',     // 93% - Let's Be Blunt cannabis podcast
-  'chrisgoldstein.bsky.social',     // 67% - Cannabis writer/activist
-  'nycannabistimes.com',            // 63% - NY Cannabis Times
-  'mybpg.bsky.social',              // 63% - Berkeley Patients Group dispensary
+  'normlorg.bsky.social',           // 100% - NORML
+  'weedjesus.bsky.social',          // 100% - Weed Jesus
+  'oglesby.bsky.social',            // 100% - Pat Oglesby
+  'junglecae.bsky.social',          // 100% - Cae
+  'montelwilliams.bsky.social',     // 93% - Montel Williams
+  'chrisgoldstein.bsky.social',     // 63% - Chris Goldstein
+  'mybpg.bsky.social',              // 63% - Berkeley Patients Group
+  'nycannabistimes.com',            // 60% - NY Cannabis Times
   
   // === 🟡 MEDIUM CONFIDENCE (20-49% cannabis posts) ===
-  'breedersteve.bsky.social',       // 47% - Cannabis breeder
-  'nhcannapatient.bsky.social',     // 47% - NH cannabis patient advocate
-  'ngaio420.bsky.social',           // 43% - Comedian, stoner, activist
-  'cantrip.bsky.social',            // 41% - Weed beverage company
-  'cannabis.bsky.social',           // 40% - Cannabis 101 growing
-  'filtermag.bsky.social',          // 37% - Drug policy journalism
-  'leddder.bsky.social',            // 37% - Cannabis editor at SFGATE
-  'ommpeddie.bsky.social',          // 37% - Oregon Medical Marijuana
-  'samreisman.bsky.social',         // 37% - Cannabis reporter at Law360
-  'danalarsen.bsky.social',         // 23% - Drug testing/mushroom dispensary
-  'ricksteves.bsky.social',         // 23% - Travel writer, NORML board member
-  'cannabis-lounges.bsky.social',   // 20% - Cannabis consumption lounges
+  'breedersteve.bsky.social',       // 47% - Breeder Steve
+  'nhcannapatient.bsky.social',     // 47% - nhcannapatient
+  'ngaio420.bsky.social',           // 43% - Ngaio Bealum
+  'cantrip.bsky.social',            // 41% - Weed Drinks Guy
+  'filtermag.bsky.social',          // 37% - Filter Magazine
+  'samreisman.bsky.social',         // 37% - Sam Reisman (Law360)
+  'cannabis.bsky.social',           // 33% - cannabis 101
+  'ommpeddie.bsky.social',          // 33% - Oregon Medical Marijuana
+  'leddder.bsky.social',            // 27% - Lester Black (SFGATE)
+  'cannabis-lounges.bsky.social',   // 20% - Cannabis Lounges
   
-  // === 🟡 MEDIUM CONFIDENCE (10-19% cannabis posts, strong bio) ===
-  'shaleen.bsky.social',            // 17% - Former marijuana regulator
-  'boxbrown.bsky.social',           // 13% - Cannabis activist, cartoonist
-  'hempfarm.bsky.social',           // 11% - Hemp revival advocate
-  'buchanan.today',                 // 10% - Cannabis activist/researcher
-  'thepotlabphd.bsky.social',       // 10% - ThePotLab cannabis research
+  // === 🟠 BORDERLINE (10-19% cannabis posts) ===
+  'danalarsen.bsky.social',         // 17% - Dana Larsen
+  'shaleen.bsky.social',            // 14% - Shaleen Title
+  'ricksteves.bsky.social',         // 10% - Rick Steves
+  'boxbrown.bsky.social',           // 10% - Brian Box Brown
 ];
 
 // Initialize SQLite database
