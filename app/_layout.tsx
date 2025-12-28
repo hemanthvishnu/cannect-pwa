@@ -1,7 +1,7 @@
 import "../global.css";
 
 import { useEffect, useState } from "react";
-import { LogBox, Platform, View } from "react-native";
+import { LogBox, Platform, View, ActivityIndicator } from "react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -141,10 +141,13 @@ function AppContent() {
     return () => navigator.serviceWorker.removeEventListener("message", handleMessage);
   }, []);
 
-  // 💎 Gatekeeper: Skip hydration comparison by returning null during SSR
+  // 💎 Gatekeeper: Skip hydration comparison by returning loading state during SSR
+  // This prevents the "black screen" on first PWA launch
   if (Platform.OS === 'web' && !isMounted) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0A0A0A' }} />
+      <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#10B981" />
+      </View>
     );
   }
 

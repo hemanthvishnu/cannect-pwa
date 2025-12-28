@@ -466,8 +466,8 @@ export default function FeedScreen() {
   const renderStart = useRef(performance.now());
   
   // Guard to prevent rapid fetchNextPage calls (e.g., when returning from post view)
-  const lastFetchTime = useRef(0);
-  const FETCH_COOLDOWN_MS = 2000; // Minimum 2 seconds between fetches (increased from 1s)
+  const lastFetchTime = useRef(Date.now()); // Initialize to current time to prevent immediate rapid fetches on mount
+  const FETCH_COOLDOWN_MS = 2000; // Minimum 2 seconds between fetches
   
   // Track render timing
   useEffect(() => {
@@ -792,11 +792,20 @@ export default function FeedScreen() {
             }
             onEndReached={() => {
               const now = Date.now();
-              // Guard: Prevent rapid fetches while scrolling or returning from post view
+              
+              // Guard 1: Throttle - minimum time between fetches
               if (now - lastFetchTime.current < FETCH_COOLDOWN_MS) {
                 return;
               }
-              // Check if ANY feed is currently fetching (prevents race conditions on tab switch)
+              
+              // Guard 2: Don't fetch if we already have enough posts (8 pages × 50 = 400)
+              const currentPostCount = posts.length;
+              if (currentPostCount >= 350) {
+                console.log('[Feed] Skipping fetch - already have', currentPostCount, 'posts');
+                return;
+              }
+              
+              // Guard 3: Check if ANY feed is currently fetching (prevents race conditions on tab switch)
               const anyFetching = globalQuery.isFetching || localQuery.isFetching || followingQuery.isFetching;
               if (activeQuery.hasNextPage && !activeQuery.isFetchingNextPage && !anyFetching) {
                 lastFetchTime.current = now;
