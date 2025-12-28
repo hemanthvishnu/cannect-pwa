@@ -748,12 +748,15 @@ export function useUnlikePost() {
       logger.mutation.serverResponse('unlike', variables.postUri, { removed: true }, true);
     },
     onSettled: () => {
+      // Update feeds to reflect new like state (count, viewer.like)
       queryClient.invalidateQueries({ queryKey: ['timeline'] });
       queryClient.invalidateQueries({ queryKey: ['cannectFeed'] });
       queryClient.invalidateQueries({ queryKey: ['globalFeed'] });
       queryClient.invalidateQueries({ queryKey: ['authorFeed'] });
-      queryClient.invalidateQueries({ queryKey: ['actorLikes'] });
       queryClient.invalidateQueries({ queryKey: ['thread'] });
+      // NOTE: We intentionally do NOT invalidate actorLikes
+      // The optimistic update already removed the post from the Likes tab
+      // Refetching would bring back the post due to AppView caching delays
     },
   });
 }
