@@ -669,3 +669,67 @@ export function useSuggestedPosts() {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
+
+/**
+ * Local Feed - Direct from Cannect PDS
+ * Fetches posts from all users on cannect.space directly
+ * No middleman VPS needed!
+ */
+export function useLocalFeed() {
+  const { isAuthenticated } = useAuthStore();
+  
+  return useInfiniteQuery({
+    queryKey: ['localFeed'],
+    queryFn: async ({ pageParam }) => {
+      // Get all DIDs from our PDS
+      const dids = await atproto.listPdsRepos(100);
+      if (dids.length === 0) {
+        return { feed: [], cursor: undefined };
+      }
+      
+      const bskyAgent = atproto.getAgent();
+      
+      // Fetch recent posts from all users in parallel
+      const results = await Promise.all(
+        dids.map(async (did) => {
+          try {
+            const feed = await bskyAgent.getAuthorFeed({ 
+              actor: did, 
+              limit: 10,
+              filter: 'posts_no_replies'
+            });
+            return feed.data.feed;
+          } catch {
+            return [];
+          }
+        })
+      );
+      
+      // Flatten all posts
+      const allPosts = results.flat();
+      
+      // Sort by createdAt (newest first)
+      const sorted = allPosts.sort((a, b) => {
+        const aDate = (a.post.record as any)?.createdAt || a.post.indexedAt;
+        const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
+      });
+      
+      // Simple pagination: use page number as cursor
+      const page = pageParam || 0;
+      const pageSize = 30;
+      const start = page * pageSize;
+      const paginated = sorted.slice(start, start + pageSize);
+      
+      return { 
+        feed: paginated, 
+        cursor: paginated.length === pageSize ? page + 1 : undefined 
+      };
+    },
+    getNextPageParam: (lastPage) => lastPage.cursor,
+    initialPageParam: 0,
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60, // 1 minute
+    maxPages: 5, // Limit pages to prevent memory issues
+  });
+}

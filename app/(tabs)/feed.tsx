@@ -1,12 +1,12 @@
 /**
- * Feed Screen - v2.0 Server-Managed Pagination
+ * Feed Screen - v3.0 Simplified Architecture
  * 
  * Displays three feeds:
  * - Global: Cannabis content (server-managed via feed.cannect.space)
- * - Local: Posts from cannect.space users (server-managed via feed.cannect.space)
+ * - Local: Posts from cannect.space users (DIRECT from PDS - no VPS!)
  * - Following: Posts from users you follow (direct Bluesky API)
  * 
- * v2.0: Simplified client - server handles pagination state
+ * v3.0: Local feed now direct from PDS - simpler, faster, real-time
  */
 
 import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, useWindowDimensions } from "react-native";
@@ -16,7 +16,7 @@ import { useRouter } from "expo-router";
 import { Leaf } from "lucide-react-native";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import * as Haptics from "expo-haptics";
-import { useTimeline } from "@/lib/hooks";
+import { useTimeline, useLocalFeed } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { MediaViewer } from "@/components/ui/MediaViewer";
@@ -38,20 +38,17 @@ export default function FeedScreen() {
   const renderStart = useRef(performance.now());
   const listRef = useRef<FlashList<FeedViewPost>>(null);
   
-  // === SERVER-MANAGED FEED STATE (Global + Local) ===
+  // === GLOBAL FEED (VPS - server-managed for curated cannabis content) ===
   const [globalPosts, setGlobalPosts] = useState<FeedViewPost[]>([]);
   const [globalSession, setGlobalSession] = useState<string | null>(null);
   const [globalHasMore, setGlobalHasMore] = useState(true);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   
-  const [localPosts, setLocalPosts] = useState<FeedViewPost[]>([]);
-  const [localSession, setLocalSession] = useState<string | null>(null);
-  const [localHasMore, setLocalHasMore] = useState(true);
-  const [localLoading, setLocalLoading] = useState(false);
-  const [localError, setLocalError] = useState<string | null>(null);
+  // === LOCAL FEED (Direct from Cannect PDS - no VPS!) ===
+  const localQuery = useLocalFeed();
   
-  // === FOLLOWING FEED (Direct Bluesky - keep useTimeline for now) ===
+  // === FOLLOWING FEED (Direct Bluesky API) ===
   const followingQuery = useTimeline();
   
   // Track render timing
@@ -60,7 +57,7 @@ export default function FeedScreen() {
     logger.render.screen('FeedScreen', duration);
   }, []);
   
-  // === FEED API CALLS ===
+  // === GLOBAL FEED API CALLS ===
   
   // Convert server post format to FeedViewPost
   const convertPost = (p: any): FeedViewPost => ({
@@ -153,89 +150,21 @@ export default function FeedScreen() {
     }
   }, [globalSession]);
   
-  // Load initial local feed
-  const loadLocalFeed = useCallback(async () => {
-    if (localLoading) return;
-    setLocalLoading(true);
-    setLocalError(null);
-    
-    try {
-      const res = await fetch(`${FEED_SERVICE_URL}/feed/local`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      
-      setLocalPosts(data.posts.map(convertPost));
-      setLocalSession(data.session);
-      setLocalHasMore(data.hasMore);
-      logger.info('network', 'feed_fetch', `local: ${data.posts.length} posts`, { postCount: data.posts.length });
-    } catch (err: any) {
-      setLocalError(err.message);
-      logger.error('network', 'feed_fetch', err.message);
-    } finally {
-      setLocalLoading(false);
-    }
-  }, [localLoading]);
-  
-  // Load more local posts
-  const loadMoreLocal = useCallback(async () => {
-    if (localLoading || !localHasMore || !localSession) return;
-    setLocalLoading(true);
-    
-    try {
-      const res = await fetch(`${FEED_SERVICE_URL}/feed/local/more`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'X-Session': localSession 
-        },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      
-      setLocalPosts(prev => [...prev, ...data.posts.map(convertPost)]);
-      setLocalHasMore(data.hasMore);
-      logger.info('network', 'feed_more', `local: +${data.posts.length} posts`, { postCount: data.posts.length });
-    } catch (err: any) {
-      console.error('[Feed] Load more error:', err);
-    } finally {
-      setLocalLoading(false);
-    }
-  }, [localLoading, localHasMore, localSession]);
-  
-  // Refresh local feed
-  const refreshLocal = useCallback(async () => {
-    setLocalLoading(true);
-    
-    try {
-      const res = await fetch(`${FEED_SERVICE_URL}/feed/local/refresh`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(localSession && { 'X-Session': localSession })
-        },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      
-      setLocalPosts(data.posts.map(convertPost)); // Replace, not append
-      setLocalSession(data.session);
-      setLocalHasMore(data.hasMore);
-    } catch (err: any) {
-      console.error('[Feed] Refresh error:', err);
-    } finally {
-      setLocalLoading(false);
-    }
-  }, [localSession]);
-  
-  // Load initial feeds on mount
+  // Load initial global feed on mount
   useEffect(() => {
     if (isAuthenticated) {
       loadGlobalFeed();
-      loadLocalFeed();
+      // localQuery and followingQuery auto-fetch via React Query
     }
   }, [isAuthenticated]);
   
   // === DERIVED STATE ===
+  
+  // Flatten local feed pages into array
+  const localPosts = useMemo(() => 
+    localQuery.data?.pages?.flatMap(page => page.feed) || [],
+    [localQuery.data]
+  );
   
   const posts = useMemo(() => {
     if (activeFeed === 'global') return globalPosts;
@@ -246,27 +175,27 @@ export default function FeedScreen() {
   
   const isLoading = useMemo(() => {
     if (activeFeed === 'global') return globalLoading && globalPosts.length === 0;
-    if (activeFeed === 'local') return localLoading && localPosts.length === 0;
+    if (activeFeed === 'local') return localQuery.isLoading;
     return followingQuery.isLoading;
-  }, [activeFeed, globalLoading, globalPosts.length, localLoading, localPosts.length, followingQuery.isLoading]);
+  }, [activeFeed, globalLoading, globalPosts.length, localQuery.isLoading, followingQuery.isLoading]);
   
   const isRefreshing = useMemo(() => {
     if (activeFeed === 'global') return globalLoading && globalPosts.length > 0;
-    if (activeFeed === 'local') return localLoading && localPosts.length > 0;
+    if (activeFeed === 'local') return localQuery.isRefetching;
     return followingQuery.isRefetching;
-  }, [activeFeed, globalLoading, globalPosts.length, localLoading, localPosts.length, followingQuery.isRefetching]);
+  }, [activeFeed, globalLoading, globalPosts.length, localQuery.isRefetching, followingQuery.isRefetching]);
   
   const hasMore = useMemo(() => {
     if (activeFeed === 'global') return globalHasMore;
-    if (activeFeed === 'local') return localHasMore;
+    if (activeFeed === 'local') return localQuery.hasNextPage;
     return followingQuery.hasNextPage;
-  }, [activeFeed, globalHasMore, localHasMore, followingQuery.hasNextPage]);
+  }, [activeFeed, globalHasMore, localQuery.hasNextPage, followingQuery.hasNextPage]);
   
   const feedError = useMemo(() => {
     if (activeFeed === 'global') return globalError;
-    if (activeFeed === 'local') return localError;
+    if (activeFeed === 'local') return localQuery.isError ? 'Failed to load' : null;
     return followingQuery.isError ? 'Failed to load' : null;
-  }, [activeFeed, globalError, localError, followingQuery.isError]);
+  }, [activeFeed, globalError, localQuery.isError, followingQuery.isError]);
   
   // === HANDLERS ===
   
@@ -284,17 +213,19 @@ export default function FeedScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     if (activeFeed === 'global') refreshGlobal();
-    else if (activeFeed === 'local') refreshLocal();
+    else if (activeFeed === 'local') localQuery.refetch();
     else followingQuery.refetch();
-  }, [activeFeed, refreshGlobal, refreshLocal, followingQuery]);
+  }, [activeFeed, refreshGlobal, localQuery, followingQuery]);
   
   const handleLoadMore = useCallback(() => {
     if (activeFeed === 'global') loadMoreGlobal();
-    else if (activeFeed === 'local') loadMoreLocal();
+    else if (activeFeed === 'local' && localQuery.hasNextPage && !localQuery.isFetchingNextPage) {
+      localQuery.fetchNextPage();
+    }
     else if (followingQuery.hasNextPage && !followingQuery.isFetchingNextPage) {
       followingQuery.fetchNextPage();
     }
-  }, [activeFeed, loadMoreGlobal, loadMoreLocal, followingQuery]);
+  }, [activeFeed, loadMoreGlobal, localQuery, followingQuery]);
   
   // Media viewer state
   const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
