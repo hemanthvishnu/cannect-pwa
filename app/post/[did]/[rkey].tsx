@@ -17,8 +17,7 @@ import { ArrowLeft, Send } from "lucide-react-native";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { ThreadPost, ThreadPostSkeleton, PostCard } from "@/components/Post";
-import { PostOptionsMenu } from "@/components/social/PostOptionsMenu";
-import { usePostThread, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useCreatePost, useDeletePost } from "@/lib/hooks";
+import { usePostThread, useCreatePost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
@@ -46,7 +45,7 @@ function collectParents(thread: ThreadViewPost): PostView[] {
 export default function PostDetailsScreen() {
   const { did, rkey } = useLocalSearchParams<{ did: string; rkey: string }>();
   const router = useRouter();
-  const { profile, session, handle, did: myDid } = useAuthStore();
+  const { profile, handle } = useAuthStore();
   
   // Scroll ref for auto-scrolling to main post
   const scrollViewRef = useRef<ScrollView>(null);
@@ -61,16 +60,7 @@ export default function PostDetailsScreen() {
   const atUri = did && rkey ? `at://${did}/app.bsky.feed.post/${rkey}` : "";
   
   const { data: thread, isLoading, error, refetch } = usePostThread(atUri);
-  const likeMutation = useLikePost();
-  const unlikeMutation = useUnlikePost();
-  const repostMutation = useRepost();
-  const unrepostMutation = useDeleteRepost();
   const createPostMutation = useCreatePost();
-  const deleteMutation = useDeletePost();
-  
-  // Options menu state
-  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
-  const [selectedReply, setSelectedReply] = useState<PostView | null>(null);
 
   // Auto-scroll to main post when thread loads (if there are parents)
   const handleMainPostLayout = useCallback((event: LayoutChangeEvent) => {
@@ -101,50 +91,6 @@ export default function PostDetailsScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  };
-
-  const handleLike = () => {
-    if (!thread?.post) return;
-    const post = thread.post;
-    triggerHaptic();
-    
-    if (post.viewer?.like) {
-      unlikeMutation.mutate({ likeUri: post.viewer.like, postUri: post.uri });
-    } else {
-      likeMutation.mutate({ uri: post.uri, cid: post.cid });
-    }
-  };
-
-  const handleRepost = () => {
-    if (!thread?.post) return;
-    const post = thread.post;
-    triggerHaptic();
-    
-    if (post.viewer?.repost) {
-      unrepostMutation.mutate({ repostUri: post.viewer.repost, postUri: post.uri });
-    } else {
-      repostMutation.mutate({ uri: post.uri, cid: post.cid });
-    }
-  };
-
-  const handleReply = () => {
-    if (!thread?.post) return;
-    const post = thread.post;
-    triggerHaptic();
-    
-    // Get the root of the thread
-    const rootUri = (thread as any).parent?.post?.uri || post.uri;
-    const rootCid = (thread as any).parent?.post?.cid || post.cid;
-    
-    router.push({
-      pathname: '/(tabs)/compose',
-      params: {
-        replyToUri: post.uri,
-        replyToCid: post.cid,
-        rootUri,
-        rootCid,
-      }
-    });
   };
 
   const handleQuickReply = useCallback(async () => {
@@ -182,82 +128,6 @@ export default function PostDetailsScreen() {
       setIsSubmitting(false);
     }
   }, [thread, replyText, isSubmitting, createPostMutation, refetch]);
-
-  // Options menu handlers
-  const handleOptionsPress = () => {
-    triggerHaptic();
-    setOptionsMenuVisible(true);
-  };
-
-  const handleDelete = async () => {
-    if (!thread?.post) return;
-    try {
-      await deleteMutation.mutateAsync(thread.post.uri);
-      // Navigate back after successful delete
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/feed');
-      }
-    } catch (err) {
-      console.error('Failed to delete post:', err);
-    }
-  };
-
-  // Handlers for reply items
-  const handleReplyLike = useCallback((replyPost: PostView) => {
-    triggerHaptic();
-    if (replyPost.viewer?.like) {
-      unlikeMutation.mutate({ likeUri: replyPost.viewer.like, postUri: replyPost.uri });
-    } else {
-      likeMutation.mutate({ uri: replyPost.uri, cid: replyPost.cid });
-    }
-  }, [likeMutation, unlikeMutation]);
-
-  const handleReplyRepost = useCallback((replyPost: PostView) => {
-    triggerHaptic();
-    if (replyPost.viewer?.repost) {
-      unrepostMutation.mutate({ repostUri: replyPost.viewer.repost, postUri: replyPost.uri });
-    } else {
-      repostMutation.mutate({ uri: replyPost.uri, cid: replyPost.cid });
-    }
-  }, [repostMutation, unrepostMutation]);
-
-  const handleReplyOptionsPress = useCallback((replyPost: PostView) => {
-    triggerHaptic();
-    setSelectedReply(replyPost);
-    setOptionsMenuVisible(true);
-  }, []);
-
-  const handleReplyDelete = useCallback(async () => {
-    if (!selectedReply) return;
-    
-    try {
-      await deleteMutation.mutateAsync(selectedReply.uri);
-      setOptionsMenuVisible(false);
-      setSelectedReply(null);
-    } catch (err) {
-      console.error('Failed to delete reply:', err);
-    }
-  }, [selectedReply, deleteMutation]);
-
-  const handleReplyToReply = useCallback((replyPost: PostView) => {
-    triggerHaptic();
-    
-    // For replies, the root is the original post, parent is this reply
-    const rootUri = thread?.post?.uri || replyPost.uri;
-    const rootCid = thread?.post?.cid || replyPost.cid;
-    
-    router.push({
-      pathname: '/(tabs)/compose',
-      params: {
-        replyToUri: replyPost.uri,
-        replyToCid: replyPost.cid,
-        rootUri,
-        rootCid,
-      }
-    });
-  }, [router, thread]);
 
   // Loading state
   if (isLoading) {
@@ -383,7 +253,6 @@ export default function PostDetailsScreen() {
           
           <ThreadPost 
             post={post}
-            onOptionsPress={handleOptionsPress}
           />
         </View>
 
@@ -397,7 +266,6 @@ export default function PostDetailsScreen() {
               <PostCard 
                 key={reply.post.uri} 
                 post={reply.post}
-                onOptionsPress={() => handleReplyOptionsPress(reply.post)}
               />
             ))}
           </View>
@@ -453,29 +321,6 @@ export default function PostDetailsScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-      
-      {/* Post Options Menu - handles both main post and replies */}
-      <PostOptionsMenu
-        isVisible={optionsMenuVisible}
-        onClose={() => {
-          setOptionsMenuVisible(false);
-          setSelectedReply(null);
-        }}
-        onDelete={selectedReply ? handleReplyDelete : handleDelete}
-        isOwnPost={selectedReply 
-          ? selectedReply.author.did === myDid 
-          : post.author.did === myDid}
-        postUrl={selectedReply 
-          ? `https://bsky.app/profile/${selectedReply.author.handle}/post/${selectedReply.uri.split('/').pop()}`
-          : `https://bsky.app/profile/${post.author.handle}/post/${rkey}`}
-        postText={selectedReply 
-          ? (selectedReply.record as AppBskyFeedPost.Record).text 
-          : record.text}
-        authorHandle={selectedReply ? selectedReply.author.handle : post.author.handle}
-        isReply={selectedReply ? true : hasParents}
-        postUri={selectedReply ? selectedReply.uri : post.uri}
-        postCid={selectedReply ? selectedReply.cid : post.cid}
-      />
     </SafeAreaView>
   );
 }

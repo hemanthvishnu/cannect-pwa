@@ -11,7 +11,6 @@
 import { View, Text, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { MoreHorizontal } from 'lucide-react-native';
 import { PostEmbeds } from './PostEmbeds';
 import { PostActions } from './PostActions';
 import { RichText } from './RichText';
@@ -22,13 +21,11 @@ type PostView = AppBskyFeedDefs.PostView;
 
 interface ThreadPostProps {
   post: PostView;
-  onOptionsPress?: () => void;
   onImagePress?: (images: string[], index: number) => void;
 }
 
 export function ThreadPost({
   post,
-  onOptionsPress,
   onImagePress,
 }: ThreadPostProps) {
   const router = useRouter();
@@ -82,14 +79,6 @@ export function ThreadPost({
           </Text>
           <Text className="text-text-muted text-sm">@{author.handle}</Text>
         </View>
-        
-        {/* Options button */}
-        <Pressable 
-          onPress={onOptionsPress}
-          className="p-2"
-        >
-          <MoreHorizontal size={20} color="#6B7280" />
-        </Pressable>
       </Pressable>
 
       {/* Post content - larger text with facets */}

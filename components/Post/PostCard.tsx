@@ -31,8 +31,6 @@ interface PostCardProps {
   post?: PostView;
   /** Called when the post card is tapped */
   onPress?: () => void;
-  /** Called when more options button is pressed */
-  onOptionsPress?: () => void;
   /** Called when an image is pressed for fullscreen viewing */
   onImagePress?: (images: string[], index: number) => void;
   /** Show border at bottom (default: true) */
@@ -59,7 +57,6 @@ export function PostCard({
   item,
   post: rawPost,
   onPress,
-  onOptionsPress,
   onImagePress,
   showBorder = true,
 }: PostCardProps) {
@@ -177,7 +174,6 @@ export function PostCard({
           <PostActions 
             post={post} 
             variant="compact" 
-            onOptionsPress={onOptionsPress}
           />
         </View>
       </View>

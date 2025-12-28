@@ -9,17 +9,16 @@
  * v2.0: Simplified client - server handles pagination state
  */
 
-import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, Share as RNShare, useWindowDimensions } from "react-native";
+import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { Leaf } from "lucide-react-native";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import * as Haptics from "expo-haptics";
-import { useTimeline, useDeletePost } from "@/lib/hooks";
+import { useTimeline } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { OfflineBanner } from "@/components/OfflineBanner";
-import { PostOptionsMenu } from "@/components/social/PostOptionsMenu";
 import { MediaViewer } from "@/components/ui/MediaViewer";
 import { PostCard, FeedSkeleton } from "@/components/Post";
 import { logger } from "@/lib/utils";
@@ -294,10 +293,6 @@ export default function FeedScreen() {
     }
   }, [activeFeed, loadMoreGlobal, loadMoreLocal, followingQuery]);
   
-  // Options menu state
-  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
-  
   // Media viewer state
   const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
   const [mediaViewerImages, setMediaViewerImages] = useState<string[]>([]);
@@ -305,9 +300,6 @@ export default function FeedScreen() {
   
   // Web refresh indicator
   const [showRefreshHint, setShowRefreshHint] = useState(false);
-  
-  // Mutations (only delete needed - like/repost handled by PostActions)
-  const deletePostMutation = useDeletePost();
 
   // Open image viewer
   const handleImagePress = useCallback((images: string[], index: number) => {
@@ -316,65 +308,12 @@ export default function FeedScreen() {
     setMediaViewerVisible(true);
   }, []);
 
-  // Share post
-  const handleShare = useCallback(async (post: PostView) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    
-    const uriParts = post.uri.split('/');
-    const rkey = uriParts[uriParts.length - 1];
-    const shareUrl = `https://bsky.app/profile/${post.author.handle}/post/${rkey}`;
-    
-    try {
-      await RNShare.share({
-        message: `Check out this post on Cannect: ${shareUrl}`,
-        url: shareUrl,
-      });
-    } catch (err) {
-      console.log('Share cancelled or failed');
-    }
-  }, []);
-
   const handlePostPress = useCallback((post: PostView) => {
     // Navigate to thread view using DID and rkey
     const uriParts = post.uri.split('/');
     const rkey = uriParts[uriParts.length - 1];
     router.push(`/post/${post.author.did}/${rkey}`);
   }, [router]);
-
-  const handleReply = useCallback((post: PostView) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    
-    // Navigate to thread view - user can reply from there
-    const uriParts = post.uri.split('/');
-    const rkey = uriParts[uriParts.length - 1];
-    router.push(`/post/${post.author.did}/${rkey}`);
-  }, [router]);
-
-  // Open options menu
-  const handleOptionsPress = useCallback((post: PostView) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setSelectedPost(post);
-    setOptionsMenuVisible(true);
-  }, []);
-
-  // Delete post handler
-  const handleDelete = useCallback(async () => {
-    if (!selectedPost) return;
-    
-    try {
-      await deletePostMutation.mutateAsync(selectedPost.uri);
-      setOptionsMenuVisible(false);
-      setSelectedPost(null);
-    } catch (error) {
-      console.error('Failed to delete post:', error);
-    }
-  }, [selectedPost, deletePostMutation]);
 
   // Error state
   if (feedError) {
@@ -441,7 +380,6 @@ export default function FeedScreen() {
                 item={item}
                 onPress={() => handlePostPress(item.post)}
                 onImagePress={handleImagePress}
-                onOptionsPress={() => handleOptionsPress(item.post)}
               />
             )}
             estimatedItemSize={280}
@@ -505,22 +443,6 @@ export default function FeedScreen() {
           />
         </View>
       )}
-
-      {/* Post Options Menu */}
-      <PostOptionsMenu
-        isVisible={optionsMenuVisible}
-        onClose={() => {
-          setOptionsMenuVisible(false);
-          setSelectedPost(null);
-        }}
-        onDelete={handleDelete}
-        isOwnPost={selectedPost?.author.did === did}
-        postUrl={selectedPost ? `https://bsky.app/profile/${selectedPost.author.handle}/post/${selectedPost.uri.split('/').pop()}` : undefined}
-        postText={(selectedPost?.record as any)?.text}
-        authorHandle={selectedPost?.author.handle}
-        postUri={selectedPost?.uri}
-        postCid={selectedPost?.cid}
-      />
       
       {/* Media Viewer */}
       <MediaViewer

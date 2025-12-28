@@ -17,8 +17,7 @@ import { useRouter } from "expo-router";
 import { LogOut, Edit3, UserPlus, UserMinus, MoreHorizontal } from "lucide-react-native";
 import { useState, useMemo, useCallback } from "react";
 import * as Haptics from "expo-haptics";
-import { useAuthorFeed, useActorLikes, useDeletePost, useFollow, useUnfollow } from "@/lib/hooks";
-import { PostOptionsMenu } from "@/components/social/PostOptionsMenu";
+import { useAuthorFeed, useActorLikes, useFollow, useUnfollow } from "@/lib/hooks";
 import { PostCard } from "@/components/Post";
 import type { AppBskyFeedDefs, AppBskyActorDefs } from '@atproto/api';
 
@@ -62,15 +61,10 @@ export function ProfileView({
 }: ProfileViewProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
-  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
   
   // Follow mutations (for other users)
   const followMutation = useFollow();
   const unfollowMutation = useUnfollow();
-  
-  // Post mutations (only delete - like/repost handled by PostActions)
-  const deletePostMutation = useDeletePost();
   
   // Different feeds based on active tab
   const postsQuery = useAuthorFeed(profileData.did, 'posts_no_replies');
@@ -121,24 +115,6 @@ export function ProfileView({
       await followMutation.mutateAsync(profileData.did);
     }
   }, [profileData, followMutation, unfollowMutation]);
-
-  // Post action handlers
-  const handleOptionsPress = useCallback((post: PostView) => {
-    triggerHaptic();
-    setSelectedPost(post);
-    setOptionsMenuVisible(true);
-  }, []);
-
-  const handleDelete = useCallback(async () => {
-    if (!selectedPost) return;
-    try {
-      await deletePostMutation.mutateAsync(selectedPost.uri);
-      setOptionsMenuVisible(false);
-      setSelectedPost(null);
-    } catch (e) {
-      console.error('Delete error:', e);
-    }
-  }, [selectedPost, deletePostMutation]);
 
   const isFollowing = !!profileData.viewer?.following;
   const isFollowPending = followMutation.isPending || unfollowMutation.isPending;
@@ -295,7 +271,6 @@ export function ProfileView({
         renderItem={({ item }) => (
           <PostCard 
             item={item}
-            onOptionsPress={() => handleOptionsPress(item.post)}
           />
         )}
         refreshControl={
@@ -335,21 +310,6 @@ export function ProfileView({
             </View>
           ) : null
         }
-      />
-
-      {/* Post Options Menu */}
-      <PostOptionsMenu
-        isVisible={optionsMenuVisible}
-        onClose={() => {
-          setOptionsMenuVisible(false);
-          setSelectedPost(null);
-        }}
-        postUri={selectedPost?.uri || ''}
-        isOwnPost={selectedPost?.author.did === currentUserDid}
-        postUrl={`https://bsky.app/profile/${selectedPost?.author.handle}/post/${selectedPost?.uri.split('/').pop()}`}
-        postText={(selectedPost?.record as any)?.text}
-        authorHandle={selectedPost?.author.handle}
-        onDelete={handleDelete}
       />
     </>
   );
