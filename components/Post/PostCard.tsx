@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react-native';
 import { PostEmbeds } from './PostEmbeds';
+import { RichText } from './RichText';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
@@ -175,10 +176,12 @@ export function PostCard({
             </Text>
           </Pressable>
 
-          {/* Post text */}
-          <Text className="text-text-primary mt-1 leading-5">
-            {record.text}
-          </Text>
+          {/* Post text with facets (mentions, links, hashtags) */}
+          <RichText
+            text={record.text}
+            facets={record.facets}
+            className="mt-1"
+          />
 
           {/* Embeds (images, video, link preview, quote) */}
           <PostEmbeds 
