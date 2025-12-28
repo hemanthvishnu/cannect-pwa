@@ -36,6 +36,7 @@ export default function FeedScreen() {
   const { height } = useWindowDimensions();
   const [activeFeed, setActiveFeed] = useState<FeedType>('global');
   const renderStart = useRef(performance.now());
+  const listRef = useRef<FlashList<FeedViewPost>>(null);
   
   // === SERVER-MANAGED FEED STATE (Global + Local) ===
   const [globalPosts, setGlobalPosts] = useState<FeedViewPost[]>([]);
@@ -274,6 +275,8 @@ export default function FeedScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     setActiveFeed(feed);
+    // Scroll to top when switching tabs
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
   }, []);
   
   const handleRefresh = useCallback(() => {
@@ -373,6 +376,7 @@ export default function FeedScreen() {
       ) : (
         <View style={{ flex: 1, minHeight: Math.max(200, height - 200) }} className="flex-1">
           <FlashList
+            ref={listRef}
             data={posts}
             keyExtractor={(item, index) => `${activeFeed}-${item.post.uri}-${index}`}
             renderItem={({ item }) => (
