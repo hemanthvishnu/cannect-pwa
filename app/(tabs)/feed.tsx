@@ -16,10 +16,9 @@ import { useRouter } from "expo-router";
 import { Leaf } from "lucide-react-native";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import * as Haptics from "expo-haptics";
-import { useTimeline, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useDeletePost } from "@/lib/hooks";
+import { useTimeline, useDeletePost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { OfflineBanner } from "@/components/OfflineBanner";
-import { RepostMenu } from "@/components/social/RepostMenu";
 import { PostOptionsMenu } from "@/components/social/PostOptionsMenu";
 import { MediaViewer } from "@/components/ui/MediaViewer";
 import { PostCard, FeedSkeleton } from "@/components/Post";
@@ -295,12 +294,9 @@ export default function FeedScreen() {
     }
   }, [activeFeed, loadMoreGlobal, loadMoreLocal, followingQuery]);
   
-  // Repost menu state
-  const [repostMenuVisible, setRepostMenuVisible] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
-  
   // Options menu state
   const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
   
   // Media viewer state
   const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
@@ -310,33 +306,8 @@ export default function FeedScreen() {
   // Web refresh indicator
   const [showRefreshHint, setShowRefreshHint] = useState(false);
   
-  // Mutations
-  const likeMutation = useLikePost();
-  const unlikeMutation = useUnlikePost();
-  const repostMutation = useRepost();
-  const unrepostMutation = useDeleteRepost();
+  // Mutations (only delete needed - like/repost handled by PostActions)
   const deletePostMutation = useDeletePost();
-
-  const handleLike = useCallback(async (post: PostView) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    
-    if (post.viewer?.like) {
-      await unlikeMutation.mutateAsync({ likeUri: post.viewer.like, postUri: post.uri });
-    } else {
-      await likeMutation.mutateAsync({ uri: post.uri, cid: post.cid });
-    }
-  }, [likeMutation, unlikeMutation]);
-
-  // Open repost menu
-  const handleRepostPress = useCallback((post: PostView) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setSelectedPost(post);
-    setRepostMenuVisible(true);
-  }, []);
 
   // Open image viewer
   const handleImagePress = useCallback((images: string[], index: number) => {
@@ -344,30 +315,6 @@ export default function FeedScreen() {
     setMediaViewerIndex(index);
     setMediaViewerVisible(true);
   }, []);
-
-  // Handle actual repost from menu
-  const handleRepost = useCallback(async () => {
-    if (!selectedPost) return;
-    
-    if (selectedPost.viewer?.repost) {
-      await unrepostMutation.mutateAsync({ repostUri: selectedPost.viewer.repost, postUri: selectedPost.uri });
-    } else {
-      await repostMutation.mutateAsync({ uri: selectedPost.uri, cid: selectedPost.cid });
-    }
-  }, [selectedPost, repostMutation, unrepostMutation]);
-
-  // Handle quote post from menu
-  const handleQuotePost = useCallback(() => {
-    if (!selectedPost) return;
-    
-    router.push({
-      pathname: '/compose',
-      params: {
-        quoteUri: selectedPost.uri,
-        quoteCid: selectedPost.cid,
-      }
-    });
-  }, [selectedPost, router]);
 
   // Share post
   const handleShare = useCallback(async (post: PostView) => {
@@ -493,7 +440,6 @@ export default function FeedScreen() {
               <PostCard
                 item={item}
                 onPress={() => handlePostPress(item.post)}
-                onRepostPress={handleRepostPress}
                 onImagePress={handleImagePress}
                 onOptionsPress={() => handleOptionsPress(item.post)}
               />
@@ -560,15 +506,6 @@ export default function FeedScreen() {
         </View>
       )}
 
-      {/* Repost Menu */}
-      <RepostMenu
-        isVisible={repostMenuVisible}
-        onClose={() => setRepostMenuVisible(false)}
-        onRepost={handleRepost}
-        onQuotePost={handleQuotePost}
-        isReposted={!!selectedPost?.viewer?.repost}
-      />
-      
       {/* Post Options Menu */}
       <PostOptionsMenu
         isVisible={optionsMenuVisible}

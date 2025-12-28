@@ -17,8 +17,7 @@ import { useRouter } from "expo-router";
 import { LogOut, Edit3, UserPlus, UserMinus, MoreHorizontal } from "lucide-react-native";
 import { useState, useMemo, useCallback } from "react";
 import * as Haptics from "expo-haptics";
-import { useAuthorFeed, useActorLikes, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useDeletePost, useFollow, useUnfollow } from "@/lib/hooks";
-import { RepostMenu } from "@/components/social/RepostMenu";
+import { useAuthorFeed, useActorLikes, useDeletePost, useFollow, useUnfollow } from "@/lib/hooks";
 import { PostOptionsMenu } from "@/components/social/PostOptionsMenu";
 import { PostCard } from "@/components/Post";
 import type { AppBskyFeedDefs, AppBskyActorDefs } from '@atproto/api';
@@ -63,7 +62,6 @@ export function ProfileView({
 }: ProfileViewProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
-  const [repostMenuVisible, setRepostMenuVisible] = useState(false);
   const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
   const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
   
@@ -71,11 +69,7 @@ export function ProfileView({
   const followMutation = useFollow();
   const unfollowMutation = useUnfollow();
   
-  // Post mutations
-  const likeMutation = useLikePost();
-  const unlikeMutation = useUnlikePost();
-  const repostMutation = useRepost();
-  const deleteRepostMutation = useDeleteRepost();
+  // Post mutations (only delete - like/repost handled by PostActions)
   const deletePostMutation = useDeletePost();
   
   // Different feeds based on active tab
@@ -129,57 +123,6 @@ export function ProfileView({
   }, [profileData, followMutation, unfollowMutation]);
 
   // Post action handlers
-  const handleLike = useCallback((post: PostView) => {
-    triggerHaptic();
-    if (post.viewer?.like) {
-      unlikeMutation.mutate({ likeUri: post.viewer.like, postUri: post.uri });
-    } else {
-      likeMutation.mutate({ uri: post.uri, cid: post.cid });
-    }
-  }, [likeMutation, unlikeMutation]);
-
-  const handleRepost = useCallback((post: PostView) => {
-    triggerHaptic();
-    setSelectedPost(post);
-    setRepostMenuVisible(true);
-  }, []);
-
-  const handleReply = useCallback((post: PostView) => {
-    const uriParts = post.uri.split('/');
-    const rkey = uriParts[uriParts.length - 1];
-    router.push(`/post/${post.author.did}/${rkey}?reply=true`);
-  }, [router]);
-
-  const handleShare = useCallback(async (post: PostView) => {
-    const bskyUrl = `https://bsky.app/profile/${post.author.handle}/post/${post.uri.split('/').pop()}`;
-    try {
-      await RNShare.share({ url: bskyUrl, message: bskyUrl });
-    } catch (e) {
-      // ignore
-    }
-  }, []);
-
-  const handleRepostAction = useCallback(() => {
-    if (!selectedPost) return;
-    if (selectedPost.viewer?.repost) {
-      deleteRepostMutation.mutate({ repostUri: selectedPost.viewer.repost, postUri: selectedPost.uri });
-    } else {
-      repostMutation.mutate({ uri: selectedPost.uri, cid: selectedPost.cid });
-    }
-    setRepostMenuVisible(false);
-    setSelectedPost(null);
-  }, [selectedPost, repostMutation, deleteRepostMutation]);
-
-  const handleQuote = useCallback(() => {
-    if (!selectedPost) return;
-    router.push({
-      pathname: '/compose',
-      params: { quoteUri: selectedPost.uri, quoteCid: selectedPost.cid }
-    } as any);
-    setRepostMenuVisible(false);
-    setSelectedPost(null);
-  }, [selectedPost, router]);
-
   const handleOptionsPress = useCallback((post: PostView) => {
     triggerHaptic();
     setSelectedPost(post);
@@ -352,7 +295,6 @@ export function ProfileView({
         renderItem={({ item }) => (
           <PostCard 
             item={item}
-            onRepostPress={handleRepost}
             onOptionsPress={() => handleOptionsPress(item.post)}
           />
         )}
@@ -393,18 +335,6 @@ export function ProfileView({
             </View>
           ) : null
         }
-      />
-
-      {/* Repost Menu */}
-      <RepostMenu
-        isVisible={repostMenuVisible}
-        onClose={() => {
-          setRepostMenuVisible(false);
-          setSelectedPost(null);
-        }}
-        onRepost={handleRepostAction}
-        onQuotePost={handleQuote}
-        isReposted={!!selectedPost?.viewer?.repost}
       />
 
       {/* Post Options Menu */}
