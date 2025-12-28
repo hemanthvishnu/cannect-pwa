@@ -1,13 +1,15 @@
 /**
- * Feed Screen - Pure AT Protocol
+ * Feed Screen - v2.0 Server-Managed Pagination
  * 
  * Displays three feeds:
- * - Global: Cannabis content from Bluesky network (aggregated feeds)
- * - Local: Posts from cannect.space users (our community)
- * - Following: Posts from users you follow
+ * - Global: Cannabis content (server-managed via feed.cannect.space)
+ * - Local: Posts from cannect.space users (server-managed via feed.cannect.space)
+ * - Following: Posts from users you follow (direct Bluesky API)
+ * 
+ * v2.0: Simplified client - server handles pagination state
  */
 
-import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, Share as RNShare, Linking, useWindowDimensions, AppState, AppStateStatus } from "react-native";
+import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, Share as RNShare, Linking, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
@@ -15,8 +17,7 @@ import { useRouter } from "expo-router";
 import { Leaf, Heart, MessageCircle, Repeat2, Share, ExternalLink, ImageOff, MoreHorizontal } from "lucide-react-native";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import * as Haptics from "expo-haptics";
-import { useCannectFeed, useGlobalFeed, useTimeline, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useDeletePost } from "@/lib/hooks";
-import { useQueryClient } from "@tanstack/react-query";
+import { useTimeline, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useDeletePost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { RepostMenu } from "@/components/social/RepostMenu";
@@ -29,6 +30,8 @@ import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 type FeedType = 'global' | 'local' | 'following';
 type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
 type PostView = AppBskyFeedDefs.PostView;
+
+const FEED_SERVICE_URL = 'https://feed.cannect.space';
 
 function formatTime(dateString: string): string {
   const date = new Date(dateString);
@@ -460,14 +463,26 @@ function FeedSkeleton() {
 
 export default function FeedScreen() {
   const router = useRouter();
-  const { did } = useAuthStore();
+  const { did, isAuthenticated } = useAuthStore();
   const { height } = useWindowDimensions();
   const [activeFeed, setActiveFeed] = useState<FeedType>('global');
   const renderStart = useRef(performance.now());
   
-  // Guard to prevent rapid fetchNextPage calls (e.g., when returning from post view)
-  const lastFetchTime = useRef(Date.now()); // Initialize to current time to prevent immediate rapid fetches on mount
-  const FETCH_COOLDOWN_MS = 2000; // Minimum 2 seconds between fetches
+  // === SERVER-MANAGED FEED STATE (Global + Local) ===
+  const [globalPosts, setGlobalPosts] = useState<FeedViewPost[]>([]);
+  const [globalSession, setGlobalSession] = useState<string | null>(null);
+  const [globalHasMore, setGlobalHasMore] = useState(true);
+  const [globalLoading, setGlobalLoading] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  
+  const [localPosts, setLocalPosts] = useState<FeedViewPost[]>([]);
+  const [localSession, setLocalSession] = useState<string | null>(null);
+  const [localHasMore, setLocalHasMore] = useState(true);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+  
+  // === FOLLOWING FEED (Direct Bluesky - keep useTimeline for now) ===
+  const followingQuery = useTimeline();
   
   // Track render timing
   useEffect(() => {
@@ -475,31 +490,239 @@ export default function FeedScreen() {
     logger.render.screen('FeedScreen', duration);
   }, []);
   
-  // Memory optimization: Clear feed caches when app goes to background
-  // This prevents iOS PWA crashes from excessive memory usage (see: 2619 posts crash 2024-12-28)
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    const handleAppStateChange = (nextState: AppStateStatus) => {
-      console.log('[FeedScreen] AppState changed to:', nextState, 'did:', did?.substring(8,20) || 'none');
-      logger.info('nav', 'app_state_change', `State: ${nextState}`, { 
-        state: nextState, 
-        hasDid: !!did,
-        didPrefix: did?.substring(8,20)
-      });
-      
-      if (nextState === 'background') {
-        // Clear heavy feed caches to free memory before iOS kills the app
-        console.log('[FeedScreen] 🧹 Clearing feed caches (NOT auth)');
-        queryClient.setQueryData(['globalFeed'], undefined);
-        queryClient.setQueryData(['cannectFeed'], undefined);
-        queryClient.setQueryData(['timeline'], undefined);
-        logger.info('nav', 'cache_clear', 'Cleared feed caches on background');
-      }
-    };
+  // === FEED API CALLS ===
+  
+  // Convert server post format to FeedViewPost
+  const convertPost = (p: any): FeedViewPost => ({
+    post: {
+      uri: p.uri,
+      cid: p.cid,
+      author: p.author,
+      record: p.record,
+      embed: p.embed,
+      likeCount: p.likeCount || 0,
+      repostCount: p.repostCount || 0,
+      replyCount: p.replyCount || 0,
+      indexedAt: p.indexedAt,
+      viewer: {},
+      labels: [],
+    },
+  });
+  
+  // Load initial global feed
+  const loadGlobalFeed = useCallback(async () => {
+    if (globalLoading) return;
+    setGlobalLoading(true);
+    setGlobalError(null);
     
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription.remove();
-  }, [queryClient, did]);
+    try {
+      const res = await fetch(`${FEED_SERVICE_URL}/feed/global`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      setGlobalPosts(data.posts.map(convertPost));
+      setGlobalSession(data.session);
+      setGlobalHasMore(data.hasMore);
+      logger.info('network', 'feed_fetch', `global: ${data.posts.length} posts`, { postCount: data.posts.length });
+    } catch (err: any) {
+      setGlobalError(err.message);
+      logger.error('network', 'feed_fetch', err.message);
+    } finally {
+      setGlobalLoading(false);
+    }
+  }, [globalLoading]);
+  
+  // Load more global posts
+  const loadMoreGlobal = useCallback(async () => {
+    if (globalLoading || !globalHasMore || !globalSession) return;
+    setGlobalLoading(true);
+    
+    try {
+      const res = await fetch(`${FEED_SERVICE_URL}/feed/global/more`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Session': globalSession 
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      setGlobalPosts(prev => [...prev, ...data.posts.map(convertPost)]);
+      setGlobalHasMore(data.hasMore);
+      logger.info('network', 'feed_more', `global: +${data.posts.length} posts`, { postCount: data.posts.length });
+    } catch (err: any) {
+      console.error('[Feed] Load more error:', err);
+    } finally {
+      setGlobalLoading(false);
+    }
+  }, [globalLoading, globalHasMore, globalSession]);
+  
+  // Refresh global feed
+  const refreshGlobal = useCallback(async () => {
+    setGlobalLoading(true);
+    
+    try {
+      const res = await fetch(`${FEED_SERVICE_URL}/feed/global/refresh`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(globalSession && { 'X-Session': globalSession })
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      setGlobalPosts(data.posts.map(convertPost)); // Replace, not append
+      setGlobalSession(data.session);
+      setGlobalHasMore(data.hasMore);
+    } catch (err: any) {
+      console.error('[Feed] Refresh error:', err);
+    } finally {
+      setGlobalLoading(false);
+    }
+  }, [globalSession]);
+  
+  // Load initial local feed
+  const loadLocalFeed = useCallback(async () => {
+    if (localLoading) return;
+    setLocalLoading(true);
+    setLocalError(null);
+    
+    try {
+      const res = await fetch(`${FEED_SERVICE_URL}/feed/local`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      setLocalPosts(data.posts.map(convertPost));
+      setLocalSession(data.session);
+      setLocalHasMore(data.hasMore);
+      logger.info('network', 'feed_fetch', `local: ${data.posts.length} posts`, { postCount: data.posts.length });
+    } catch (err: any) {
+      setLocalError(err.message);
+      logger.error('network', 'feed_fetch', err.message);
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [localLoading]);
+  
+  // Load more local posts
+  const loadMoreLocal = useCallback(async () => {
+    if (localLoading || !localHasMore || !localSession) return;
+    setLocalLoading(true);
+    
+    try {
+      const res = await fetch(`${FEED_SERVICE_URL}/feed/local/more`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Session': localSession 
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      setLocalPosts(prev => [...prev, ...data.posts.map(convertPost)]);
+      setLocalHasMore(data.hasMore);
+      logger.info('network', 'feed_more', `local: +${data.posts.length} posts`, { postCount: data.posts.length });
+    } catch (err: any) {
+      console.error('[Feed] Load more error:', err);
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [localLoading, localHasMore, localSession]);
+  
+  // Refresh local feed
+  const refreshLocal = useCallback(async () => {
+    setLocalLoading(true);
+    
+    try {
+      const res = await fetch(`${FEED_SERVICE_URL}/feed/local/refresh`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(localSession && { 'X-Session': localSession })
+        },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      setLocalPosts(data.posts.map(convertPost)); // Replace, not append
+      setLocalSession(data.session);
+      setLocalHasMore(data.hasMore);
+    } catch (err: any) {
+      console.error('[Feed] Refresh error:', err);
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [localSession]);
+  
+  // Load initial feeds on mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadGlobalFeed();
+      loadLocalFeed();
+    }
+  }, [isAuthenticated]);
+  
+  // === DERIVED STATE ===
+  
+  const posts = useMemo(() => {
+    if (activeFeed === 'global') return globalPosts;
+    if (activeFeed === 'local') return localPosts;
+    // Following uses React Query
+    return followingQuery.data?.pages?.flatMap(page => page.feed) || [];
+  }, [activeFeed, globalPosts, localPosts, followingQuery.data]);
+  
+  const isLoading = useMemo(() => {
+    if (activeFeed === 'global') return globalLoading && globalPosts.length === 0;
+    if (activeFeed === 'local') return localLoading && localPosts.length === 0;
+    return followingQuery.isLoading;
+  }, [activeFeed, globalLoading, globalPosts.length, localLoading, localPosts.length, followingQuery.isLoading]);
+  
+  const isRefreshing = useMemo(() => {
+    if (activeFeed === 'global') return globalLoading && globalPosts.length > 0;
+    if (activeFeed === 'local') return localLoading && localPosts.length > 0;
+    return followingQuery.isRefetching;
+  }, [activeFeed, globalLoading, globalPosts.length, localLoading, localPosts.length, followingQuery.isRefetching]);
+  
+  const hasMore = useMemo(() => {
+    if (activeFeed === 'global') return globalHasMore;
+    if (activeFeed === 'local') return localHasMore;
+    return followingQuery.hasNextPage;
+  }, [activeFeed, globalHasMore, localHasMore, followingQuery.hasNextPage]);
+  
+  const feedError = useMemo(() => {
+    if (activeFeed === 'global') return globalError;
+    if (activeFeed === 'local') return localError;
+    return followingQuery.isError ? 'Failed to load' : null;
+  }, [activeFeed, globalError, localError, followingQuery.isError]);
+  
+  // === HANDLERS ===
+  
+  const handleTabChange = useCallback((feed: FeedType) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setActiveFeed(feed);
+  }, []);
+  
+  const handleRefresh = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    if (activeFeed === 'global') refreshGlobal();
+    else if (activeFeed === 'local') refreshLocal();
+    else followingQuery.refetch();
+  }, [activeFeed, refreshGlobal, refreshLocal, followingQuery]);
+  
+  const handleLoadMore = useCallback(() => {
+    if (activeFeed === 'global') loadMoreGlobal();
+    else if (activeFeed === 'local') loadMoreLocal();
+    else if (followingQuery.hasNextPage && !followingQuery.isFetchingNextPage) {
+      followingQuery.fetchNextPage();
+    }
+  }, [activeFeed, loadMoreGlobal, loadMoreLocal, followingQuery]);
   
   // Repost menu state
   const [repostMenuVisible, setRepostMenuVisible] = useState(false);
@@ -513,57 +736,15 @@ export default function FeedScreen() {
   const [mediaViewerImages, setMediaViewerImages] = useState<string[]>([]);
   const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
   
-  // Web refresh indicator - show when scrolled to top
+  // Web refresh indicator
   const [showRefreshHint, setShowRefreshHint] = useState(false);
   
-  // All three feeds
-  const globalQuery = useGlobalFeed();
-  const localQuery = useCannectFeed();
-  const followingQuery = useTimeline();
-  
-  // Select active query based on tab
-  const activeQuery = activeFeed === 'global' 
-    ? globalQuery 
-    : activeFeed === 'local' 
-      ? localQuery 
-      : followingQuery;
-  
+  // Mutations
   const likeMutation = useLikePost();
   const unlikeMutation = useUnlikePost();
   const repostMutation = useRepost();
   const unrepostMutation = useDeleteRepost();
   const deletePostMutation = useDeletePost();
-
-  const posts = useMemo(() => {
-    const allPosts = activeQuery.data?.pages?.flatMap(page => page.feed) || [];
-    // Sort by createdAt (when user posted) - not indexedAt (when network indexed)
-    const sorted = allPosts.sort((a, b) => {
-      const aDate = (a.post.record as any)?.createdAt || a.post.indexedAt;
-      const bDate = (b.post.record as any)?.createdAt || b.post.indexedAt;
-      return new Date(bDate).getTime() - new Date(aDate).getTime();
-    });
-    
-    // Log feed data ready
-    if (sorted.length > 0) {
-      logger.render.screen(`Feed:${activeFeed}`, 0, sorted.length);
-    }
-    
-    return sorted;
-  }, [activeQuery.data, activeFeed]);
-
-  const handleTabChange = useCallback((feed: FeedType) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setActiveFeed(feed);
-  }, []);
-
-  const handleRefresh = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    activeQuery.refetch();
-  }, [activeQuery]);
 
   const handleLike = useCallback(async (post: PostView) => {
     if (Platform.OS !== 'web') {
@@ -676,18 +857,18 @@ export default function FeedScreen() {
       await deletePostMutation.mutateAsync(selectedPost.uri);
       setOptionsMenuVisible(false);
       setSelectedPost(null);
-      // Don't refetch - optimistic update already removed the post
-      // Refetching would bring it back due to AppView caching delays
     } catch (error) {
       console.error('Failed to delete post:', error);
     }
   }, [selectedPost, deletePostMutation]);
 
-  if (activeQuery.isError) {
+  // Error state
+  if (feedError) {
     return (
       <SafeAreaView className="flex-1 bg-background items-center justify-center px-6">
         <Text className="text-text-primary text-lg font-semibold mb-2">Failed to load feed</Text>
-        <Pressable onPress={() => activeQuery.refetch()} className="bg-primary px-6 py-3 rounded-full">
+        <Text className="text-text-muted mb-4">{feedError}</Text>
+        <Pressable onPress={handleRefresh} className="bg-primary px-6 py-3 rounded-full">
           <Text className="text-white font-bold">Retry</Text>
         </Pressable>
       </SafeAreaView>
@@ -733,11 +914,8 @@ export default function FeedScreen() {
       {/* Offline Banner */}
       <OfflineBanner />
 
-      {/* Show skeleton when:
-          1. Initial loading (no data yet)
-          2. Fetching but no cached data for this feed
-      */}
-      {(activeQuery.isLoading || (activeQuery.isFetching && !posts.length)) ? (
+      {/* Loading skeleton */}
+      {isLoading ? (
         <FeedSkeleton />
       ) : (
         <View style={{ flex: 1, minHeight: Math.max(200, height - 200) }} className="flex-1">
@@ -760,12 +938,12 @@ export default function FeedScreen() {
             estimatedItemSize={280}
             drawDistance={300}
             ListHeaderComponent={
-              Platform.OS === 'web' && (showRefreshHint || activeQuery.isRefetching) ? (
+              Platform.OS === 'web' && (showRefreshHint || isRefreshing) ? (
                 <Pressable 
                   onPress={handleRefresh}
                   className="py-3 items-center border-b border-border"
                 >
-                  {activeQuery.isRefetching ? (
+                  {isRefreshing ? (
                     <ActivityIndicator size="small" color="#10B981" />
                   ) : (
                     <View className="flex-row items-center">
@@ -784,35 +962,14 @@ export default function FeedScreen() {
             scrollEventThrottle={16}
             refreshControl={
               <RefreshControl 
-                refreshing={activeQuery.isRefetching} 
+                refreshing={isRefreshing} 
                 onRefresh={handleRefresh} 
                 tintColor="#10B981"
                 colors={["#10B981"]}
               />
             }
-            onEndReached={() => {
-              const now = Date.now();
-              
-              // Guard 1: Throttle - minimum time between fetches
-              if (now - lastFetchTime.current < FETCH_COOLDOWN_MS) {
-                return;
-              }
-              
-              // Guard 2: Don't fetch if we already have enough posts (8 pages × 50 = 400)
-              const currentPostCount = posts.length;
-              if (currentPostCount >= 350) {
-                console.log('[Feed] Skipping fetch - already have', currentPostCount, 'posts');
-                return;
-              }
-              
-              // Guard 3: Check if ANY feed is currently fetching (prevents race conditions on tab switch)
-              const anyFetching = globalQuery.isFetching || localQuery.isFetching || followingQuery.isFetching;
-              if (activeQuery.hasNextPage && !activeQuery.isFetchingNextPage && !anyFetching) {
-                lastFetchTime.current = now;
-                activeQuery.fetchNextPage();
-              }
-            }}
-            onEndReachedThreshold={0.2}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.3}
             contentContainerStyle={{ paddingBottom: 20 }}
             ListEmptyComponent={
               <View className="flex-1 items-center justify-center py-20">
@@ -826,9 +983,13 @@ export default function FeedScreen() {
               </View>
             }
             ListFooterComponent={
-              activeQuery.isFetchingNextPage ? (
+              hasMore && posts.length > 0 ? (
                 <View className="py-4 items-center">
                   <ActivityIndicator size="small" color="#10B981" />
+                </View>
+              ) : posts.length > 0 ? (
+                <View className="py-4 items-center">
+                  <Text className="text-text-muted text-sm">You've reached the end!</Text>
                 </View>
               ) : null
             }

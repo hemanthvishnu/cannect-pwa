@@ -208,6 +208,55 @@ let stats = {
   startedAt: new Date().toISOString(),
 };
 
+// === SESSION MANAGEMENT ===
+// Server-managed pagination sessions (no client-side complexity)
+const sessions = new Map();
+const SESSION_TTL = 60 * 60 * 1000; // 1 hour
+const POSTS_PER_PAGE = 50;
+
+function generateSessionId() {
+  return 'sess_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+}
+
+function createSession(feedType) {
+  const id = generateSessionId();
+  const session = {
+    id,
+    feedType,
+    cursor: null, // Start from beginning
+    pagesLoaded: 0,
+    createdAt: Date.now(),
+    lastAccess: Date.now(),
+  };
+  sessions.set(id, session);
+  return session;
+}
+
+function getSession(sessionId) {
+  const session = sessions.get(sessionId);
+  if (session) {
+    session.lastAccess = Date.now();
+  }
+  return session;
+}
+
+function cleanupSessions() {
+  const now = Date.now();
+  let cleaned = 0;
+  for (const [id, session] of sessions) {
+    if (now - session.lastAccess > SESSION_TTL) {
+      sessions.delete(id);
+      cleaned++;
+    }
+  }
+  if (cleaned > 0) {
+    console.log(`[Sessions] Cleaned up ${cleaned} expired sessions, ${sessions.size} active`);
+  }
+}
+
+// Cleanup expired sessions every 5 minutes
+setInterval(cleanupSessions, 5 * 60 * 1000);
+
 // === HELPER FUNCTIONS ===
 
 async function fetchCannectUsers() {
@@ -452,6 +501,7 @@ app.get('/stats', (req, res) => {
     ...stats,
     jetstreamConnected: isConnected,
     cannectUsersTracked: cannectDids.size,
+    activeSessions: sessions.size,
     postsInDb: {
       local: localCount.count,
       global: globalCount.count,
@@ -459,10 +509,13 @@ app.get('/stats', (req, res) => {
   });
 });
 
-// Local Feed (Cannect users)
+// Local Feed (Cannect users) - with server-managed sessions
 app.get('/feed/local', (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+  const limit = Math.min(parseInt(req.query.limit) || POSTS_PER_PAGE, 100);
   const cursor = req.query.cursor;
+  
+  // Create new session for this feed request
+  const session = createSession('local');
   
   let query = `
     SELECT * FROM posts 
@@ -478,6 +531,10 @@ app.get('/feed/local', (req, res) => {
   const hasMore = posts.length > limit;
   const resultPosts = hasMore ? posts.slice(0, limit) : posts;
   const nextCursor = hasMore ? resultPosts[resultPosts.length - 1].created_at : null;
+  
+  // Update session with cursor
+  session.cursor = nextCursor;
+  session.pagesLoaded = 1;
   
   // Format posts for client
   const formattedPosts = resultPosts.map(p => ({
@@ -503,13 +560,22 @@ app.get('/feed/local', (req, res) => {
   res.json({
     posts: formattedPosts,
     cursor: nextCursor,
+    session: session.id,
+    hasMore,
+    meta: {
+      pagesLoaded: session.pagesLoaded,
+      feedType: 'local',
+    },
   });
 });
 
-// Global Feed (Cannabis community)
+// Global Feed (Cannabis community) - with server-managed sessions
 app.get('/feed/global', (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+  const limit = Math.min(parseInt(req.query.limit) || POSTS_PER_PAGE, 100);
   const cursor = req.query.cursor;
+  
+  // Create new session for this feed request
+  const session = createSession('global');
   
   let query = `
     SELECT * FROM posts 
@@ -525,6 +591,10 @@ app.get('/feed/global', (req, res) => {
   const hasMore = posts.length > limit;
   const resultPosts = hasMore ? posts.slice(0, limit) : posts;
   const nextCursor = hasMore ? resultPosts[resultPosts.length - 1].created_at : null;
+  
+  // Update session with cursor
+  session.cursor = nextCursor;
+  session.pagesLoaded = 1;
   
   const formattedPosts = resultPosts.map(p => ({
     uri: p.uri,
@@ -549,6 +619,150 @@ app.get('/feed/global', (req, res) => {
   res.json({
     posts: formattedPosts,
     cursor: nextCursor,
+    session: session.id,
+    hasMore,
+    meta: {
+      pagesLoaded: session.pagesLoaded,
+      feedType: 'global',
+    },
+  });
+});
+
+// Load more posts using session
+app.post('/feed/:type/more', (req, res) => {
+  const { type } = req.params;
+  const sessionId = req.headers['x-session'] || req.body.session;
+  
+  if (!sessionId) {
+    return res.status(400).json({ error: 'Session required. Call GET /feed/:type first.' });
+  }
+  
+  const session = getSession(sessionId);
+  if (!session) {
+    return res.status(404).json({ error: 'Session expired. Call GET /feed/:type to start fresh.' });
+  }
+  
+  if (session.feedType !== type) {
+    return res.status(400).json({ error: `Session is for ${session.feedType}, not ${type}` });
+  }
+  
+  if (!session.cursor) {
+    return res.json({
+      posts: [],
+      hasMore: false,
+      message: "You've reached the end!",
+      meta: { pagesLoaded: session.pagesLoaded, feedType: type },
+    });
+  }
+  
+  const feedType = type === 'global' ? 'global' : 'local';
+  const query = `
+    SELECT * FROM posts 
+    WHERE feed_type = ? AND created_at < ?
+    ORDER BY created_at DESC 
+    LIMIT ?
+  `;
+  
+  const posts = db.prepare(query).all(feedType, session.cursor, POSTS_PER_PAGE + 1);
+  
+  const hasMore = posts.length > POSTS_PER_PAGE;
+  const resultPosts = hasMore ? posts.slice(0, POSTS_PER_PAGE) : posts;
+  const nextCursor = hasMore ? resultPosts[resultPosts.length - 1].created_at : null;
+  
+  // Update session
+  session.cursor = nextCursor;
+  session.pagesLoaded++;
+  
+  const formattedPosts = resultPosts.map(p => ({
+    uri: p.uri,
+    cid: p.cid,
+    author: {
+      did: p.author_did,
+      handle: p.author_handle,
+      displayName: p.author_name,
+      avatar: p.author_avatar,
+    },
+    record: {
+      text: p.text,
+      createdAt: p.created_at,
+    },
+    embed: p.embed_json ? JSON.parse(p.embed_json) : undefined,
+    likeCount: p.like_count,
+    repostCount: p.repost_count,
+    replyCount: p.reply_count,
+    indexedAt: p.indexed_at,
+  }));
+  
+  res.json({
+    posts: formattedPosts,
+    hasMore,
+    meta: {
+      pagesLoaded: session.pagesLoaded,
+      feedType: type,
+    },
+  });
+});
+
+// Refresh feed - creates new session, returns fresh posts
+app.post('/feed/:type/refresh', (req, res) => {
+  const { type } = req.params;
+  const oldSessionId = req.headers['x-session'] || req.body.session;
+  
+  // Delete old session if provided
+  if (oldSessionId) {
+    sessions.delete(oldSessionId);
+  }
+  
+  // Create new session
+  const feedType = type === 'global' ? 'global' : 'local';
+  const session = createSession(feedType);
+  
+  const query = `
+    SELECT * FROM posts 
+    WHERE feed_type = ?
+    ORDER BY created_at DESC 
+    LIMIT ?
+  `;
+  
+  const posts = db.prepare(query).all(feedType, POSTS_PER_PAGE + 1);
+  
+  const hasMore = posts.length > POSTS_PER_PAGE;
+  const resultPosts = hasMore ? posts.slice(0, POSTS_PER_PAGE) : posts;
+  const nextCursor = hasMore ? resultPosts[resultPosts.length - 1].created_at : null;
+  
+  // Update session
+  session.cursor = nextCursor;
+  session.pagesLoaded = 1;
+  
+  const formattedPosts = resultPosts.map(p => ({
+    uri: p.uri,
+    cid: p.cid,
+    author: {
+      did: p.author_did,
+      handle: p.author_handle,
+      displayName: p.author_name,
+      avatar: p.author_avatar,
+    },
+    record: {
+      text: p.text,
+      createdAt: p.created_at,
+    },
+    embed: p.embed_json ? JSON.parse(p.embed_json) : undefined,
+    likeCount: p.like_count,
+    repostCount: p.repost_count,
+    replyCount: p.reply_count,
+    indexedAt: p.indexed_at,
+  }));
+  
+  res.json({
+    posts: formattedPosts,
+    session: session.id,
+    hasMore,
+    action: 'replace', // Client should replace, not append
+    meta: {
+      pagesLoaded: session.pagesLoaded,
+      feedType: type,
+    },
   });
 });
 
@@ -568,12 +782,18 @@ app.post('/feed/refresh/global', async (req, res) => {
 async function start() {
   console.log('[Feed] Starting Cannect Feed Service...');
   
+  // Start server FIRST so it's responsive immediately
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Feed] Server running on port ${PORT}`);
+  });
+  
   // Load Cannect users
   await fetchCannectUsers();
   
-  // Initial feed load
-  await refreshLocalFeed();
-  await refreshGlobalFeed();
+  // Initial feed load (in background, non-blocking)
+  console.log('[Feed] Starting background feed refresh...');
+  refreshLocalFeed().catch(err => console.error('[Feed] Local refresh error:', err));
+  refreshGlobalFeed().catch(err => console.error('[Feed] Global refresh error:', err));
   
   // Connect to Jetstream for real-time updates
   connectJetstream();
@@ -582,11 +802,6 @@ async function start() {
   setInterval(refreshGlobalFeed, 5 * 60 * 1000);
   setInterval(refreshLocalFeed, 2 * 60 * 1000);
   setInterval(fetchCannectUsers, 10 * 60 * 1000); // Refresh user list every 10 min
-  
-  // Start server
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Feed] Server running on port ${PORT}`);
-  });
 }
 
 start().catch(console.error);
