@@ -1,43 +1,23 @@
 /**
- * Profile Screen - Pure AT Protocol
- * Tabs: Posts, Reposts, Replies, Likes
+ * Profile Screen - Own Profile (Tab)
+ * 
+ * Uses unified ProfileView component
  */
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { View, Text, Pressable, RefreshControl, ActivityIndicator, Platform, Share as RNShare } from "react-native";
-import { Image } from "expo-image";
+import { useEffect, useRef } from "react";
+import { View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { LogOut, RefreshCw, Edit3 } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
-import { useMyProfile, useAuthorFeed, useActorLikes, useLogout, useLikePost, useUnlikePost, useRepost, useDeleteRepost, useDeletePost } from "@/lib/hooks";
+import { RefreshCw } from "lucide-react-native";
+import { useMyProfile, useLogout } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
-import { RepostMenu } from "@/components/social/RepostMenu";
-import { PostOptionsMenu } from "@/components/social/PostOptionsMenu";
-import { PostCard } from "@/components/Post";
+import { ProfileView, ProfileSkeleton } from "@/components/Profile/ProfileView";
 import { logger } from "@/lib/utils";
-import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
-
-type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
-type PostView = AppBskyFeedDefs.PostView;
-type ProfileTab = "posts" | "reposts" | "replies" | "likes";
-
-function formatNumber(num: number | undefined): string {
-  if (!num) return '0';
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-  return num.toString();
-}
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { did, handle } = useAuthStore();
+  const { did } = useAuthStore();
   const logoutMutation = useLogout();
-  const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
-  const [repostMenuVisible, setRepostMenuVisible] = useState(false);
-  const [optionsMenuVisible, setOptionsMenuVisible] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<PostView | null>(null);
   const renderStart = useRef(performance.now());
   
   // Track render timing
@@ -47,57 +27,6 @@ export default function ProfileScreen() {
   }, []);
   
   const profileQuery = useMyProfile();
-  
-  // Mutations
-  const likeMutation = useLikePost();
-  const unlikeMutation = useUnlikePost();
-  const repostMutation = useRepost();
-  const deleteRepostMutation = useDeleteRepost();
-  const deletePostMutation = useDeletePost();
-  
-  // Different feeds based on active tab
-  const postsQuery = useAuthorFeed(did || undefined, 'posts_no_replies');
-  const repliesQuery = useAuthorFeed(did || undefined, 'posts_with_replies');
-  const likesQuery = useActorLikes(did || undefined);
-
-  // Get posts data based on active tab
-  const posts = useMemo(() => {
-    let result: FeedViewPost[] = [];
-    if (activeTab === "posts") {
-      result = postsQuery.data?.pages?.flatMap(page => page.feed) || [];
-    } else if (activeTab === "reposts") {
-      // Filter for reposts only
-      const allPosts = postsQuery.data?.pages?.flatMap(page => page.feed) || [];
-      result = allPosts.filter(item => item.reason?.$type === 'app.bsky.feed.defs#reasonRepost');
-    } else if (activeTab === "replies") {
-      // Get posts with replies then filter for actual replies
-      const allPosts = repliesQuery.data?.pages?.flatMap(page => page.feed) || [];
-      result = allPosts.filter(item => {
-        const record = item.post.record as any;
-        return record?.reply; // Has reply reference = it's a reply
-      });
-    } else if (activeTab === "likes") {
-      result = likesQuery.data?.pages?.flatMap(page => page.feed) || [];
-    }
-    
-    // Log profile posts ready (track large profile renders)
-    if (result.length > 0) {
-      logger.render.screen(`Profile:${activeTab}`, 0, result.length);
-    }
-    
-    return result;
-  }, [activeTab, postsQuery.data, repliesQuery.data, likesQuery.data]);
-
-  const currentQuery = activeTab === "likes" ? likesQuery : 
-                       activeTab === "replies" ? repliesQuery : postsQuery;
-
-  const handleRefresh = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    profileQuery.refetch();
-    currentQuery.refetch();
-  }, [profileQuery, currentQuery]);
 
   const handleLogout = async () => {
     await logoutMutation.mutateAsync();
@@ -108,94 +37,17 @@ export default function ProfileScreen() {
     router.push("/settings/edit-profile" as any);
   };
 
-  // Post action handlers
-  const handleLike = useCallback((post: PostView) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    if (post.viewer?.like) {
-      unlikeMutation.mutate({ likeUri: post.viewer.like, postUri: post.uri });
-    } else {
-      likeMutation.mutate({ uri: post.uri, cid: post.cid });
-    }
-  }, [likeMutation, unlikeMutation]);
-
-  const handleRepost = useCallback((post: PostView) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setSelectedPost(post);
-    setRepostMenuVisible(true);
-  }, []);
-
-  const handleReply = useCallback((post: PostView) => {
-    const uriParts = post.uri.split('/');
-    const rkey = uriParts[uriParts.length - 1];
-    router.push(`/post/${post.author.did}/${rkey}?reply=true`);
-  }, [router]);
-
-  const handleShare = useCallback(async (post: PostView) => {
-    const bskyUrl = `https://bsky.app/profile/${post.author.handle}/post/${post.uri.split('/').pop()}`;
-    try {
-      await RNShare.share({ url: bskyUrl, message: bskyUrl });
-    } catch (e) {
-      // ignore
-    }
-  }, []);
-
-  const handleRepostAction = useCallback(() => {
-    if (!selectedPost) return;
-    if (selectedPost.viewer?.repost) {
-      deleteRepostMutation.mutate({ repostUri: selectedPost.viewer.repost, postUri: selectedPost.uri });
-    } else {
-      repostMutation.mutate({ uri: selectedPost.uri, cid: selectedPost.cid });
-    }
-    setRepostMenuVisible(false);
-    setSelectedPost(null);
-  }, [selectedPost, repostMutation, deleteRepostMutation]);
-
-  const handleQuote = useCallback(() => {
-    if (!selectedPost) return;
-    router.push({
-      pathname: '/compose',
-      params: { quoteUri: selectedPost.uri, quoteCid: selectedPost.cid }
-    } as any);
-    setRepostMenuVisible(false);
-    setSelectedPost(null);
-  }, [selectedPost, router]);
-
-  const handleOptionsPress = useCallback((post: PostView) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setSelectedPost(post);
-    setOptionsMenuVisible(true);
-  }, []);
-
-  const handleDelete = useCallback(async () => {
-    if (!selectedPost) return;
-    try {
-      await deletePostMutation.mutateAsync(selectedPost.uri);
-      setOptionsMenuVisible(false);
-      setSelectedPost(null);
-    } catch (e) {
-      console.error('Delete error:', e);
-    }
-  }, [selectedPost, deletePostMutation]);
-
-  const profileData = profileQuery.data;
-
   if (profileQuery.isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-background items-center justify-center">
-        <ActivityIndicator size="large" color="#10B981" />
+      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+        <ProfileSkeleton />
       </SafeAreaView>
     );
   }
 
-  if (profileQuery.isError) {
+  if (profileQuery.isError || !profileQuery.data) {
     return (
-      <SafeAreaView className="flex-1 bg-background items-center justify-center px-6">
+      <SafeAreaView className="flex-1 bg-background items-center justify-center px-6" edges={["top"]}>
         <RefreshCw size={48} color="#6B7280" />
         <Text className="text-text-primary text-lg font-semibold mt-4">Failed to load profile</Text>
         <Pressable onPress={() => profileQuery.refetch()} className="bg-primary px-6 py-3 rounded-full mt-4">
@@ -205,191 +57,16 @@ export default function ProfileScreen() {
     );
   }
 
-  const tabs: { key: ProfileTab; label: string }[] = [
-    { key: "posts", label: "Posts" },
-    { key: "reposts", label: "Reposts" },
-    { key: "replies", label: "Replies" },
-    { key: "likes", label: "Likes" },
-  ];
-
   return (
     <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <FlashList
-        data={posts}
-        keyExtractor={(item, index) => `${item.post.uri}-${index}`}
-        estimatedItemSize={100}
-        ListHeaderComponent={
-          <View>
-            {/* Banner */}
-            {profileData?.banner ? (
-              <Image source={{ uri: profileData.banner }} className="w-full h-32" resizeMode="cover" />
-            ) : (
-              <View className="w-full h-32 bg-primary/20" />
-            )}
-
-            {/* Profile Info */}
-            <View className="px-4 -mt-12">
-              {/* Avatar */}
-              {profileData?.avatar ? (
-                <Image 
-                  source={{ uri: profileData.avatar }} 
-                  className="w-24 h-24 rounded-full border-4 border-background"
-                />
-              ) : (
-                <View className="w-24 h-24 rounded-full border-4 border-background bg-surface-elevated items-center justify-center">
-                  <Text className="text-text-muted text-3xl">
-                    {(profileData?.handle || handle || '?')[0].toUpperCase()}
-                  </Text>
-                </View>
-              )}
-
-              {/* Actions - Edit Profile + Sign Out */}
-              <View className="absolute right-4 top-14 flex-row gap-2">
-                <Pressable 
-                  onPress={handleEditProfile}
-                  className="bg-surface-elevated border border-border px-4 py-2 rounded-full flex-row items-center"
-                >
-                  <Edit3 size={16} color="#FAFAFA" />
-                  <Text className="text-text-primary font-semibold ml-2">Edit Profile</Text>
-                </Pressable>
-                <Pressable 
-                  onPress={handleLogout}
-                  className="bg-surface-elevated border border-border p-2 rounded-full items-center justify-center"
-                >
-                  <LogOut size={18} color="#EF4444" />
-                </Pressable>
-              </View>
-
-              {/* Name & Handle */}
-              <Text className="text-xl font-bold text-text-primary mt-3">
-                {profileData?.displayName || handle}
-              </Text>
-              <Text className="text-text-muted">@{profileData?.handle || handle}</Text>
-
-              {/* Bio */}
-              {profileData?.description && (
-                <Text className="text-text-primary mt-2">{profileData.description}</Text>
-              )}
-
-              {/* Stats */}
-              <View className="flex-row gap-4 mt-3">
-                <Pressable 
-                  className="flex-row items-center active:opacity-70"
-                  onPress={() => router.push(`/user/${profileData?.handle}/followers` as any)}
-                >
-                  <Text className="font-bold text-text-primary">
-                    {formatNumber(profileData?.followersCount)}
-                  </Text>
-                  <Text className="text-text-muted ml-1">followers</Text>
-                </Pressable>
-                <Pressable 
-                  className="flex-row items-center active:opacity-70"
-                  onPress={() => router.push(`/user/${profileData?.handle}/following` as any)}
-                >
-                  <Text className="font-bold text-text-primary">
-                    {formatNumber(profileData?.followsCount)}
-                  </Text>
-                  <Text className="text-text-muted ml-1">following</Text>
-                </Pressable>
-                <View className="flex-row items-center">
-                  <Text className="font-bold text-text-primary">
-                    {formatNumber(profileData?.postsCount)}
-                  </Text>
-                  <Text className="text-text-muted ml-1">posts</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Tabs */}
-            <View className="flex-row border-b border-border mt-4">
-              {tabs.map((tab) => (
-                <Pressable
-                  key={tab.key}
-                  onPress={() => setActiveTab(tab.key)}
-                  className={`flex-1 py-3 items-center ${activeTab === tab.key ? "border-b-2 border-primary" : ""}`}
-                >
-                  <Text className={activeTab === tab.key ? "text-primary font-semibold" : "text-text-muted"}>
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <PostCard 
-            item={item} 
-            onLike={() => handleLike(item.post)}
-            onRepost={() => handleRepost(item.post)}
-            onReply={() => handleReply(item.post)}
-            onShare={() => handleShare(item.post)}
-            onOptionsPress={() => handleOptionsPress(item.post)}
-          />
-        )}
-        refreshControl={
-          <RefreshControl
-            refreshing={profileQuery.isRefetching || currentQuery.isRefetching}
-            onRefresh={handleRefresh}
-            tintColor="#10B981"
-          />
-        }
-        onEndReached={() => {
-          if (currentQuery.hasNextPage && !currentQuery.isFetchingNextPage) {
-            currentQuery.fetchNextPage();
-          }
-        }}
-        onEndReachedThreshold={0.5}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        ListEmptyComponent={
-          currentQuery.isLoading ? (
-            <View className="py-10 items-center">
-              <ActivityIndicator color="#10B981" />
-            </View>
-          ) : (
-            <View className="py-20 items-center">
-              <Text className="text-text-muted">
-                {activeTab === "posts" && "No posts yet"}
-                {activeTab === "reposts" && "No reposts yet"}
-                {activeTab === "replies" && "No replies yet"}
-                {activeTab === "likes" && "No likes yet"}
-              </Text>
-            </View>
-          )
-        }
-        ListFooterComponent={
-          currentQuery.isFetchingNextPage ? (
-            <View className="py-4 items-center">
-              <ActivityIndicator size="small" color="#10B981" />
-            </View>
-          ) : null
-        }
-      />
-
-      {/* Repost Menu */}
-      <RepostMenu
-        isVisible={repostMenuVisible}
-        onClose={() => {
-          setRepostMenuVisible(false);
-          setSelectedPost(null);
-        }}
-        onRepost={handleRepostAction}
-        onQuotePost={handleQuote}
-        isReposted={!!selectedPost?.viewer?.repost}
-      />
-
-      {/* Post Options Menu */}
-      <PostOptionsMenu
-        isVisible={optionsMenuVisible}
-        onClose={() => {
-          setOptionsMenuVisible(false);
-          setSelectedPost(null);
-        }}
-        postUri={selectedPost?.uri || ''}
-        isOwnPost={selectedPost?.author.did === did}
-        postUrl={`https://bsky.app/profile/${selectedPost?.author.handle}/post/${selectedPost?.uri.split('/').pop()}`}
-        postText={(selectedPost?.record as any)?.text}
-        authorHandle={selectedPost?.author.handle}
-        onDelete={handleDelete}
+      <ProfileView
+        profileData={profileQuery.data}
+        isOwnProfile={true}
+        currentUserDid={did || undefined}
+        isRefreshing={profileQuery.isRefetching}
+        onRefresh={() => profileQuery.refetch()}
+        onEditProfile={handleEditProfile}
+        onLogout={handleLogout}
       />
     </SafeAreaView>
   );
