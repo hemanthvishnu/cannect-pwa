@@ -12,17 +12,6 @@ import { useAuthStore } from '@/lib/stores/auth-store-atp';
 import * as atproto from '@/lib/atproto/agent';
 import { queryKeys } from '@/lib/query-client';
 
-// SSR-safe import - usePostHog only available on client
-let usePostHog: () => { identify: (id: string, props?: Record<string, any>) => void; reset: () => void } | null = () => null;
-if (typeof window !== 'undefined') {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    usePostHog = require('posthog-react-native').usePostHog;
-  } catch {
-    // PostHog not available
-  }
-}
-
 /**
  * Main auth hook - handles session initialization and auth state
  */
@@ -41,7 +30,6 @@ export function useAuth() {
   } = useAuthStore();
   
   const queryClient = useQueryClient();
-  const posthog = usePostHog();
 
   // Subscribe to session expiry events
   useEffect(() => {
@@ -121,14 +109,8 @@ export function useAuth() {
         id: profileData.did,
         username: profileData.handle,
       });
-      
-      // 📊 Identify user in PostHog for analytics
-      posthog?.identify(profileData.did, {
-        handle: profileData.handle,
-        displayName: profileData.displayName,
-      });
     }
-  }, [profileData, setProfile, posthog]);
+  }, [profileData, setProfile]);
 
   const logout = useCallback(async () => {
     await atproto.logout();
@@ -136,9 +118,7 @@ export function useAuth() {
     queryClient.clear();
     // 🔐 Clear Sentry user context on logout
     Sentry.setUser(null);
-    // 📊 Reset PostHog user on logout
-    posthog?.reset();
-  }, [clear, queryClient, posthog]);
+  }, [clear, queryClient]);
 
   return {
     session,

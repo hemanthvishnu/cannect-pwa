@@ -1,19 +1,11 @@
 import "../global.css";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { LogBox, Platform, View, ActivityIndicator } from "react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { QueryClientProvider } from "@tanstack/react-query";
 import * as Sentry from "@sentry/react-native";
-
-// 📊 PostHog - Only import on client side to avoid SSR issues
-// posthog-react-native uses window and React Navigation hooks that don't exist during static rendering
-let PostHogProvider: React.ComponentType<{ apiKey: string; options: any; children: ReactNode }> | null = null;
-if (typeof window !== 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  PostHogProvider = require('posthog-react-native').PostHogProvider;
-}
 
 // 🔒 Initialize Sentry for error tracking (before any other code runs)
 Sentry.init({
@@ -219,8 +211,7 @@ export default Sentry.wrap(function RootLayout() {
     initAuth();
   }, [setSession, setLoading]);
 
-  // 📊 PostHog Provider - Only wrap on client side (SSR-safe)
-  const content = (
+  return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
@@ -229,24 +220,4 @@ export default Sentry.wrap(function RootLayout() {
       </QueryClientProvider>
     </ErrorBoundary>
   );
-
-  // Wrap with PostHog only on client side (window exists)
-  if (PostHogProvider) {
-    return (
-      <PostHogProvider 
-        apiKey="phc_vkpwQgmLj7fAO9KZih5oXFh0Bk2gLuW2OMNYA7e7M0T"
-        options={{
-          host: 'https://us.i.posthog.com',
-          enableSessionReplay: true,
-          disabled: __DEV__, // Only track in production
-          // Disable auto navigation tracking - doesn't work with Expo Router
-          captureScreenViews: false,
-        }}
-      >
-        {content}
-      </PostHogProvider>
-    );
-  }
-
-  return content;
 });
