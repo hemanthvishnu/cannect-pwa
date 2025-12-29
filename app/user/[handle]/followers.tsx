@@ -28,7 +28,8 @@ function UserRow({ user, onPress }: { user: ProfileView; onPress: () => void }) 
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-center px-4 py-3 border-b border-border active:bg-surface-elevated"
+      style={{ minHeight: 80 }}
+      className="flex-row items-center px-4 py-3 min-h-[80px] border-b border-border active:bg-surface-elevated"
     >
       {user.avatar ? (
         <Image
@@ -114,6 +115,9 @@ export default function FollowersScreen() {
           data={followers}
           keyExtractor={(item, index) => `${item.did}-${index}`}
           estimatedItemSize={80}
+          overrideItemLayout={(layout) => {
+            layout.size = 80;
+          }}
           renderItem={({ item }) => <UserRow user={item} onPress={() => handleUserPress(item)} />}
           refreshControl={
             <RefreshControl

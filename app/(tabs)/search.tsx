@@ -68,7 +68,8 @@ function UserRow({
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-center px-4 py-3 border-b border-border active:bg-surface-elevated"
+      style={{ minHeight: 80 }}
+      className="flex-row items-center px-4 py-3 min-h-[80px] border-b border-border active:bg-surface-elevated"
     >
       {user.avatar ? (
         <Image source={{ uri: user.avatar }} className="w-12 h-12 rounded-full" />
@@ -325,6 +326,9 @@ export default function SearchScreen() {
           data={suggestedUsers}
           keyExtractor={(item) => item.did}
           estimatedItemSize={80}
+          overrideItemLayout={(layout) => {
+            layout.size = 80;
+          }}
           refreshControl={
             <RefreshControl
               refreshing={suggestedUsersQuery.isRefetching}
@@ -388,6 +392,13 @@ export default function SearchScreen() {
           }}
           getItemType={getItemType}
           estimatedItemSize={100}
+          overrideItemLayout={(layout, item) => {
+            // Different sizes for different item types
+            if (item.type === 'section') layout.size = 50;
+            else if (item.type === 'user') layout.size = 80;
+            else if (item.type === 'post') layout.size = 280;
+            else layout.size = 100;
+          }}
           refreshControl={
             <RefreshControl
               refreshing={usersQuery.isRefetching || postsQuery.isRefetching}

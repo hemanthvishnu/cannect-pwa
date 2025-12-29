@@ -12,7 +12,7 @@ import { Skeleton, SkeletonAvatar } from './Skeleton';
  */
 export function UserRowSkeleton() {
   return (
-    <View className="flex-row items-center px-4 py-3 border-b border-border">
+    <View style={{ minHeight: 80 }} className="flex-row items-center px-4 py-3 min-h-[80px] border-b border-border">
       <SkeletonAvatar size={48} />
       <View className="flex-1 ml-3 gap-2">
         <Skeleton height={16} width="45%" radius="sm" />
