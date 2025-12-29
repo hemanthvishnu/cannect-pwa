@@ -691,18 +691,17 @@ export async function getUnreadCount() {
 
 /**
  * Feed Generator URIs
- * These are official Cannect feeds hosted at feed.cannect.space
+ * Using Bluesky Feed Creator - no VPS needed
  */
-const CANNECT_FEED_URI = 'at://did:plc:7jnbvychc4bbo6bpwok2oeas/app.bsky.feed.generator/cannect';
-const CANNABIS_FEED_URI = 'at://did:plc:7jnbvychc4bbo6bpwok2oeas/app.bsky.feed.generator/cannabis';
-const CANNECT_FOLLOWING_URI =
-  'at://did:plc:7jnbvychc4bbo6bpwok2oeas/app.bsky.feed.generator/following';
+const CANNABIS_FEED_URI = 'at://did:plc:akbqlqbx6afvzcd5eygtrgl5/app.bsky.feed.generator/cannect_global';
+// TODO: Create a second feed for Cannect Network (cannect.space users only)
+const CANNECT_FEED_URI = 'at://did:plc:akbqlqbx6afvzcd5eygtrgl5/app.bsky.feed.generator/cannect_global';
 
 /**
  * Get the Cannabis Community feed (Global)
  *
- * Uses the Cannect Feed Generator which:
- * - Indexes posts from 100+ curated cannabis accounts
+ * Uses Bluesky Feed Creator hosted feed:
+ * - Keyword-based filtering for cannabis content
  * - Returns proper viewer state via Bluesky's hydration
  */
 export async function getCannabisFeed(cursor?: string, limit = 50) {
