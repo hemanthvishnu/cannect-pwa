@@ -561,9 +561,9 @@ export function useSuggestedPosts() {
 }
 
 /**
- * Local Feed - Cannect users via Bluesky Feed Creator
- * Fetches posts from Cannect PDS users
- * Uses AT Protocol - no VPS needed!
+ * Local Feed - Direct from Cannect PDS
+ * Fetches posts from all users on cannect.space directly
+ * No VPS, no external services - pure AT Protocol!
  */
 export function useLocalFeed() {
   const { isAuthenticated } = useAuthStore();
@@ -571,9 +571,8 @@ export function useLocalFeed() {
   return useInfiniteQuery({
     queryKey: ['localFeed'],
     queryFn: async ({ pageParam }) => {
-      // Use AT Protocol feed - once user creates the local feed in Bluesky Feed Creator,
-      // update CANNECT_FEED_URI in agent.ts to point to it
-      const result = await atproto.getCannectFeed(pageParam, 50);
+      // Query PDS directly - aggregates posts from all cannect.space users
+      const result = await atproto.getLocalFeedFromPDS(pageParam, 30);
 
       // Apply content moderation filter
       const moderated = filterFeedForModeration(result.data.feed);
@@ -585,9 +584,8 @@ export function useLocalFeed() {
     },
     getNextPageParam: (lastPage) => lastPage.cursor,
     initialPageParam: undefined as string | undefined,
-    maxPages: 8,
-    enabled: isAuthenticated,
-    staleTime: 1000 * 60, // 1 minute
     maxPages: 5, // Limit pages to prevent memory issues
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 2, // 2 minutes - PDS query is heavier
   });
 }

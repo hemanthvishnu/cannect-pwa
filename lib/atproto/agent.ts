@@ -817,6 +817,117 @@ export async function resetPassword(token: string, password: string): Promise<vo
 }
 
 /**
+ * Get Local Feed directly from Cannect PDS
+ *
+ * Queries all repos on cannect.space, fetches their recent posts,
+ * and aggregates them into a chronological feed.
+ * No VPS needed - talks directly to our PDS!
+ */
+export async function getLocalFeedFromPDS(
+  cursor?: string,
+  limit = 30
+): Promise<{
+  data: {
+    feed: import('@atproto/api').AppBskyFeedDefs.FeedViewPost[];
+    cursor?: string;
+  };
+}> {
+  const bskyAgent = getAgent();
+
+  try {
+    // Parse cursor: "timestamp:offset" format for pagination
+    let startIndex = 0;
+    if (cursor) {
+      const parts = cursor.split(':');
+      startIndex = parseInt(parts[1] || '0', 10);
+    }
+
+    // Step 1: List all repos on our PDS
+    const reposResponse = await fetch(
+      `${PDS_SERVICE}/xrpc/com.atproto.sync.listRepos?limit=100`
+    );
+
+    if (!reposResponse.ok) {
+      throw new Error(`Failed to list repos: ${reposResponse.status}`);
+    }
+
+    const reposData = await reposResponse.json();
+    const repos = reposData.repos || [];
+
+    console.log(`[LocalFeed] Found ${repos.length} repos on PDS`);
+
+    // Step 2: Fetch recent posts from each user (in parallel, limited)
+    const allPosts: import('@atproto/api').AppBskyFeedDefs.FeedViewPost[] = [];
+
+    // Batch requests to avoid overwhelming the server
+    const batchSize = 10;
+    for (let i = 0; i < repos.length; i += batchSize) {
+      const batch = repos.slice(i, i + batchSize);
+
+      const batchResults = await Promise.allSettled(
+        batch.map(async (repo: { did: string }) => {
+          try {
+            const feedResult = await bskyAgent.app.bsky.feed.getAuthorFeed({
+              actor: repo.did,
+              limit: 10, // Get 10 most recent posts per user
+              filter: 'posts_no_replies', // Only original posts
+            });
+            return feedResult.data.feed;
+          } catch (err) {
+            // User might not have posts or be suspended
+            return [];
+          }
+        })
+      );
+
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled' && result.value) {
+          allPosts.push(...result.value);
+        }
+      }
+    }
+
+    // Step 3: Sort by indexedAt (most recent first)
+    allPosts.sort((a, b) => {
+      const dateA = new Date(a.post.indexedAt).getTime();
+      const dateB = new Date(b.post.indexedAt).getTime();
+      return dateB - dateA;
+    });
+
+    // Step 4: Deduplicate by URI (reposts can cause duplicates)
+    const seen = new Set<string>();
+    const uniquePosts = allPosts.filter((item) => {
+      if (seen.has(item.post.uri)) return false;
+      seen.add(item.post.uri);
+      return true;
+    });
+
+    // Step 5: Paginate
+    const paginatedPosts = uniquePosts.slice(startIndex, startIndex + limit);
+    const hasMore = startIndex + limit < uniquePosts.length;
+
+    console.log(
+      `[LocalFeed] Returning ${paginatedPosts.length} posts (${startIndex}-${startIndex + limit} of ${uniquePosts.length})`
+    );
+
+    return {
+      data: {
+        feed: paginatedPosts,
+        cursor: hasMore ? `${Date.now()}:${startIndex + limit}` : undefined,
+      },
+    };
+  } catch (error: any) {
+    console.error('[LocalFeed] Failed to load from PDS:', error?.message || error);
+    return {
+      data: {
+        feed: [],
+        cursor: undefined,
+      },
+    };
+  }
+}
+
+/**
  * Report content to AT Protocol moderation service
  * This sends a report to Bluesky's moderation team
  */
