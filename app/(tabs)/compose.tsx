@@ -346,7 +346,13 @@ export default function ComposeScreen() {
             <TextInput
               value={content}
               onChangeText={setContent}
-              placeholder={isReply ? 'Write your reply...' : isQuote ? 'Add your comment...' : "What's happening?"}
+              placeholder={
+                isReply
+                  ? 'Write your reply...'
+                  : isQuote
+                    ? 'Add your comment...'
+                    : "What's happening?"
+              }
               placeholderTextColor="#6B7280"
               multiline
               autoFocus

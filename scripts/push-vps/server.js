@@ -454,7 +454,9 @@ async function handleJetstreamEvent(event) {
               );
               if (sent > 0) {
                 stats.notified++;
-                console.log(`[Push] Mention notification sent to ${mentionedDid.substring(0, 25)}...`);
+                console.log(
+                  `[Push] Mention notification sent to ${mentionedDid.substring(0, 25)}...`
+                );
               }
             }
           }

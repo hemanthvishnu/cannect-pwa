@@ -188,21 +188,14 @@ export const PostActions = memo(function PostActions({
     } as any);
   }, [post, router]);
 
-  // Handle reply - navigate to compose with reply context
+  // Handle reply - navigate to thread view where user can see context and reply
   const handleReply = useCallback(() => {
     triggerHaptic();
     const parts = post.uri.split('/');
     const did = parts[2];
     const rkey = parts[4];
 
-    router.push({
-      pathname: '/compose',
-      params: {
-        replyTo: post.uri,
-        replyToDid: did,
-        replyToRkey: rkey,
-      },
-    } as any);
+    router.push(`/post/${did}/${rkey}`);
   }, [post.uri, router]);
 
   // Handle share (action bar button)
