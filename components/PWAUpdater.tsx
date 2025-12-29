@@ -8,7 +8,6 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { RefreshCw, AlertTriangle } from 'lucide-react-native';
-import { logger } from '@/lib/utils/logger';
 
 interface PWAUpdaterProps {
   /** Check for updates interval in milliseconds (default: 60000 = 1 minute) */
@@ -54,36 +53,24 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     if (typeof window === 'undefined') return;
-    if (!('serviceWorker' in navigator)) {
-      logger.info('sw', 'no_support', 'serviceWorker not in navigator');
-      return;
-    }
+    if (!('serviceWorker' in navigator)) return;
     if (!isMounted) return;
 
     const setupServiceWorker = async () => {
       try {
-        logger.info('sw', 'setup_start', 'PWAUpdater starting SW setup');
-        
         // Get existing registration
         let reg = await navigator.serviceWorker.getRegistration();
-        logger.info('sw', 'get_registration', `Existing registration: ${reg ? 'yes' : 'no'}`);
         
         // If no registration, register the SW
         if (!reg) {
-          logger.info('sw', 'registering', 'No existing registration, registering /sw.js');
           reg = await navigator.serviceWorker.register('/sw.js', {
             scope: '/',
           });
-          logger.info('sw', 'registered', 'Service Worker registered successfully');
           console.log('[PWAUpdater] Service Worker registered');
         }
         
-        // Log SW states
-        logger.info('sw', 'states', `active: ${!!reg.active}, installing: ${!!reg.installing}, waiting: ${!!reg.waiting}`);
-        
         handleRegistration(reg);
       } catch (error: any) {
-        logger.error('sw', 'setup_error', error);
         console.error('[PWAUpdater] Error:', error);
       }
     };

@@ -2,7 +2,6 @@ import React, { Component, ReactNode } from 'react';
 import { View, Text, Pressable, Platform, StyleSheet } from 'react-native';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react-native';
 import * as Sentry from '@sentry/react-native';
-import { logger } from '@/lib/utils/logger';
 
 interface Props {
   children: ReactNode;
@@ -42,10 +41,6 @@ export class ErrorBoundary extends Component<Props, State> {
         componentStack: errorInfo.componentStack,
       },
     });
-    
-    // Log to remote logging service (Supabase)
-    logger.system.error(error, 'ErrorBoundary');
-    logger.info('error', 'component_stack', errorInfo.componentStack?.slice(0, 500));
   }
 
   handleRetry = () => {

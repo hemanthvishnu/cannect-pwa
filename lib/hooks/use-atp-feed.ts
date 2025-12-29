@@ -11,7 +11,6 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import * as atproto from '@/lib/atproto/agent';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
-import { logger, perf } from '@/lib/utils/logger';
 import {
   createOptimisticContext,
   postUpdaters,
@@ -145,32 +144,18 @@ export function useTimeline() {
         return { feed: [], cursor: undefined };
       }
       
-      const perfKey = 'timeline_fetch';
-      perf.start(perfKey);
-      logger.start('network', 'timeline_fetch', 'Fetching timeline', { hasCursor: !!pageParam });
-      
       try {
         // Use official Bluesky getTimeline API - single call!
         const result = await atproto.getTimeline(pageParam, 50);
-        const duration = perf.end(perfKey);
         
         // Apply content moderation filter
         const moderated = filterFeedForModeration(result.data.feed);
-        
-        logger.success('network', 'timeline_fetch', `Timeline: ${moderated.length} posts in ${duration}ms`, {
-          postCount: moderated.length,
-          durationMs: duration,
-          apiCalls: 1,  // KEY: was N calls before (one per followed user)
-          hasCursor: !!result.data.cursor,
-        });
         
         return {
           feed: moderated,
           cursor: result.data.cursor,
         };
       } catch (error: any) {
-        const duration = perf.end(perfKey);
-        logger.error('network', 'timeline_fetch', error.message || 'Unknown error', { durationMs: duration });
         throw error;
       }
     },
@@ -191,17 +176,6 @@ async function fetchFromFeedService(
   cursor?: string, 
   limit: number = 50
 ): Promise<{ feed: FeedViewPost[]; cursor: string | undefined }> {
-  const perfKey = `feed_service_${endpoint}`;
-  const feedEndpoint = `feed.cannect.space/feed/${endpoint}`;
-  
-  perf.start(perfKey);
-  logger.start('network', 'feed_fetch', `Fetching ${endpoint} feed`, {
-    endpoint,
-    limit,
-    hasCursor: !!cursor,
-    source: 'feed_service',  // vs 'direct_api' - the old way
-  });
-  
   const url = new URL(`${FEED_SERVICE_URL}/feed/${endpoint}`);
   url.searchParams.set('limit', String(limit));
   if (cursor) {
@@ -212,30 +186,10 @@ async function fetchFromFeedService(
     const response = await fetch(url.toString());
     
     if (!response.ok) {
-      const duration = perf.end(perfKey);
-      logger.error('network', 'feed_fetch', `Feed service HTTP ${response.status}`, {
-        endpoint,
-        httpStatus: response.status,
-        durationMs: duration,
-        source: 'feed_service',
-      });
       throw new Error(`Feed service error: ${response.status}`);
     }
     
     const data = await response.json();
-    const duration = perf.end(perfKey);
-    
-    // Comprehensive success log with all metrics for comparison
-    logger.success('network', 'feed_fetch', `${endpoint}: ${data.posts?.length || 0} posts in ${duration}ms`, {
-      endpoint,
-      postCount: data.posts?.length || 0,
-      durationMs: duration,
-      hasCursor: !!data.cursor,
-      source: 'feed_service',
-      apiCalls: 1,  // KEY METRIC: was 100+ getAuthorFeed calls before!
-      // Compare to old method which did: 100 users * 1 call = 100 calls
-      // Now: 1 call to aggregated feed service
-    });
     
     // Convert Feed Service format to FeedViewPost format expected by the app
     const feed: FeedViewPost[] = data.posts.map((post: any) => ({
@@ -270,12 +224,6 @@ async function fetchFromFeedService(
       cursor: data.cursor,
     };
   } catch (error: any) {
-    const duration = perf.end(perfKey);
-    logger.error('network', 'feed_fetch', error.message || 'Unknown error', {
-      endpoint,
-      durationMs: duration,
-      source: 'feed_service',
-    });
     throw error;
   }
 }
@@ -420,18 +368,8 @@ export function useCreatePost() {
       };
       embed?: any;
     }) => {
-      logger.post.createStart(text, embed?.images?.length || 0);
-      perf.start('post_create');
-      try {
-        const result = await atproto.createPost(text, { reply, embed });
-        const duration = perf.end('post_create');
-        logger.post.createSuccess(result.uri);
-        return result;
-      } catch (err: any) {
-        perf.end('post_create');
-        logger.post.createError(err.message || 'Unknown error');
-        throw err;
-      }
+      const result = await atproto.createPost(text, { reply, embed });
+      return result;
     },
     onSuccess: (_, variables) => {
       // Invalidate all feeds so new post appears immediately
@@ -454,15 +392,8 @@ export function useDeletePost() {
 
   return useMutation({
     mutationFn: async (uri: string) => {
-      logger.post.deleteStart(uri);
-      try {
-        await atproto.deletePost(uri);
-        logger.post.deleteSuccess(uri);
-        return uri;
-      } catch (err: any) {
-        logger.post.deleteError(uri, err.message || 'Unknown error');
-        throw err;
-      }
+      await atproto.deletePost(uri);
+      return uri;
     },
     onMutate: async (uri: string) => {
       await optimistic.cancel();
@@ -489,22 +420,16 @@ export function useLikePost() {
   return useMutation({
     mutationFn: async ({ uri, cid }: { uri: string; cid: string }) => {
       const result = await atproto.likePost(uri, cid);
-      logger.post.like(uri);
       return result;
     },
     onMutate: async ({ uri }) => {
-      logger.mutation.optimisticStart('like', uri, { liked: true, likeCountDelta: 1 });
       await optimistic.cancel();
       const snapshots = optimistic.snapshot();
       optimistic.updatePost(uri, postUpdaters.like);
       return snapshots;
     },
     onError: (err, variables, context) => {
-      logger.mutation.rollback('like', variables.uri, err.message || 'Unknown error');
       if (context) optimistic.restore(context);
-    },
-    onSuccess: (result, variables) => {
-      logger.mutation.serverResponse('like', variables.uri, { likeUri: result.uri }, true);
     },
     // No onSettled - optimistic update is the final state
   });
@@ -520,10 +445,8 @@ export function useUnlikePost() {
   return useMutation({
     mutationFn: async ({ likeUri, postUri }: { likeUri: string; postUri: string }) => {
       await atproto.unlikePost(likeUri);
-      logger.post.unlike(postUri);
     },
     onMutate: async ({ postUri }) => {
-      logger.mutation.optimisticStart('unlike', postUri, { liked: false, likeCountDelta: -1 });
       await optimistic.cancel();
       const snapshots = optimistic.snapshot();
       // Update like count in all feeds, and REMOVE from Likes tab
@@ -531,11 +454,7 @@ export function useUnlikePost() {
       return snapshots;
     },
     onError: (err, variables, context) => {
-      logger.mutation.rollback('unlike', variables.postUri, err.message || 'Unknown error');
       if (context) optimistic.restore(context);
-    },
-    onSuccess: (_, variables) => {
-      logger.mutation.serverResponse('unlike', variables.postUri, { removed: true }, true);
     },
     // No onSettled - optimistic update is the final state
   });
@@ -551,22 +470,16 @@ export function useRepost() {
   return useMutation({
     mutationFn: async ({ uri, cid }: { uri: string; cid: string }) => {
       const result = await atproto.repost(uri, cid);
-      logger.post.repost(uri);
       return result;
     },
     onMutate: async ({ uri }) => {
-      logger.mutation.optimisticStart('repost', uri, { reposted: true, repostCountDelta: 1 });
       await optimistic.cancel();
       const snapshots = optimistic.snapshot();
       optimistic.updatePost(uri, postUpdaters.repost);
       return snapshots;
     },
     onError: (err, variables, context) => {
-      logger.mutation.rollback('repost', variables.uri, err.message || 'Unknown error');
       if (context) optimistic.restore(context);
-    },
-    onSuccess: (result, variables) => {
-      logger.mutation.serverResponse('repost', variables.uri, { repostUri: result.uri }, true);
     },
     // No onSettled - optimistic update is the final state
   });
@@ -582,21 +495,15 @@ export function useDeleteRepost() {
   return useMutation({
     mutationFn: async ({ repostUri, postUri }: { repostUri: string; postUri: string }) => {
       await atproto.deleteRepost(repostUri);
-      logger.post.unrepost(postUri);
     },
     onMutate: async ({ postUri }) => {
-      logger.mutation.optimisticStart('unrepost', postUri, { reposted: false, repostCountDelta: -1 });
       await optimistic.cancel();
       const snapshots = optimistic.snapshot();
       optimistic.updatePost(postUri, postUpdaters.unrepost);
       return snapshots;
     },
     onError: (err, variables, context) => {
-      logger.mutation.rollback('unrepost', variables.postUri, err.message || 'Unknown error');
       if (context) optimistic.restore(context);
-    },
-    onSuccess: (_, variables) => {
-      logger.mutation.serverResponse('unrepost', variables.postUri, { removed: true }, true);
     },
     // No onSettled - optimistic update is the final state
   });

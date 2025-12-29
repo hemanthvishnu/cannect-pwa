@@ -9,7 +9,6 @@ import { BskyAgent, RichText } from '@atproto/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-import { logger, perf } from '@/lib/utils/logger';
 
 // Storage keys
 const SESSION_KEY = 'atproto_session';
@@ -48,7 +47,6 @@ function notifySessionExpired() {
   hasNotifiedExpiry = true;
   
   console.warn('[Auth] 🔴 Session expired - notifying', sessionExpiredListeners.size, 'listeners');
-  logger.error('auth', 'notify_expired', `Notifying ${sessionExpiredListeners.size} listeners`);
   
   sessionExpiredListeners.forEach(handler => {
     try {
@@ -77,7 +75,6 @@ export function isAuthError(error: any): boolean {
   // 401 Unauthorized is always an auth error
   if (status === 401) {
     console.log('[Agent] 🔴 401 Unauthorized detected');
-    logger.error('auth', 'auth_error', '401 Unauthorized', { status, errorCode });
     return true;
   }
   
@@ -104,7 +101,6 @@ export function isAuthError(error: any): boolean {
     
     if (matchedPattern) {
       console.log('[Agent] 🔴 400 with auth pattern detected:', { pattern: matchedPattern, text: textToCheck.substring(0,100) });
-      logger.error('auth', 'auth_error', '400 with auth pattern', { status, errorCode, pattern: matchedPattern });
       return true;
     }
     
@@ -119,7 +115,6 @@ export function isAuthError(error: any): boolean {
  */
 export async function handleAuthError(): Promise<void> {
   console.warn('[Agent] 🔴 handleAuthError called - clearing session');
-  logger.error('auth', 'handle_auth_error', 'Clearing session due to auth error');
   await clearSession();
   agent = null;
   notifySessionExpired();
@@ -172,16 +167,10 @@ export function getAgent(): BskyAgent {
       service: PDS_SERVICE,
       persistSession: (evt, sess) => {
         console.log('[Agent] persistSession event:', evt, sess?.did ? `did:${sess.did.substring(8,20)}` : 'no session');
-        logger.info('auth', 'persist_session', `Session event: ${evt}`, { 
-          event: evt, 
-          hasDid: !!sess?.did,
-          did: sess?.did?.substring(8,20)
-        });
         
         if (evt === 'expired') {
           // Refresh token expired - user must re-login
           console.warn('[Agent] 🔴 Session EXPIRED - user must re-login');
-          logger.error('auth', 'session_expired', 'Refresh token expired');
           clearSession();
           notifySessionExpired();
         } else if (evt === 'create' || evt === 'update') {
@@ -207,23 +196,14 @@ export async function initializeAgent(): Promise<BskyAgent> {
   
   const storedSession = await getStoredSession();
   console.log('[Agent] initializeAgent - stored session:', storedSession ? `did:${storedSession.did?.substring(8,20)}` : 'none');
-  logger.info('auth', 'init_agent', 'Initializing agent', { 
-    hasStoredSession: !!storedSession,
-    storedDid: storedSession?.did?.substring(8,20)
-  });
   
   if (storedSession) {
     try {
       console.log('[Agent] Attempting to resume session...');
       await bskyAgent.resumeSession(storedSession);
       console.log('[Agent] ✅ Session resumed successfully');
-      logger.info('auth', 'session_resume', 'Session resumed', { did: storedSession.did?.substring(8,20) });
     } catch (err: any) {
       console.warn('[Agent] ❌ Failed to restore session:', err?.message || err);
-      logger.error('auth', 'session_resume', `Resume failed: ${err?.message || 'Unknown'}`, { 
-        error: err?.message,
-        status: err?.status
-      });
       await clearSession();
     }
   }
@@ -421,9 +401,7 @@ export async function unfollow(followUri: string): Promise<void> {
  */
 export async function getTimeline(cursor?: string, limit = 50) {
   const bskyAgent = getAgent();
-  const start = performance.now();
   const result = await bskyAgent.getTimeline({ cursor, limit });
-  logger.network.requestSuccess('getTimeline', Math.round(performance.now() - start));
   return result;
 }
 
@@ -438,9 +416,7 @@ export async function getAuthorFeed(
   filter?: 'posts_with_replies' | 'posts_no_replies' | 'posts_with_media' | 'posts_and_author_threads'
 ) {
   const bskyAgent = getAgent();
-  const start = performance.now();
   const result = await bskyAgent.getAuthorFeed({ actor, cursor, limit, filter });
-  logger.network.requestSuccess('getAuthorFeed', Math.round(performance.now() - start));
   return result;
 }
 
@@ -457,9 +433,7 @@ export async function getActorLikes(actor: string, cursor?: string, limit = 50) 
  */
 export async function getPostThread(uri: string, depth = 6, parentHeight = 80) {
   const bskyAgent = getAgent();
-  const start = performance.now();
   const result = await bskyAgent.getPostThread({ uri, depth, parentHeight });
-  logger.network.requestSuccess('getPostThread', Math.round(performance.now() - start));
   return result;
 }
 
@@ -468,9 +442,7 @@ export async function getPostThread(uri: string, depth = 6, parentHeight = 80) {
  */
 export async function getProfile(actor: string) {
   const bskyAgent = getAgent();
-  const start = performance.now();
   const result = await bskyAgent.getProfile({ actor });
-  logger.network.requestSuccess('getProfile', Math.round(performance.now() - start));
   return result;
 }
 

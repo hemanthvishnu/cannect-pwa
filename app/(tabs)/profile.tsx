@@ -4,7 +4,6 @@
  * Uses unified ProfileView component
  */
 
-import { useEffect, useRef } from "react";
 import { View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -12,19 +11,11 @@ import { RefreshCw } from "lucide-react-native";
 import { useMyProfile, useLogout } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { ProfileView, ProfileSkeleton } from "@/components/Profile/ProfileView";
-import { logger } from "@/lib/utils";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { did } = useAuthStore();
   const logoutMutation = useLogout();
-  const renderStart = useRef(performance.now());
-  
-  // Track render timing
-  useEffect(() => {
-    const duration = performance.now() - renderStart.current;
-    logger.render.screen('ProfileScreen', duration);
-  }, []);
   
   const profileQuery = useMyProfile();
 

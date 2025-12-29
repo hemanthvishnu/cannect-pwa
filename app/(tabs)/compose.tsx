@@ -22,7 +22,6 @@ import { RichText } from "@atproto/api";
 import { useCreatePost } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import * as atproto from "@/lib/atproto/agent";
-import { logger } from "@/lib/utils/logger";
 
 const MAX_LENGTH = 300; // Bluesky character limit
 
@@ -115,7 +114,7 @@ export default function ComposeScreen() {
     
     setError(null);
     const mediaCount = video ? 1 : images.length;
-    logger.post.createStart(content.trim(), mediaCount);
+    console.log('[Compose] Creating post with', mediaCount, 'media items');
     
     try {
       let embed;
@@ -123,7 +122,6 @@ export default function ComposeScreen() {
       
       // Upload video if any (video takes priority, can't have both)
       if (video) {
-        logger.media.uploadStart(1, 0); // Video size unknown at this point
         // Fetch the video data
         const response = await fetch(video.uri);
         const blob = await response.blob();
@@ -133,7 +131,7 @@ export default function ComposeScreen() {
         // Upload to Bluesky
         const uploadStart = Date.now();
         const uploadResult = await atproto.uploadBlob(uint8Array, video.mimeType);
-        logger.media.uploadSuccess(1, Date.now() - uploadStart);
+        console.log('[Compose] Video uploaded in', Date.now() - uploadStart, 'ms');
         
         embed = {
           $type: 'app.bsky.embed.video',
@@ -142,7 +140,6 @@ export default function ComposeScreen() {
       }
       // Upload images if any
       else if (images.length > 0) {
-        logger.media.uploadStart(images.length, 0);
         const uploadStart = Date.now();
         const uploadedImages = [];
         
@@ -161,7 +158,7 @@ export default function ComposeScreen() {
           });
         }
         
-        logger.media.uploadSuccess(images.length, Date.now() - uploadStart);
+        console.log('[Compose]', images.length, 'images uploaded in', Date.now() - uploadStart, 'ms');
         
         embed = {
           $type: 'app.bsky.embed.images',
@@ -183,7 +180,7 @@ export default function ComposeScreen() {
         embed,
       });
       
-      logger.post.createSuccess(result?.uri || 'unknown');
+      console.log('[Compose] Post created:', result?.uri);
       
       // Success feedback
       if (Platform.OS !== 'web') {
@@ -195,7 +192,7 @@ export default function ComposeScreen() {
       setVideo(null);
       router.back();
     } catch (err: any) {
-      logger.post.createError(err.message || 'Unknown error');
+      console.error('[Compose] Post creation error:', err.message);
       setError(err.message || "Failed to create post");
       setIsUploading(false);
       if (Platform.OS !== 'web') {

@@ -15,14 +15,13 @@ import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { Leaf } from "lucide-react-native";
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import * as Haptics from "expo-haptics";
 import { useTimeline, useLocalFeed } from "@/lib/hooks";
 import { useAuthStore } from "@/lib/stores";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { MediaViewer } from "@/components/ui/MediaViewer";
 import { PostCard, FeedSkeleton } from "@/components/Post";
-import { logger } from "@/lib/utils";
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type FeedType = 'global' | 'local' | 'following';
@@ -36,7 +35,6 @@ export default function FeedScreen() {
   const { did, isAuthenticated } = useAuthStore();
   const { height } = useWindowDimensions();
   const [activeFeed, setActiveFeed] = useState<FeedType>('global');
-  const renderStart = useRef(performance.now());
   const listRef = useRef<FlashList<FeedViewPost>>(null);
   
   // === SCROLL POSITION PRESERVATION ===
@@ -69,12 +67,6 @@ export default function FeedScreen() {
   
   // === FOLLOWING FEED (Direct Bluesky API) ===
   const followingQuery = useTimeline();
-  
-  // Track render timing
-  useEffect(() => {
-    const duration = performance.now() - renderStart.current;
-    logger.render.screen('FeedScreen', duration);
-  }, []);
   
   // === GLOBAL FEED API CALLS ===
   
@@ -109,10 +101,10 @@ export default function FeedScreen() {
       setGlobalPosts(data.posts.map(convertPost));
       setGlobalSession(data.session);
       setGlobalHasMore(data.hasMore);
-      logger.info('network', 'feed_fetch', `global: ${data.posts.length} posts`, { postCount: data.posts.length });
+      console.log('[Feed] Global feed loaded:', data.posts.length, 'posts');
     } catch (err: any) {
       setGlobalError(err.message);
-      logger.error('network', 'feed_fetch', err.message);
+      console.error('[Feed] Global feed error:', err.message);
     } finally {
       setGlobalLoading(false);
     }
@@ -136,7 +128,7 @@ export default function FeedScreen() {
       
       setGlobalPosts(prev => [...prev, ...data.posts.map(convertPost)]);
       setGlobalHasMore(data.hasMore);
-      logger.info('network', 'feed_more', `global: +${data.posts.length} posts`, { postCount: data.posts.length });
+      console.log('[Feed] Global feed more:', data.posts.length, 'posts loaded');
     } catch (err: any) {
       console.error('[Feed] Load more error:', err);
     } finally {
