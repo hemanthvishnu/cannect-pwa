@@ -1,12 +1,11 @@
 /**
- * Feed Screen - v4.0 Pure AT Protocol
+ * Feed Screen - v5.0 Simplified
  *
- * Displays three feeds:
- * - Global: Cannabis content from Bluesky Feed Creator
- * - Local: Posts from Cannect users (Bluesky Feed Creator)
+ * Two feeds:
+ * - Feed: Cannect feed (cannect.space users + cannabis keywords) from feed.cannect.space
  * - Following: Posts from users you follow (Bluesky Timeline API)
  *
- * v4.0: All feeds now use AT Protocol via React Query - no VPS needed!
+ * Clean, simple, debuggable.
  */
 
 import {
@@ -26,33 +25,28 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Leaf } from 'lucide-react-native';
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
-import { useTimeline, useLocalFeed, useGlobalFeed } from '@/lib/hooks';
+import { useTimeline, useCannectFeed } from '@/lib/hooks';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { MediaViewer } from '@/components/ui/MediaViewer';
 import { PostCard, FeedSkeleton } from '@/components/Post';
 import type { AppBskyFeedDefs } from '@atproto/api';
 
-type FeedType = 'global' | 'local' | 'following';
+type FeedType = 'feed' | 'following';
 type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
 type PostView = AppBskyFeedDefs.PostView;
 
 export default function FeedScreen() {
   const router = useRouter();
   const { height } = useWindowDimensions();
-  const [activeFeed, setActiveFeed] = useState<FeedType>('global');
+  const [activeFeed, setActiveFeed] = useState<FeedType>('feed');
   const listRef = useRef<FlashList<FeedViewPost>>(null);
 
-  // === SCROLL POSITION PRESERVATION ===
-  // Store scroll offset per feed to restore when coming back from post detail
-  const scrollOffsets = useRef<Record<FeedType, number>>({ global: 0, local: 0, following: 0 });
-
-  // Prevent infinite scroll spam - track if we're currently loading more
-  const isLoadingMoreRef = useRef(false);
+  // Scroll position preservation
+  const scrollOffsets = useRef<Record<FeedType, number>>({ feed: 0, following: 0 });
 
   // Restore scroll position when screen regains focus
   useFocusEffect(
     useCallback(() => {
-      // Small delay to ensure FlashList is ready
       const timer = setTimeout(() => {
         const savedOffset = scrollOffsets.current[activeFeed];
         if (savedOffset > 0 && listRef.current) {
@@ -63,74 +57,35 @@ export default function FeedScreen() {
     }, [activeFeed])
   );
 
-  // === GLOBAL FEED (AT Protocol via Bluesky Feed Creator) ===
-  const globalQuery = useGlobalFeed();
-
-  // === LOCAL FEED (AT Protocol via Bluesky Feed Creator) ===
-  const localQuery = useLocalFeed();
-
-  // === FOLLOWING FEED (Bluesky Timeline API) ===
+  // === FEEDS ===
+  const cannectQuery = useCannectFeed();
   const followingQuery = useTimeline();
 
   // === DERIVED STATE ===
-
-  // Flatten feed pages into arrays
-  const globalPosts = useMemo(
-    () => globalQuery.data?.pages?.flatMap((page) => page.feed) || [],
-    [globalQuery.data]
+  const cannectPosts = useMemo(
+    () => cannectQuery.data?.pages?.flatMap((page) => page.feed) || [],
+    [cannectQuery.data]
   );
 
-  const localPosts = useMemo(
-    () => localQuery.data?.pages?.flatMap((page) => page.feed) || [],
-    [localQuery.data]
+  const followingPosts = useMemo(
+    () => followingQuery.data?.pages?.flatMap((page) => page.feed) || [],
+    [followingQuery.data]
   );
 
-  const posts = useMemo(() => {
-    if (activeFeed === 'global') return globalPosts;
-    if (activeFeed === 'local') return localPosts;
-    return followingQuery.data?.pages?.flatMap((page) => page.feed) || [];
-  }, [activeFeed, globalPosts, localPosts, followingQuery.data]);
+  const posts = activeFeed === 'feed' ? cannectPosts : followingPosts;
+  const currentQuery = activeFeed === 'feed' ? cannectQuery : followingQuery;
 
-  const isLoading = useMemo(() => {
-    if (activeFeed === 'global') return globalQuery.isLoading && globalPosts.length === 0;
-    if (activeFeed === 'local') return localQuery.isLoading && localPosts.length === 0;
-    return followingQuery.isLoading && posts.length === 0;
-  }, [
-    activeFeed,
-    globalQuery.isLoading,
-    globalPosts.length,
-    localQuery.isLoading,
-    localPosts.length,
-    followingQuery.isLoading,
-    posts.length,
-  ]);
-
-  const isRefreshing = useMemo(() => {
-    if (activeFeed === 'global') return globalQuery.isRefetching;
-    if (activeFeed === 'local') return localQuery.isRefetching;
-    return followingQuery.isRefetching;
-  }, [activeFeed, globalQuery.isRefetching, localQuery.isRefetching, followingQuery.isRefetching]);
-
-  const hasMore = useMemo(() => {
-    if (activeFeed === 'global') return globalQuery.hasNextPage;
-    if (activeFeed === 'local') return localQuery.hasNextPage;
-    return followingQuery.hasNextPage;
-  }, [activeFeed, globalQuery.hasNextPage, localQuery.hasNextPage, followingQuery.hasNextPage]);
-
-  const feedError = useMemo(() => {
-    if (activeFeed === 'global') return globalQuery.isError ? 'Failed to load' : null;
-    if (activeFeed === 'local') return localQuery.isError ? 'Failed to load' : null;
-    return followingQuery.isError ? 'Failed to load' : null;
-  }, [activeFeed, globalQuery.isError, localQuery.isError, followingQuery.isError]);
+  const isLoading = currentQuery.isLoading && posts.length === 0;
+  const isRefreshing = currentQuery.isRefetching;
+  const hasMore = currentQuery.hasNextPage;
+  const feedError = currentQuery.isError ? 'Failed to load feed' : null;
 
   // === HANDLERS ===
-
   const handleTabChange = useCallback((feed: FeedType) => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     setActiveFeed(feed);
-    // Restore scroll position for the new tab (or start at top if never scrolled)
     setTimeout(() => {
       const savedOffset = scrollOffsets.current[feed];
       listRef.current?.scrollToOffset({ offset: savedOffset, animated: false });
@@ -141,50 +96,34 @@ export default function FeedScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    if (activeFeed === 'global') globalQuery.refetch();
-    else if (activeFeed === 'local') localQuery.refetch();
-    else followingQuery.refetch();
-  }, [activeFeed, globalQuery, localQuery, followingQuery]);
+    currentQuery.refetch();
+  }, [currentQuery]);
 
   const handleLoadMore = useCallback(() => {
-    if (activeFeed === 'global' && globalQuery.hasNextPage && !globalQuery.isFetchingNextPage) {
-      globalQuery.fetchNextPage();
-    } else if (activeFeed === 'local' && localQuery.hasNextPage && !localQuery.isFetchingNextPage) {
-      localQuery.fetchNextPage();
-    } else if (followingQuery.hasNextPage && !followingQuery.isFetchingNextPage) {
-      followingQuery.fetchNextPage();
+    if (currentQuery.hasNextPage && !currentQuery.isFetchingNextPage) {
+      currentQuery.fetchNextPage();
     }
-  }, [activeFeed, globalQuery, localQuery, followingQuery]);
+  }, [currentQuery]);
 
   // Media viewer state
   const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
   const [mediaViewerImages, setMediaViewerImages] = useState<string[]>([]);
   const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
 
-  // Web refresh indicator - auto-hides after 3 seconds
+  // Web refresh hint
   const [showRefreshHint, setShowRefreshHint] = useState(false);
   const refreshHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-hide refresh hint after 3 seconds
   useEffect(() => {
     if (showRefreshHint && Platform.OS === 'web') {
-      // Clear any existing timeout
-      if (refreshHintTimeoutRef.current) {
-        clearTimeout(refreshHintTimeoutRef.current);
-      }
-      // Set new timeout to hide
-      refreshHintTimeoutRef.current = setTimeout(() => {
-        setShowRefreshHint(false);
-      }, 3000);
+      if (refreshHintTimeoutRef.current) clearTimeout(refreshHintTimeoutRef.current);
+      refreshHintTimeoutRef.current = setTimeout(() => setShowRefreshHint(false), 3000);
     }
     return () => {
-      if (refreshHintTimeoutRef.current) {
-        clearTimeout(refreshHintTimeoutRef.current);
-      }
+      if (refreshHintTimeoutRef.current) clearTimeout(refreshHintTimeoutRef.current);
     };
   }, [showRefreshHint]);
 
-  // Open image viewer
   const handleImagePress = useCallback((images: string[], index: number) => {
     setMediaViewerImages(images);
     setMediaViewerIndex(index);
@@ -193,7 +132,6 @@ export default function FeedScreen() {
 
   const handlePostPress = useCallback(
     (post: PostView) => {
-      // Navigate to thread view using DID and rkey
       const uriParts = post.uri.split('/');
       const rkey = uriParts[uriParts.length - 1];
       router.push(`/post/${post.author.did}/${rkey}`);
@@ -222,26 +160,16 @@ export default function FeedScreen() {
         <Text className="text-xl font-bold text-text-primary ml-2">Cannect</Text>
       </View>
 
-      {/* Feed Tabs */}
+      {/* Feed Tabs - Just 2 */}
       <View className="flex-row border-b border-border">
         <Pressable
-          onPress={() => handleTabChange('global')}
-          className={`flex-1 py-3 items-center ${activeFeed === 'global' ? 'border-b-2 border-primary' : ''}`}
+          onPress={() => handleTabChange('feed')}
+          className={`flex-1 py-3 items-center ${activeFeed === 'feed' ? 'border-b-2 border-primary' : ''}`}
         >
           <Text
-            className={`font-semibold ${activeFeed === 'global' ? 'text-primary' : 'text-text-muted'}`}
+            className={`font-semibold ${activeFeed === 'feed' ? 'text-primary' : 'text-text-muted'}`}
           >
-            Global
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => handleTabChange('local')}
-          className={`flex-1 py-3 items-center ${activeFeed === 'local' ? 'border-b-2 border-primary' : ''}`}
-        >
-          <Text
-            className={`font-semibold ${activeFeed === 'local' ? 'text-primary' : 'text-text-muted'}`}
-          >
-            Local
+            Feed
           </Text>
         </Pressable>
         <Pressable
@@ -263,7 +191,7 @@ export default function FeedScreen() {
       {isLoading ? (
         <FeedSkeleton />
       ) : Platform.OS === 'web' ? (
-        /* Web: Use ScrollView for smooth rendering without FlashList measurement issues */
+        /* Web: Use ScrollView */
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 20 }}
@@ -280,32 +208,26 @@ export default function FeedScreen() {
             scrollOffsets.current[activeFeed] = y;
             setShowRefreshHint(y <= 0);
 
-            // Infinite scroll for web
+            // Infinite scroll
             const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
             const isNearEnd =
               layoutMeasurement.height + contentOffset.y >= contentSize.height - 500;
-            if (isNearEnd && !isLoadingMoreRef.current) {
-              handleLoadMore();
-            }
+            if (isNearEnd) handleLoadMore();
           }}
           scrollEventThrottle={16}
         >
-          {/* Refresh hint for web */}
           {showRefreshHint && (
             <Pressable onPress={handleRefresh} className="py-3 items-center border-b border-border">
               <Text className="text-text-muted text-sm">Pull to refresh</Text>
             </Pressable>
           )}
 
-          {/* Posts */}
           {posts.length === 0 ? (
             <View className="flex-1 items-center justify-center py-20">
               <Text className="text-text-muted text-center">
-                {activeFeed === 'global'
-                  ? 'No cannabis content found.\nCheck back later!'
-                  : activeFeed === 'local'
-                    ? 'No posts from Cannect users yet.\nBe the first to post!'
-                    : 'Your timeline is empty.\nFollow some people to see their posts!'}
+                {activeFeed === 'feed'
+                  ? 'No posts yet.\nThe feed is building up!'
+                  : 'Your timeline is empty.\nFollow some people to see their posts!'}
               </Text>
             </View>
           ) : (
@@ -319,7 +241,6 @@ export default function FeedScreen() {
             ))
           )}
 
-          {/* Footer */}
           {hasMore && posts.length > 0 ? (
             <View className="py-4 items-center">
               <ActivityIndicator size="small" color="#10B981" />
@@ -331,7 +252,7 @@ export default function FeedScreen() {
           ) : null}
         </ScrollView>
       ) : (
-        /* Native: Use FlashList for performance */
+        /* Native: Use FlashList */
         <View style={{ flex: 1, height: height - 150 }} className="flex-1">
           <FlashList
             ref={listRef}
@@ -350,8 +271,7 @@ export default function FeedScreen() {
             }}
             drawDistance={300}
             onScroll={(e) => {
-              const y = e.nativeEvent.contentOffset.y;
-              scrollOffsets.current[activeFeed] = y;
+              scrollOffsets.current[activeFeed] = e.nativeEvent.contentOffset.y;
             }}
             scrollEventThrottle={16}
             refreshControl={
@@ -368,11 +288,9 @@ export default function FeedScreen() {
             ListEmptyComponent={
               <View className="flex-1 items-center justify-center py-20">
                 <Text className="text-text-muted text-center">
-                  {activeFeed === 'global'
-                    ? 'No cannabis content found.\nCheck back later!'
-                    : activeFeed === 'local'
-                      ? 'No posts from Cannect users yet.\nBe the first to post!'
-                      : 'Your timeline is empty.\nFollow some people to see their posts!'}
+                  {activeFeed === 'feed'
+                    ? 'No posts yet.\nThe feed is building up!'
+                    : 'Your timeline is empty.\nFollow some people to see their posts!'}
                 </Text>
               </View>
             }

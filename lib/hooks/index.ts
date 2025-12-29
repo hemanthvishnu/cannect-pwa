@@ -19,9 +19,7 @@ export {
 export {
   useTimeline,
   useTimeline as useFeed,
-  useGlobalFeed,
   useCannectFeed,
-  useLocalFeed,
   useAuthorFeed,
   useActorLikes,
   usePostThread,

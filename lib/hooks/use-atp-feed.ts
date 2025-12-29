@@ -198,21 +198,22 @@ export function useTimeline() {
 }
 
 /**
- * Get Global feed - Cannabis Community content from Bluesky Feed Creator
+ * Get Cannect feed - our custom feed from feed.cannect.space
  *
- * Uses Bluesky Feed Creator hosted feed which:
- * - Indexes posts containing cannabis-related keywords
- * - Returns proper viewer state (like/repost) through Bluesky's hydration
- * - Single API call - Bluesky handles everything
+ * Includes:
+ * - All posts from cannect.space users
+ * - Posts with cannabis keywords from anywhere on Bluesky
+ *
+ * Returns proper viewer state (like/repost) through Bluesky's hydration
  */
-export function useGlobalFeed() {
+export function useCannectFeed() {
   const { isAuthenticated } = useAuthStore();
 
   return useInfiniteQuery({
-    queryKey: ['globalFeed'],
+    queryKey: ['cannectFeed'],
     queryFn: async ({ pageParam }) => {
-      // Use AT Protocol feed generator - includes viewer state!
-      const result = await atproto.getCannabisFeed(pageParam, 50);
+      // Use our feed generator - includes viewer state!
+      const result = await atproto.getCannectFeed(pageParam, 50);
 
       // Apply content moderation filter
       const moderated = filterFeedForModeration(result.data.feed);
@@ -227,39 +228,6 @@ export function useGlobalFeed() {
     maxPages: 8, // 8 pages × 50 posts = 400 posts max
     enabled: isAuthenticated,
     staleTime: 1000 * 60, // 1 minute
-  });
-}
-
-/**
- * Get Cannect feed - posts from Cannect users via Bluesky Feed Creator
- *
- * Uses Bluesky Feed Creator which:
- * - Indexes all Cannect PDS user posts
- * - Returns proper viewer state (like/repost) through Bluesky's hydration
- * - Supports optimistic updates because viewer state is accurate
- */
-export function useCannectFeed() {
-  const { isAuthenticated } = useAuthStore();
-
-  return useInfiniteQuery({
-    queryKey: ['cannectFeed'],
-    queryFn: async ({ pageParam }) => {
-      // Use AT Protocol feed generator - includes viewer state!
-      const result = await atproto.getCannectFeed(pageParam, 50);
-
-      // Apply content moderation filter
-      const moderated = filterFeedForModeration(result.data.feed);
-
-      return {
-        feed: moderated,
-        cursor: result.data.cursor,
-      };
-    },
-    getNextPageParam: (lastPage) => lastPage.cursor,
-    initialPageParam: undefined as string | undefined,
-    maxPages: 8, // Memory optimization: keep max 8 pages (400 posts)
-    enabled: isAuthenticated,
-    staleTime: 1000 * 60, // 1 minute - feed generator is fast
   });
 }
 
@@ -557,35 +525,5 @@ export function useSuggestedPosts() {
     },
     enabled: isAuthenticated,
     staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
- * Local Feed - Direct from Cannect PDS
- * Fetches posts from all users on cannect.space directly
- * No VPS, no external services - pure AT Protocol!
- */
-export function useLocalFeed() {
-  const { isAuthenticated } = useAuthStore();
-
-  return useInfiniteQuery({
-    queryKey: ['localFeed'],
-    queryFn: async ({ pageParam }) => {
-      // Query PDS directly - aggregates posts from all cannect.space users
-      const result = await atproto.getLocalFeedFromPDS(pageParam, 30);
-
-      // Apply content moderation filter
-      const moderated = filterFeedForModeration(result.data.feed);
-
-      return {
-        feed: moderated,
-        cursor: result.data.cursor,
-      };
-    },
-    getNextPageParam: (lastPage) => lastPage.cursor,
-    initialPageParam: undefined as string | undefined,
-    maxPages: 5, // Limit pages to prevent memory issues
-    enabled: isAuthenticated,
-    staleTime: 1000 * 60 * 2, // 2 minutes - PDS query is heavier
   });
 }

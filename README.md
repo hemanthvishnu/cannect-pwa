@@ -17,6 +17,7 @@ A decentralized cannabis social network built on the AT Protocol (Bluesky).
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - **React Native** - Cross-platform mobile framework
 - **Expo** (SDK 52) - Development platform
 - **Expo Router** - File-based routing
@@ -25,6 +26,7 @@ A decentralized cannabis social network built on the AT Protocol (Bluesky).
 - **Zustand** - State management
 
 ### Backend (AT Protocol)
+
 - **Personal Data Server (PDS)** - `cannect.space`
   - User accounts & authentication
   - Post storage (AT Protocol records)
@@ -49,17 +51,20 @@ A decentralized cannabis social network built on the AT Protocol (Bluesky).
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/hemanthvishnu/cannect.git
    cd cannect
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Start the development server**
+
    ```bash
    npm start
    ```
@@ -73,6 +78,7 @@ A decentralized cannabis social network built on the AT Protocol (Bluesky).
 ### Creating an Account
 
 Accounts are created on the Cannect PDS (`cannect.space`):
+
 - Your handle will be `username.cannect.space`
 - You can also use a custom domain handle
 - Your data is portable - you can migrate to any AT Protocol PDS
@@ -122,13 +128,13 @@ cannect/
 
 Premium dark theme with emerald green accents:
 
-| Color | Hex | Usage |
-|-------|-----|-------|
-| Primary | `#10B981` | Buttons, links, accents |
-| Background | `#0A0A0A` | Main background |
-| Surface | `#141414` | Cards, modals |
-| Text Primary | `#FAFAFA` | Headings |
-| Text Secondary | `#A1A1A1` | Captions |
+| Color          | Hex       | Usage                   |
+| -------------- | --------- | ----------------------- |
+| Primary        | `#10B981` | Buttons, links, accents |
+| Background     | `#0A0A0A` | Main background         |
+| Surface        | `#141414` | Cards, modals           |
+| Text Primary   | `#FAFAFA` | Headings                |
+| Text Secondary | `#A1A1A1` | Captions                |
 
 ## 📱 Scripts
 
@@ -175,17 +181,17 @@ npm run typecheck  # Run TypeScript check
 ### Using AT Protocol hooks
 
 ```tsx
-import { useTimeline, useCreatePost, useProfile } from "@/lib/hooks";
+import { useTimeline, useCreatePost, useProfile } from '@/lib/hooks';
 
 // Get feed
 const { data, fetchNextPage } = useTimeline();
 
 // Create a post
 const createPost = useCreatePost();
-await createPost.mutateAsync({ text: "Hello Cannect! 🌿" });
+await createPost.mutateAsync({ text: 'Hello Cannect! 🌿' });
 
 // Get a profile
-const { data: profile } = useProfile("user.cannect.space");
+const { data: profile } = useProfile('user.cannect.space');
 ```
 
 ### Styling with NativeWind

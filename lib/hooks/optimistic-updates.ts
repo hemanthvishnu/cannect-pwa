@@ -28,15 +28,20 @@ export const FEED_KEYS = {
 } as const;
 
 // All infinite query feeds - use setQueriesData for partial matching
-const ALL_FEED_KEYS = ['timeline', 'cannectFeed', 'globalFeed', 'localFeed', 'authorFeed', 'actorLikes', 'thread'];
+const ALL_FEED_KEYS = [
+  'timeline',
+  'cannectFeed',
+  'globalFeed',
+  'localFeed',
+  'authorFeed',
+  'actorLikes',
+  'thread',
+];
 
 /**
  * Cancel all outgoing queries to prevent race conditions
  */
-export async function cancelFeedQueries(
-  queryClient: QueryClient,
-  keys: string[] = ALL_FEED_KEYS
-) {
+export async function cancelFeedQueries(queryClient: QueryClient, keys: string[] = ALL_FEED_KEYS) {
   await Promise.all(keys.map((key) => queryClient.cancelQueries({ queryKey: [key] })));
 }
 
@@ -165,7 +170,14 @@ export function removePostFromFeeds(
   };
 
   // Remove from all feeds using setQueriesData
-  const feedKeysToUpdate = ['cannectFeed', 'globalFeed', 'localFeed', 'timeline', 'authorFeed', 'actorLikes'];
+  const feedKeysToUpdate = [
+    'cannectFeed',
+    'globalFeed',
+    'localFeed',
+    'timeline',
+    'authorFeed',
+    'actorLikes',
+  ];
   feedKeysToUpdate
     .filter((key) => !skipKeys.includes(key))
     .forEach((key) => {

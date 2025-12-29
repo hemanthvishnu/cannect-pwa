@@ -59,6 +59,7 @@ server {
 ```
 
 Then get SSL:
+
 ```bash
 certbot --nginx -d push.cannect.space
 ```
@@ -66,6 +67,7 @@ certbot --nginx -d push.cannect.space
 ### 4. Update Client
 
 Set environment variable in Vercel:
+
 ```
 EXPO_PUBLIC_VAPID_PUBLIC_KEY=your-public-key
 EXPO_PUBLIC_PUSH_API_URL=https://push.cannect.space
@@ -74,13 +76,17 @@ EXPO_PUBLIC_PUSH_API_URL=https://push.cannect.space
 ## API Endpoints
 
 ### GET /health
+
 Health check, returns subscription count.
 
 ### GET /vapid-public-key
+
 Returns the VAPID public key for client subscription.
 
 ### POST /subscribe
+
 Register a push subscription.
+
 ```json
 {
   "did": "did:plc:xxx",
@@ -95,7 +101,9 @@ Register a push subscription.
 ```
 
 ### POST /unsubscribe
+
 Remove a push subscription.
+
 ```json
 {
   "endpoint": "https://..."
@@ -103,7 +111,9 @@ Remove a push subscription.
 ```
 
 ### POST /send
+
 Send notification to a user (internal).
+
 ```json
 {
   "did": "did:plc:xxx",
@@ -114,7 +124,9 @@ Send notification to a user (internal).
 ```
 
 ### POST /broadcast
+
 Send notification to all users (requires ADMIN_KEY).
+
 ```json
 {
   "adminKey": "your-admin-key",

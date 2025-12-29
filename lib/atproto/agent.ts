@@ -690,59 +690,26 @@ export async function getUnreadCount() {
 }
 
 /**
- * Feed Generator URIs
- * Using Bluesky Feed Creator - no VPS needed
+ * Cannect Feed Generator URI
+ *
+ * Our custom feed generator at feed.cannect.space
+ * Includes: cannect.space users + cannabis keyword matches
  */
-const CANNABIS_FEED_URI = 'at://did:plc:akbqlqbx6afvzcd5eygtrgl5/app.bsky.feed.generator/cannect_global';
-// TODO: Create a second feed for Cannect Network (cannect.space users only)
-const CANNECT_FEED_URI = 'at://did:plc:akbqlqbx6afvzcd5eygtrgl5/app.bsky.feed.generator/cannect_global';
+const CANNECT_FEED_URI = 'at://did:plc:ubkp6dfvxif7rmexyat5np6e/app.bsky.feed.generator/cannect';
 
 /**
- * Get the Cannabis Community feed (Global)
+ * Get the Cannect feed from our Feed Generator
  *
- * Uses Bluesky Feed Creator hosted feed:
- * - Keyword-based filtering for cannabis content
- * - Returns proper viewer state via Bluesky's hydration
+ * Uses feed.cannect.space which indexes:
+ * - All posts from cannect.space users
+ * - Posts with cannabis keywords from anywhere on Bluesky
+ *
+ * Returns proper viewer state via Bluesky's hydration
  */
-export async function getCannabisFeed(cursor?: string, limit = 50) {
+export async function getCannectFeed(cursor?: string, limit = 50) {
   const bskyAgent = getAgent();
 
   try {
-    const result = await bskyAgent.app.bsky.feed.getFeed({
-      feed: CANNABIS_FEED_URI,
-      cursor,
-      limit,
-    });
-
-    return {
-      data: {
-        feed: result.data.feed,
-        cursor: result.data.cursor,
-      },
-    };
-  } catch (error: any) {
-    console.error('[Cannabis Feed] Failed to load feed:', error?.message || error);
-    return {
-      data: {
-        feed: [],
-        cursor: undefined,
-      },
-    };
-  }
-}
-
-/**
- * Get the Cannect feed (Local) from Bluesky Feed Creator
- *
- * Uses Bluesky Feed Creator which:
- * - Indexes posts from Cannect PDS users
- * - Returns proper viewer state via Bluesky's hydration
- */
-export async function getCannectFeed(cursor?: string, limit = 30) {
-  const bskyAgent = getAgent();
-
-  try {
-    // Use the official AT Protocol getFeed endpoint with our feed generator
     const result = await bskyAgent.app.bsky.feed.getFeed({
       feed: CANNECT_FEED_URI,
       cursor,
@@ -757,40 +724,6 @@ export async function getCannectFeed(cursor?: string, limit = 30) {
     };
   } catch (error: any) {
     console.error('[Cannect Feed] Failed to load feed:', error?.message || error);
-    // Return empty feed on error
-    return {
-      data: {
-        feed: [],
-        cursor: undefined,
-      },
-    };
-  }
-}
-
-/**
- * Get the Cannect Following feed from our feed generator
- *
- * Shows posts from our database, filtered to only users you follow.
- * Includes migrated posts that Bluesky's timeline doesn't have.
- */
-export async function getCannectFollowingFeed(cursor?: string, limit = 30) {
-  const bskyAgent = getAgent();
-
-  try {
-    const result = await bskyAgent.app.bsky.feed.getFeed({
-      feed: CANNECT_FOLLOWING_URI,
-      cursor,
-      limit,
-    });
-
-    return {
-      data: {
-        feed: result.data.feed,
-        cursor: result.data.cursor,
-      },
-    };
-  } catch (error: any) {
-    console.error('[Cannect Following] Failed to load feed:', error?.message || error);
     return {
       data: {
         feed: [],
@@ -814,117 +747,6 @@ export async function requestPasswordReset(email: string): Promise<void> {
 export async function resetPassword(token: string, password: string): Promise<void> {
   const bskyAgent = getAgent();
   await bskyAgent.com.atproto.server.resetPassword({ token, password });
-}
-
-/**
- * Get Local Feed directly from Cannect PDS
- *
- * Queries all repos on cannect.space, fetches their recent posts,
- * and aggregates them into a chronological feed.
- * No VPS needed - talks directly to our PDS!
- */
-export async function getLocalFeedFromPDS(
-  cursor?: string,
-  limit = 30
-): Promise<{
-  data: {
-    feed: import('@atproto/api').AppBskyFeedDefs.FeedViewPost[];
-    cursor?: string;
-  };
-}> {
-  const bskyAgent = getAgent();
-
-  try {
-    // Parse cursor: "timestamp:offset" format for pagination
-    let startIndex = 0;
-    if (cursor) {
-      const parts = cursor.split(':');
-      startIndex = parseInt(parts[1] || '0', 10);
-    }
-
-    // Step 1: List all repos on our PDS
-    const reposResponse = await fetch(
-      `${PDS_SERVICE}/xrpc/com.atproto.sync.listRepos?limit=100`
-    );
-
-    if (!reposResponse.ok) {
-      throw new Error(`Failed to list repos: ${reposResponse.status}`);
-    }
-
-    const reposData = await reposResponse.json();
-    const repos = reposData.repos || [];
-
-    console.log(`[LocalFeed] Found ${repos.length} repos on PDS`);
-
-    // Step 2: Fetch recent posts from each user (in parallel, limited)
-    const allPosts: import('@atproto/api').AppBskyFeedDefs.FeedViewPost[] = [];
-
-    // Batch requests to avoid overwhelming the server
-    const batchSize = 10;
-    for (let i = 0; i < repos.length; i += batchSize) {
-      const batch = repos.slice(i, i + batchSize);
-
-      const batchResults = await Promise.allSettled(
-        batch.map(async (repo: { did: string }) => {
-          try {
-            const feedResult = await bskyAgent.app.bsky.feed.getAuthorFeed({
-              actor: repo.did,
-              limit: 10, // Get 10 most recent posts per user
-              filter: 'posts_no_replies', // Only original posts
-            });
-            return feedResult.data.feed;
-          } catch (err) {
-            // User might not have posts or be suspended
-            return [];
-          }
-        })
-      );
-
-      for (const result of batchResults) {
-        if (result.status === 'fulfilled' && result.value) {
-          allPosts.push(...result.value);
-        }
-      }
-    }
-
-    // Step 3: Sort by indexedAt (most recent first)
-    allPosts.sort((a, b) => {
-      const dateA = new Date(a.post.indexedAt).getTime();
-      const dateB = new Date(b.post.indexedAt).getTime();
-      return dateB - dateA;
-    });
-
-    // Step 4: Deduplicate by URI (reposts can cause duplicates)
-    const seen = new Set<string>();
-    const uniquePosts = allPosts.filter((item) => {
-      if (seen.has(item.post.uri)) return false;
-      seen.add(item.post.uri);
-      return true;
-    });
-
-    // Step 5: Paginate
-    const paginatedPosts = uniquePosts.slice(startIndex, startIndex + limit);
-    const hasMore = startIndex + limit < uniquePosts.length;
-
-    console.log(
-      `[LocalFeed] Returning ${paginatedPosts.length} posts (${startIndex}-${startIndex + limit} of ${uniquePosts.length})`
-    );
-
-    return {
-      data: {
-        feed: paginatedPosts,
-        cursor: hasMore ? `${Date.now()}:${startIndex + limit}` : undefined,
-      },
-    };
-  } catch (error: any) {
-    console.error('[LocalFeed] Failed to load from PDS:', error?.message || error);
-    return {
-      data: {
-        feed: [],
-        cursor: undefined,
-      },
-    };
-  }
 }
 
 /**

@@ -1,9 +1,9 @@
 /**
  * Cannect Push Notification Server
- * 
+ *
  * Handles web push notifications for the Cannect PWA.
  * Receives subscription registrations and sends push notifications.
- * 
+ *
  * Endpoints:
  * - POST /subscribe - Register push subscription
  * - POST /unsubscribe - Remove push subscription
@@ -65,11 +65,13 @@ console.log('[DB] Database initialized');
 
 const app = express();
 
-app.use(cors({
-  origin: ['https://cannect.app', 'https://cannect.space', 'http://localhost:8081'],
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+app.use(
+  cors({
+    origin: ['https://cannect.app', 'https://cannect.space', 'http://localhost:8081'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 
 app.use(express.json());
 
@@ -80,10 +82,10 @@ app.use(express.json());
 // Health check
 app.get('/health', (req, res) => {
   const count = db.prepare('SELECT COUNT(*) as count FROM subscriptions').get();
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     subscriptions: count.count,
-    vapidPublicKey: VAPID_PUBLIC_KEY 
+    vapidPublicKey: VAPID_PUBLIC_KEY,
   });
 });
 
@@ -184,12 +186,14 @@ app.post('/send', async (req, res) => {
       try {
         await webpush.sendNotification(pushSubscription, payload);
         sent++;
-        
+
         // Update last used timestamp
-        db.prepare('UPDATE subscriptions SET last_used = CURRENT_TIMESTAMP WHERE id = ?').run(sub.id);
+        db.prepare('UPDATE subscriptions SET last_used = CURRENT_TIMESTAMP WHERE id = ?').run(
+          sub.id
+        );
       } catch (error) {
         failed++;
-        
+
         // Remove expired/invalid subscriptions
         if (error.statusCode === 404 || error.statusCode === 410) {
           db.prepare('DELETE FROM subscriptions WHERE id = ?').run(sub.id);

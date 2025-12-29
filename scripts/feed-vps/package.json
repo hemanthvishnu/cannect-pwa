@@ -1,0 +1,17 @@
+{
+  "name": "cannect-feed-generator",
+  "version": "1.0.0",
+  "description": "Bluesky Feed Generator for Cannect - Cannabis community feed",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "register": "node register-feed.js"
+  },
+  "dependencies": {
+    "@atproto/api": "^0.13.20",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
