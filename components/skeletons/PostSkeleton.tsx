@@ -9,12 +9,12 @@ import { Skeleton, SkeletonAvatar } from './Skeleton';
 
 /**
  * PostSkeleton - Animated loading placeholder matching PostCard layout
- * 
- * Uses minHeight: 120 to match PostCard's fixed minimum height.
+ *
+ * Uses minHeight: 140 to match PostCard's fixed minimum height.
  */
 export function PostSkeleton() {
   return (
-    <View style={{ minHeight: 120 }} className="px-4 py-3 border-b border-border">
+    <View style={{ minHeight: 140 }} className="px-4 py-3 min-h-[140px] border-b border-border">
       <View className="flex-row">
         {/* Avatar skeleton */}
         <Skeleton width={40} height={40} radius="full" />

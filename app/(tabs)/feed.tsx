@@ -388,6 +388,9 @@ export default function FeedScreen() {
               />
             )}
             estimatedItemSize={280}
+            overrideItemLayout={(layout) => {
+              layout.size = 280; // Consistent height hint
+            }}
             drawDistance={300}
             ListHeaderComponent={
               Platform.OS === 'web' && (showRefreshHint || isRefreshing) ? (

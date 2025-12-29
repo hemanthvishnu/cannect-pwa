@@ -12,9 +12,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import * as atproto from '@/lib/atproto/agent';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
 import { createOptimisticContext, postUpdaters } from './optimistic-updates';
-import type {
-  AppBskyFeedDefs,
-} from '@atproto/api';
+import type { AppBskyFeedDefs } from '@atproto/api';
 
 // Re-export types for convenience
 export type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
@@ -528,7 +526,13 @@ export function useDeleteRepost() {
   const optimistic = createOptimisticContext(queryClient);
 
   return useMutation({
-    mutationFn: async ({ repostUri, postUri: _postUri }: { repostUri: string; postUri: string }) => {
+    mutationFn: async ({
+      repostUri,
+      postUri: _postUri,
+    }: {
+      repostUri: string;
+      postUri: string;
+    }) => {
       await atproto.deleteRepost(repostUri);
     },
     onMutate: async ({ postUri }) => {

@@ -10,14 +10,7 @@
  * - Other users: Follow/Unfollow button, Likes tab hidden (API limitation)
  */
 
-import {
-  View,
-  Text,
-  Pressable,
-  ActivityIndicator,
-  RefreshControl,
-  Platform,
-} from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, RefreshControl, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';

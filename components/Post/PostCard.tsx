@@ -121,8 +121,8 @@ export function PostCard({
   return (
     <Pressable
       onPress={handlePress}
-      style={{ minHeight: 120 }}
-      className={`px-4 py-3 active:bg-surface-elevated/50 ${showBorder ? 'border-b border-border' : ''}`}
+      style={{ minHeight: 140 }}
+      className={`px-4 py-3 min-h-[140px] active:bg-surface-elevated/50 ${showBorder ? 'border-b border-border' : ''}`}
     >
       {/* Repost indicator */}
       {isRepost && repostBy && (
@@ -190,13 +190,13 @@ export function PostCard({
           </Pressable>
 
           {/* Post text with facets (mentions, links, hashtags) */}
-          <RichText 
-            text={record.text} 
-            facets={record.facets} 
-            className="mt-1" 
+          <RichText
+            text={record.text}
+            facets={record.facets}
+            className="mt-1"
             numberOfLines={shouldTruncate ? MAX_TEXT_LINES : undefined}
           />
-          
+
           {/* Show more button for truncated text */}
           {shouldTruncate && (
             <Pressable onPress={handleShowMore} className="mt-1">
