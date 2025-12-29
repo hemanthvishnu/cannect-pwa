@@ -1,1 +1,0 @@
-export { TrendingDiscovery } from "./TrendingDiscovery";
