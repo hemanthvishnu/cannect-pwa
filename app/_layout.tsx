@@ -182,7 +182,7 @@ function AppContent() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   const { setSession, setLoading } = useAuthStore();
 
   useEffect(() => {
@@ -220,4 +220,4 @@ export default function RootLayout() {
       </QueryClientProvider>
     </ErrorBoundary>
   );
-}
+});
