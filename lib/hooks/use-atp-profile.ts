@@ -1,6 +1,6 @@
 /**
  * AT Protocol Profile Hooks
- * 
+ *
  * Pure AT Protocol - no Supabase.
  * All profile data comes directly from the PDS.
  */
@@ -38,7 +38,7 @@ export function useProfile(actor: string | undefined) {
  */
 export function useMyProfile() {
   const { did, isAuthenticated } = useAuthStore();
-  
+
   return useQuery({
     queryKey: ['profile', 'self', did],
     queryFn: async () => {
@@ -226,31 +226,33 @@ export function useSearchUsers(query: string) {
  */
 export function useSuggestedUsers() {
   const { isAuthenticated, did } = useAuthStore();
-  
+
   return useQuery({
     queryKey: ['suggestedUsers', 'cannect', did],
     queryFn: async () => {
       // First, try to get users from Cannect PDS
       const cannectProfiles = await atproto.getCannectUsers(100);
-      
+
       // Filter out current user
-      const cannectUsers = cannectProfiles.filter(p => p.did !== did);
-      
+      const cannectUsers = cannectProfiles.filter((p) => p.did !== did);
+
       // Sort by follower count descending
-      const sortedCannect = cannectUsers.sort((a, b) => (b.followersCount || 0) - (a.followersCount || 0));
-      
+      const sortedCannect = cannectUsers.sort(
+        (a, b) => (b.followersCount || 0) - (a.followersCount || 0)
+      );
+
       // If we have Cannect users, return them (up to 100)
       if (sortedCannect.length > 0) {
         return sortedCannect.slice(0, 100);
       }
-      
+
       // Fallback: Get suggestions from Bluesky network
       try {
         const bskySuggestions = await atproto.getSuggestions(undefined, 50);
         const bskyActors = bskySuggestions.data?.actors || [];
-        
+
         // Filter out current user and return
-        return bskyActors.filter(p => p.did !== did).slice(0, 100);
+        return bskyActors.filter((p) => p.did !== did).slice(0, 100);
       } catch (error) {
         console.error('[useSuggestedUsers] Bluesky suggestions fallback failed:', error);
         return [];

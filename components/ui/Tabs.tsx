@@ -1,14 +1,14 @@
-import { createContext, useContext } from "react";
-import { View, Text, Pressable, Platform, type ViewProps, type PressableProps } from "react-native";
-import { cn } from "@/lib/utils";
-import * as Haptics from "expo-haptics";
+import { createContext, useContext } from 'react';
+import { View, Text, Pressable, Platform, type ViewProps, type PressableProps } from 'react-native';
+import { cn } from '@/lib/utils';
+import * as Haptics from 'expo-haptics';
 
 /**
  * Platinum Standard Tabs Component
- * 
+ *
  * A accessible, haptic-enabled tab navigation component following
  * the React Native Reusables pattern.
- * 
+ *
  * expo-haptics is Web-safe - it simply does nothing on Web without crashing.
  */
 
@@ -23,7 +23,7 @@ const TabsContext = createContext<TabsContextValue | null>(null);
 function useTabsContext() {
   const context = useContext(TabsContext);
   if (!context) {
-    throw new Error("Tabs components must be used within a Tabs provider");
+    throw new Error('Tabs components must be used within a Tabs provider');
   }
   return context;
 }
@@ -38,7 +38,7 @@ interface TabsProps extends ViewProps {
 export function Tabs({ value, onValueChange, children, className, ...props }: TabsProps) {
   return (
     <TabsContext.Provider value={{ value, onValueChange }}>
-      <View className={cn("w-full", className)} {...props}>
+      <View className={cn('w-full', className)} {...props}>
         {children}
       </View>
     </TabsContext.Provider>
@@ -52,8 +52,8 @@ interface TabsListProps extends ViewProps {
 
 export function TabsList({ children, className, ...props }: TabsListProps) {
   return (
-    <View 
-      className={cn("flex-row border-b border-border bg-background", className)} 
+    <View
+      className={cn('flex-row border-b border-border bg-background', className)}
       role="tablist"
       {...props}
     >
@@ -74,12 +74,12 @@ export function TabsTrigger({ value, children, className, disabled, ...props }: 
 
   const handlePress = () => {
     if (disabled) return;
-    
+
     // Haptic feedback on tab change (expo-haptics is Web-safe, does nothing on Web)
-    if (Platform.OS !== "web") {
+    if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    
+
     onValueChange(value);
   };
 
@@ -90,18 +90,20 @@ export function TabsTrigger({ value, children, className, disabled, ...props }: 
       onPress={handlePress}
       disabled={disabled}
       className={cn(
-        "flex-1 items-center justify-center py-3 border-b-2",
-        isActive ? "border-primary" : "border-transparent",
-        disabled && "opacity-50",
+        'flex-1 items-center justify-center py-3 border-b-2',
+        isActive ? 'border-primary' : 'border-transparent',
+        disabled && 'opacity-50',
         className
       )}
       {...props}
     >
       {typeof children === 'string' ? (
-        <Text className={cn(
-          "text-sm font-semibold",
-          isActive ? "text-text-primary" : "text-text-muted"
-        )}>
+        <Text
+          className={cn(
+            'text-sm font-semibold',
+            isActive ? 'text-text-primary' : 'text-text-muted'
+          )}
+        >
           {children}
         </Text>
       ) : (
@@ -119,15 +121,11 @@ interface TabsContentProps extends ViewProps {
 
 export function TabsContent({ value, children, className, ...props }: TabsContentProps) {
   const { value: activeValue } = useTabsContext();
-  
+
   if (activeValue !== value) return null;
-  
+
   return (
-    <View 
-      role="tabpanel"
-      className={cn("flex-1", className)} 
-      {...props}
-    >
+    <View role="tabpanel" className={cn('flex-1', className)} {...props}>
       {children}
     </View>
   );

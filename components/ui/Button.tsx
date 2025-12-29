@@ -1,9 +1,9 @@
-import { Pressable, Text, ActivityIndicator, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import type { ReactNode } from "react";
+import { Pressable, Text, ActivityIndicator, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import type { ReactNode } from 'react';
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
-type ButtonSize = "sm" | "md" | "lg";
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
   children: ReactNode;
@@ -19,36 +19,32 @@ interface ButtonProps {
 export function Button({
   children,
   onPress,
-  variant = "primary",
-  size = "md",
+  variant = 'primary',
+  size = 'md',
   disabled = false,
   loading = false,
   icon,
   fullWidth = false,
 }: ButtonProps) {
   const sizeClasses = {
-    sm: "py-2 px-4",
-    md: "py-3 px-6",
-    lg: "py-4 px-8",
+    sm: 'py-2 px-4',
+    md: 'py-3 px-6',
+    lg: 'py-4 px-8',
   };
 
   const textSizes = {
-    sm: "text-sm",
-    md: "text-base",
-    lg: "text-lg",
+    sm: 'text-sm',
+    md: 'text-base',
+    lg: 'text-lg',
   };
 
   const isDisabled = disabled || loading;
 
-  if (variant === "primary") {
+  if (variant === 'primary') {
     return (
-      <Pressable
-        onPress={onPress}
-        disabled={isDisabled}
-        className={fullWidth ? "w-full" : ""}
-      >
+      <Pressable onPress={onPress} disabled={isDisabled} className={fullWidth ? 'w-full' : ''}>
         <LinearGradient
-          colors={isDisabled ? ["#065F46", "#064E3B"] : ["#10B981", "#059669"]}
+          colors={isDisabled ? ['#065F46', '#064E3B'] : ['#10B981', '#059669']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           className={`rounded-2xl flex-row items-center justify-center gap-2 ${sizeClasses[size]}`}
@@ -58,9 +54,7 @@ export function Button({
           ) : (
             <>
               {icon}
-              <Text className={`text-white font-semibold ${textSizes[size]}`}>
-                {children}
-              </Text>
+              <Text className={`text-white font-semibold ${textSizes[size]}`}>{children}</Text>
             </>
           )}
         </LinearGradient>
@@ -69,22 +63,22 @@ export function Button({
   }
 
   const variantClasses = {
-    secondary: "bg-surface-elevated border border-border",
-    ghost: "bg-transparent",
-    danger: "bg-accent-error/20 border border-accent-error/50",
+    secondary: 'bg-surface-elevated border border-border',
+    ghost: 'bg-transparent',
+    danger: 'bg-accent-error/20 border border-accent-error/50',
   };
 
   const textColors = {
-    secondary: "text-text-primary",
-    ghost: "text-primary",
-    danger: "text-accent-error",
+    secondary: 'text-text-primary',
+    ghost: 'text-primary',
+    danger: 'text-accent-error',
   };
 
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
-      className={`rounded-2xl flex-row items-center justify-center gap-2 ${sizeClasses[size]} ${variantClasses[variant]} ${fullWidth ? "w-full" : ""} ${isDisabled ? "opacity-50" : ""}`}
+      className={`rounded-2xl flex-row items-center justify-center gap-2 ${sizeClasses[size]} ${variantClasses[variant]} ${fullWidth ? 'w-full' : ''} ${isDisabled ? 'opacity-50' : ''}`}
     >
       {loading ? (
         <ActivityIndicator size="small" color="#10B981" />

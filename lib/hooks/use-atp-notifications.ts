@@ -1,6 +1,6 @@
 /**
  * AT Protocol Notifications Hook
- * 
+ *
  * Pure AT Protocol - no Supabase.
  */
 

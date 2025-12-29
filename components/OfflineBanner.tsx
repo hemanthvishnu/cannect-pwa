@@ -13,7 +13,7 @@ interface OfflineBannerProps {
 
 /**
  * OfflineBanner - Shows when user is offline
- * 
+ *
  * Two modes:
  * - Compact: Small bar at top of screen
  * - Prominent: Larger card explaining cached content
@@ -55,9 +55,7 @@ export function OfflineBanner({ prominent = false, message }: OfflineBannerProps
       style={styles.compactContainer}
     >
       <WifiOff size={14} color="#EAB308" />
-      <Text style={styles.compactText}>
-        {message || "You're offline"}
-      </Text>
+      <Text style={styles.compactText}>{message || "You're offline"}</Text>
     </Animated.View>
   );
 }
@@ -78,7 +76,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  
+
   // Prominent Banner Styles
   prominentContainer: {
     marginHorizontal: 16,

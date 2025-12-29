@@ -1,6 +1,6 @@
 /**
  * Federation Error Events
- * 
+ *
  * Simple event emitter pattern for showing federation errors across the app.
  * Hooks emit errors, Toast component listens and displays them.
  */
@@ -20,7 +20,7 @@ const listeners = new Set<FederationErrorHandler>();
  * Emit a federation error (called from hooks)
  */
 export function emitFederationError(error: FederationError) {
-  listeners.forEach(handler => handler(error));
+  listeners.forEach((handler) => handler(error));
 }
 
 /**

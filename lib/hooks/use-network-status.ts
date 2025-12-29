@@ -3,10 +3,10 @@ import { Platform } from 'react-native';
 
 /**
  * useNetworkStatus - Track online/offline state on web
- * 
+ *
  * Returns true if the device is online, false if offline.
  * On native platforms, always returns true (native handles this differently).
- * 
+ *
  * Use cases:
  * - Show offline indicator in compose screen
  * - Queue actions when offline
@@ -24,7 +24,7 @@ export function useNetworkStatus(): boolean {
       console.log('[Network] Online');
       setIsOnline(true);
     };
-    
+
     const handleOffline = () => {
       console.log('[Network] Offline');
       setIsOnline(false);
@@ -48,7 +48,7 @@ export function useNetworkStatus(): boolean {
 
 /**
  * useConnectionQuality - Get detailed connection information
- * 
+ *
  * Returns connection type, effective bandwidth, and RTT.
  * Useful for deciding whether to load high-res images or videos.
  */
@@ -68,9 +68,10 @@ export function useConnectionQuality(): ConnectionQuality {
     if (typeof navigator === 'undefined') return;
 
     const updateQuality = () => {
-      const connection = (navigator as any).connection || 
-                         (navigator as any).mozConnection || 
-                         (navigator as any).webkitConnection;
+      const connection =
+        (navigator as any).connection ||
+        (navigator as any).mozConnection ||
+        (navigator as any).webkitConnection;
 
       const newQuality: ConnectionQuality = {
         isOnline: navigator.onLine,

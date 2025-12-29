@@ -1,9 +1,9 @@
 /**
  * Web Push Notifications Hook
- * 
+ *
  * Handles web push subscription for browsers including iOS Safari 16.4+
  * iOS requires: PWA must be installed to home screen first
- * 
+ *
  * Sends subscription to Push VPS for server-initiated push notifications.
  */
 
@@ -35,9 +35,7 @@ interface WebPushState {
  */
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
 
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
@@ -53,14 +51,19 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
  */
 function isIOSInstalledPWA(): boolean {
   if (typeof window === 'undefined') return false;
-  
+
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   // Check both methods - standalone property and display-mode media query
-  const isStandalone = (window.navigator as any).standalone === true || 
+  const isStandalone =
+    (window.navigator as any).standalone === true ||
     window.matchMedia('(display-mode: standalone)').matches;
-  
-  console.log('[WebPush] iOS detection:', { isIOS, isStandalone, standalone: (window.navigator as any).standalone });
-  
+
+  console.log('[WebPush] iOS detection:', {
+    isIOS,
+    isStandalone,
+    standalone: (window.navigator as any).standalone,
+  });
+
   return isIOS && isStandalone;
 }
 
@@ -69,15 +72,15 @@ function isIOSInstalledPWA(): boolean {
  */
 function isPushSupported(): boolean {
   if (typeof window === 'undefined') return false;
-  
+
   const hasSW = 'serviceWorker' in navigator;
   const hasPush = 'PushManager' in window;
   const hasNotification = 'Notification' in window;
-  
+
   console.log('[WebPush] Support check:', { hasSW, hasPush, hasNotification });
-  
+
   if (!hasSW || !hasPush || !hasNotification) return false;
-  
+
   return true;
 }
 
@@ -89,26 +92,26 @@ async function getActiveRegistration(timeoutMs = 3000): Promise<ServiceWorkerReg
   try {
     const registration = await Promise.race([
       navigator.serviceWorker.getRegistration(),
-      new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), timeoutMs))
+      new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), timeoutMs)),
     ]);
-    
+
     if (!registration) {
       console.log('[WebPush] No SW registration found');
       return null;
     }
-    
+
     // Check if we have an active worker
     if (registration.active) {
       console.log('[WebPush] SW is active');
       return registration;
     }
-    
+
     // If installing or waiting, the SW isn't ready for push yet
     if (registration.installing || registration.waiting) {
       console.log('[WebPush] SW is installing/waiting, not active yet');
       return null;
     }
-    
+
     return null;
   } catch (e) {
     console.error('[WebPush] Error getting registration:', e);
@@ -123,7 +126,7 @@ export function useWebPush() {
     isSubscribed: false,
     isIOSPWA: false,
     permission: 'unsupported',
-    isLoading: true,  // Start as loading
+    isLoading: true, // Start as loading
     isInitialized: false,
     error: null,
   });
@@ -131,11 +134,11 @@ export function useWebPush() {
   // Initialize state on mount
   useEffect(() => {
     if (Platform.OS !== 'web') {
-      setState(s => ({ ...s, isLoading: false, isInitialized: true }));
+      setState((s) => ({ ...s, isLoading: false, isInitialized: true }));
       return;
     }
     if (typeof window === 'undefined') {
-      setState(s => ({ ...s, isLoading: false, isInitialized: true }));
+      setState((s) => ({ ...s, isLoading: false, isInitialized: true }));
       return;
     }
 
@@ -144,11 +147,11 @@ export function useWebPush() {
         const supported = isPushSupported();
         const iosPWA = isIOSInstalledPWA();
         const permission = supported ? Notification.permission : 'unsupported';
-        
+
         console.log('[WebPush] Checking state:', { supported, iosPWA, permission });
-        
+
         let isSubscribed = false;
-        
+
         // Only check subscription if we have permission and an active SW
         if (supported && permission === 'granted') {
           const registration = await getActiveRegistration();
@@ -174,7 +177,7 @@ export function useWebPush() {
         });
       } catch (e: any) {
         console.error('[WebPush] Init error:', e);
-        setState(s => ({ ...s, isLoading: false, isInitialized: true }));
+        setState((s) => ({ ...s, isLoading: false, isInitialized: true }));
       }
     };
 
@@ -188,30 +191,31 @@ export function useWebPush() {
    */
   const subscribe = useCallback(async () => {
     if (!state.isSupported) {
-      setState(s => ({ ...s, error: 'Push notifications not supported' }));
+      setState((s) => ({ ...s, error: 'Push notifications not supported' }));
       return false;
     }
 
     if (!VAPID_PUBLIC_KEY) {
       console.error('[WebPush] VAPID_PUBLIC_KEY not configured');
-      setState(s => ({ ...s, error: 'Push notifications not configured' }));
+      setState((s) => ({ ...s, error: 'Push notifications not configured' }));
       return false;
     }
 
-    setState(s => ({ ...s, isLoading: true, error: null }));
+    setState((s) => ({ ...s, isLoading: true, error: null }));
 
     try {
       // Request permission first
       console.log('[WebPush] Requesting permission...');
       const permission = await Notification.requestPermission();
       console.log('[WebPush] Permission result:', permission);
-      
+
       if (permission !== 'granted') {
-        setState(s => ({ 
-          ...s, 
-          permission, 
+        setState((s) => ({
+          ...s,
+          permission,
           isLoading: false,
-          error: permission === 'denied' ? 'Notifications blocked. Enable in browser settings.' : null
+          error:
+            permission === 'denied' ? 'Notifications blocked. Enable in browser settings.' : null,
         }));
         return false;
       }
@@ -219,25 +223,25 @@ export function useWebPush() {
       // Get service worker registration - use our robust method with longer timeout for subscribe
       console.log('[WebPush] Getting SW registration...');
       let registration = await getActiveRegistration(5000);
-      
+
       // If no active registration, try to wait for ready with timeout
       if (!registration) {
         console.log('[WebPush] No active SW, waiting for ready...');
         try {
-          registration = await Promise.race([
+          registration = (await Promise.race([
             navigator.serviceWorker.ready,
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))
-          ]) as ServiceWorkerRegistration | null;
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+          ])) as ServiceWorkerRegistration | null;
         } catch (e: any) {
           console.error('[WebPush] SW ready timeout:', e);
         }
       }
-      
+
       if (!registration) {
-        setState(s => ({ 
-          ...s, 
+        setState((s) => ({
+          ...s,
           isLoading: false,
-          error: 'Service worker not ready. Try refreshing the page.'
+          error: 'Service worker not ready. Try refreshing the page.',
         }));
         return false;
       }
@@ -262,7 +266,7 @@ export function useWebPush() {
         const subscriptionJSON = subscription.toJSON();
         await AsyncStorage.setItem(SUBSCRIPTION_KEY, JSON.stringify(subscriptionJSON));
         console.log('[WebPush] Subscription saved locally');
-        
+
         // Send subscription to Feed VPS for server-initiated push
         if (did) {
           try {
@@ -274,7 +278,7 @@ export function useWebPush() {
                 subscription: subscriptionJSON,
               }),
             });
-            
+
             if (response.ok) {
               console.log('[WebPush] Subscription registered with server');
             } else {
@@ -287,8 +291,8 @@ export function useWebPush() {
         }
       }
 
-      setState(s => ({ 
-        ...s, 
+      setState((s) => ({
+        ...s,
         permission: 'granted',
         isSubscribed: true,
         isLoading: false,
@@ -297,11 +301,10 @@ export function useWebPush() {
 
       console.log('[WebPush] Successfully subscribed');
       return true;
-
     } catch (error: any) {
       console.error('[WebPush] Subscription error:', error);
-      setState(s => ({ 
-        ...s, 
+      setState((s) => ({
+        ...s,
         isLoading: false,
         error: error.message || 'Failed to enable notifications',
       }));
@@ -313,7 +316,7 @@ export function useWebPush() {
    * Unsubscribe from push notifications
    */
   const unsubscribe = useCallback(async () => {
-    setState(s => ({ ...s, isLoading: true, error: null }));
+    setState((s) => ({ ...s, isLoading: true, error: null }));
 
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -338,8 +341,8 @@ export function useWebPush() {
       // Remove local storage
       await AsyncStorage.removeItem(SUBSCRIPTION_KEY);
 
-      setState(s => ({ 
-        ...s, 
+      setState((s) => ({
+        ...s,
         isSubscribed: false,
         isLoading: false,
         error: null,
@@ -347,11 +350,10 @@ export function useWebPush() {
 
       console.log('[WebPush] Unsubscribed');
       return true;
-
     } catch (error: any) {
       console.error('[WebPush] Unsubscribe error:', error);
-      setState(s => ({ 
-        ...s, 
+      setState((s) => ({
+        ...s,
         isLoading: false,
         error: error.message || 'Failed to disable notifications',
       }));

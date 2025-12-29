@@ -1,11 +1,11 @@
 /**
  * RichText - Renders post text with facets (mentions, links, hashtags)
- * 
+ *
  * Bluesky posts include a "facets" array that marks ranges of text as:
  * - Mentions (@user) → navigate to profile
  * - Links (URLs) → open in browser
  * - Hashtags (#tag) → search for tag
- * 
+ *
  * This component parses those facets and renders interactive text.
  */
 
@@ -42,23 +42,23 @@ function parseTextWithFacets(text: string, facets?: AppBskyRichtextFacet.Main[])
   }
 
   // Sort facets by byte start position
-  const sortedFacets = [...facets].sort((a, b) => 
-    (a.index?.byteStart ?? 0) - (b.index?.byteStart ?? 0)
+  const sortedFacets = [...facets].sort(
+    (a, b) => (a.index?.byteStart ?? 0) - (b.index?.byteStart ?? 0)
   );
 
   const segments: TextSegment[] = [];
-  
+
   // Convert text to bytes for proper indexing (Bluesky uses byte offsets)
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   const textBytes = encoder.encode(text);
-  
+
   let currentBytePos = 0;
 
   for (const facet of sortedFacets) {
     const byteStart = facet.index?.byteStart ?? 0;
     const byteEnd = facet.index?.byteEnd ?? 0;
-    
+
     // Add plain text before this facet
     if (byteStart > currentBytePos) {
       const plainBytes = textBytes.slice(currentBytePos, byteStart);
@@ -71,12 +71,12 @@ function parseTextWithFacets(text: string, facets?: AppBskyRichtextFacet.Main[])
     // Get the faceted text
     const facetBytes = textBytes.slice(byteStart, byteEnd);
     const facetText = decoder.decode(facetBytes);
-    
+
     // Determine facet type from features
     const feature = facet.features?.[0];
     if (feature) {
       const featureType = feature.$type;
-      
+
       if (featureType === 'app.bsky.richtext.facet#mention') {
         segments.push({
           text: facetText,
@@ -126,7 +126,7 @@ export const RichText = memo(function RichText({
   numberOfLines,
 }: RichTextProps) {
   const router = useRouter();
-  
+
   const segments = useMemo(() => parseTextWithFacets(text, facets), [text, facets]);
 
   const handleMentionPress = (did: string) => {
@@ -145,10 +145,7 @@ export const RichText = memo(function RichText({
   };
 
   return (
-    <Text 
-      className={`text-text-primary leading-5 ${className}`}
-      numberOfLines={numberOfLines}
-    >
+    <Text className={`text-text-primary leading-5 ${className}`} numberOfLines={numberOfLines}>
       {segments.map((segment, index) => {
         switch (segment.type) {
           case 'mention':
@@ -161,7 +158,7 @@ export const RichText = memo(function RichText({
                 {segment.text}
               </Text>
             );
-          
+
           case 'link':
             return (
               <Text
@@ -172,7 +169,7 @@ export const RichText = memo(function RichText({
                 {segment.text}
               </Text>
             );
-          
+
           case 'hashtag':
             return (
               <Text
@@ -183,7 +180,7 @@ export const RichText = memo(function RichText({
                 {segment.text}
               </Text>
             );
-          
+
           default:
             return <Text key={index}>{segment.text}</Text>;
         }

@@ -1,6 +1,6 @@
 /**
  * PWA Diamond Standard APIs
- * 
+ *
  * Advanced PWA capabilities for a native-like experience:
  * - App Badging API (unread count on app icon)
  * - Persistent Storage API (prevent cache eviction)
@@ -21,7 +21,7 @@ import { Platform } from 'react-native';
 export async function setAppBadge(count: number): Promise<boolean> {
   if (Platform.OS !== 'web') return false;
   if (typeof navigator === 'undefined') return false;
-  
+
   try {
     if ('setAppBadge' in navigator) {
       if (count > 0) {
@@ -59,7 +59,7 @@ export async function requestPersistentStorage(): Promise<{
 }> {
   if (Platform.OS !== 'web') return { granted: false, persisted: false };
   if (typeof navigator === 'undefined') return { granted: false, persisted: false };
-  
+
   try {
     if (navigator.storage && navigator.storage.persist) {
       // Check if already persisted
@@ -68,7 +68,7 @@ export async function requestPersistentStorage(): Promise<{
         console.log('[PWA] Storage already persistent');
         return { granted: true, persisted: true };
       }
-      
+
       // Request persistence
       const granted = await navigator.storage.persist();
       console.log(`[PWA] Persistent storage ${granted ? 'granted' : 'denied'}`);
@@ -90,15 +90,17 @@ export async function getStorageEstimate(): Promise<{
 } | null> {
   if (Platform.OS !== 'web') return null;
   if (typeof navigator === 'undefined') return null;
-  
+
   try {
     if (navigator.storage && navigator.storage.estimate) {
       const estimate = await navigator.storage.estimate();
       const usage = estimate.usage || 0;
       const quota = estimate.quota || 0;
       const percent = quota > 0 ? (usage / quota) * 100 : 0;
-      
-      console.log(`[PWA] Storage: ${(usage / 1024 / 1024).toFixed(2)}MB / ${(quota / 1024 / 1024).toFixed(2)}MB (${percent.toFixed(1)}%)`);
+
+      console.log(
+        `[PWA] Storage: ${(usage / 1024 / 1024).toFixed(2)}MB / ${(quota / 1024 / 1024).toFixed(2)}MB (${percent.toFixed(1)}%)`
+      );
       return { usage, quota, percent };
     }
   } catch (error) {
@@ -124,14 +126,14 @@ export interface ShareData {
 export function canShare(data?: ShareData): boolean {
   if (Platform.OS !== 'web') return false;
   if (typeof navigator === 'undefined') return false;
-  
+
   if (!navigator.share) return false;
-  
+
   // Check if specific data can be shared (e.g., files)
   if (data && navigator.canShare) {
     return navigator.canShare(data);
   }
-  
+
   return true;
 }
 
@@ -143,7 +145,7 @@ export async function share(data: ShareData): Promise<boolean> {
     console.warn('[PWA] Web Share API not available');
     return false;
   }
-  
+
   try {
     await navigator.share(data);
     console.log('[PWA] Content shared successfully');
@@ -168,7 +170,7 @@ export async function sharePost(post: {
   authorHandle: string;
 }): Promise<boolean> {
   const postUrl = `https://cannect.space/post/${post.uri.split('/').pop()}`;
-  
+
   return share({
     title: `Post by @${post.authorHandle}`,
     text: post.text.substring(0, 280),
@@ -195,7 +197,7 @@ export interface SyncQueueItem {
  */
 export function queueForSync(item: Omit<SyncQueueItem, 'id' | 'createdAt' | 'retryCount'>): void {
   if (Platform.OS !== 'web') return;
-  
+
   try {
     const queue = getSyncQueue();
     const newItem: SyncQueueItem = {
@@ -204,12 +206,12 @@ export function queueForSync(item: Omit<SyncQueueItem, 'id' | 'createdAt' | 'ret
       createdAt: Date.now(),
       retryCount: 0,
     };
-    
+
     queue.push(newItem);
     localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
-    
+
     console.log(`[PWA] Queued ${item.type} for sync (${queue.length} items in queue)`);
-    
+
     // Request a background sync if available
     requestBackgroundSync();
   } catch (error) {
@@ -222,7 +224,7 @@ export function queueForSync(item: Omit<SyncQueueItem, 'id' | 'createdAt' | 'ret
  */
 export function getSyncQueue(): SyncQueueItem[] {
   if (Platform.OS !== 'web') return [];
-  
+
   try {
     const raw = localStorage.getItem(SYNC_QUEUE_KEY);
     return raw ? JSON.parse(raw) : [];
@@ -236,9 +238,9 @@ export function getSyncQueue(): SyncQueueItem[] {
  */
 export function removeFromSyncQueue(id: string): void {
   if (Platform.OS !== 'web') return;
-  
+
   try {
-    const queue = getSyncQueue().filter(item => item.id !== id);
+    const queue = getSyncQueue().filter((item) => item.id !== id);
     localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
     console.log(`[PWA] Removed ${id} from sync queue (${queue.length} remaining)`);
   } catch (error) {
@@ -261,7 +263,7 @@ export function clearSyncQueue(): void {
 export async function requestBackgroundSync(): Promise<boolean> {
   if (Platform.OS !== 'web') return false;
   if (typeof navigator === 'undefined') return false;
-  
+
   try {
     const registration = await navigator.serviceWorker?.ready;
     if (registration && 'sync' in registration) {
@@ -285,17 +287,17 @@ export async function requestBackgroundSync(): Promise<boolean> {
 export function isInstalledPWA(): boolean {
   if (Platform.OS !== 'web') return false;
   if (typeof window === 'undefined') return false;
-  
+
   // Check display-mode media query
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-  
+
   // iOS Safari check
   const isIOSStandalone = (navigator as any).standalone === true;
-  
+
   // Check URL parameter (set in manifest start_url)
   const urlParams = new URLSearchParams(window.location.search);
   const fromPWA = urlParams.get('source') === 'pwa';
-  
+
   return isStandalone || isIOSStandalone || fromPWA;
 }
 
@@ -305,20 +307,20 @@ export function isInstalledPWA(): boolean {
 export function getDisplayMode(): 'browser' | 'standalone' | 'minimal-ui' | 'fullscreen' {
   if (Platform.OS !== 'web') return 'browser';
   if (typeof window === 'undefined') return 'browser';
-  
+
   const modes: Array<'fullscreen' | 'standalone' | 'minimal-ui' | 'browser'> = [
     'fullscreen',
-    'standalone', 
+    'standalone',
     'minimal-ui',
-    'browser'
+    'browser',
   ];
-  
+
   for (const mode of modes) {
     if (window.matchMedia(`(display-mode: ${mode})`).matches) {
       return mode;
     }
   }
-  
+
   return 'browser';
 }
 
@@ -334,14 +336,14 @@ let deferredInstallPrompt: any = null;
 export function initInstallPrompt(): void {
   if (Platform.OS !== 'web') return;
   if (typeof window === 'undefined') return;
-  
+
   window.addEventListener('beforeinstallprompt', (e) => {
     // Prevent Chrome from showing its own prompt
     e.preventDefault();
     deferredInstallPrompt = e;
     console.log('[PWA] Install prompt captured');
   });
-  
+
   window.addEventListener('appinstalled', () => {
     deferredInstallPrompt = null;
     console.log('[PWA] App installed successfully');
@@ -362,7 +364,7 @@ export async function showInstallPrompt(): Promise<'accepted' | 'dismissed' | 'u
   if (!deferredInstallPrompt) {
     return 'unavailable';
   }
-  
+
   try {
     deferredInstallPrompt.prompt();
     const { outcome } = await deferredInstallPrompt.userChoice;
@@ -388,18 +390,18 @@ let wakeLock: any = null;
 export async function requestWakeLock(): Promise<boolean> {
   if (Platform.OS !== 'web') return false;
   if (typeof navigator === 'undefined') return false;
-  
+
   try {
     if ('wakeLock' in navigator) {
       wakeLock = await (navigator as any).wakeLock.request('screen');
       console.log('[PWA] Wake lock acquired');
-      
+
       // Handle release on visibility change
       wakeLock.addEventListener('release', () => {
         console.log('[PWA] Wake lock released');
         wakeLock = null;
       });
-      
+
       return true;
     }
   } catch (error) {
@@ -428,7 +430,7 @@ export async function releaseWakeLock(): Promise<void> {
 export function hapticFeedback(pattern: number | number[] = 50): boolean {
   if (Platform.OS !== 'web') return false;
   if (typeof navigator === 'undefined') return false;
-  
+
   try {
     if ('vibrate' in navigator) {
       navigator.vibrate(pattern);

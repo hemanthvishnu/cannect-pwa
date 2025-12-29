@@ -2,13 +2,30 @@
  * Notifications Screen - Pure AT Protocol
  */
 
-import { View, Text, FlatList, Pressable, RefreshControl, ActivityIndicator, Platform, Image } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Bell, Heart, Repeat2, UserPlus, MessageCircle, AtSign, RefreshCw } from "lucide-react-native";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback } from "react";
-import * as Haptics from "expo-haptics";
-import { useNotifications, useMarkNotificationsRead } from "@/lib/hooks";
+import {
+  View,
+  Text,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ActivityIndicator,
+  Platform,
+  Image,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  Bell,
+  Heart,
+  Repeat2,
+  UserPlus,
+  MessageCircle,
+  AtSign,
+  RefreshCw,
+} from 'lucide-react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback } from 'react';
+import * as Haptics from 'expo-haptics';
+import { useNotifications, useMarkNotificationsRead } from '@/lib/hooks';
 import type { AppBskyNotificationListNotifications } from '@atproto/api';
 
 type Notification = AppBskyNotificationListNotifications.Notification;
@@ -49,13 +66,20 @@ function NotificationIcon({ reason }: { reason: string }) {
 
 function getNotificationText(reason: string): string {
   switch (reason) {
-    case 'like': return 'liked your post';
-    case 'repost': return 'reposted your post';
-    case 'follow': return 'followed you';
-    case 'reply': return 'replied to your post';
-    case 'mention': return 'mentioned you';
-    case 'quote': return 'quoted your post';
-    default: return 'interacted with you';
+    case 'like':
+      return 'liked your post';
+    case 'repost':
+      return 'reposted your post';
+    case 'follow':
+      return 'followed you';
+    case 'reply':
+      return 'replied to your post';
+    case 'mention':
+      return 'mentioned you';
+    case 'quote':
+      return 'quoted your post';
+    default:
+      return 'interacted with you';
   }
 }
 
@@ -77,7 +101,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
   };
 
   return (
-    <Pressable 
+    <Pressable
       onPress={handlePress}
       className={`flex-row px-4 py-3 border-b border-border ${isUnread ? 'bg-primary/5' : ''}`}
     >
@@ -98,8 +122,8 @@ function NotificationItem({ notification }: { notification: Notification }) {
           )}
           <View className="ml-2 flex-1">
             <Text className="text-text-primary">
-              <Text className="font-semibold">{author.displayName || author.handle}</Text>
-              {' '}{getNotificationText(notification.reason)}
+              <Text className="font-semibold">{author.displayName || author.handle}</Text>{' '}
+              {getNotificationText(notification.reason)}
             </Text>
             <Text className="text-text-muted text-sm">{formatTime(notification.indexedAt)}</Text>
           </View>
@@ -113,8 +137,8 @@ export default function NotificationsScreen() {
   const notificationsQuery = useNotifications();
   const markAsRead = useMarkNotificationsRead();
 
-  const notifications = notificationsQuery.data?.pages?.flatMap(page => page.notifications) || [];
-  
+  const notifications = notificationsQuery.data?.pages?.flatMap((page) => page.notifications) || [];
+
   // Mark all as read when screen is focused (after 2 second delay)
   useFocusEffect(
     useCallback(() => {
@@ -123,11 +147,11 @@ export default function NotificationsScreen() {
           markAsRead.mutate();
         }
       }, 2000);
-      
+
       return () => clearTimeout(timer);
     }, [notifications.length])
   );
-  
+
   const handleRefresh = () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -137,7 +161,7 @@ export default function NotificationsScreen() {
 
   if (notificationsQuery.isError) {
     return (
-      <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+      <SafeAreaView className="flex-1 bg-background" edges={['top']}>
         <View className="px-5 py-4 border-b border-border">
           <Text className="text-3xl font-bold text-text-primary">Notifications</Text>
         </View>
@@ -153,7 +177,7 @@ export default function NotificationsScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <View className="px-5 py-4 border-b border-border">
         <Text className="text-3xl font-bold text-text-primary">Notifications</Text>
       </View>
@@ -162,10 +186,10 @@ export default function NotificationsScreen() {
         keyExtractor={(item, index) => `${item.uri}-${index}`}
         renderItem={({ item }) => <NotificationItem notification={item} />}
         refreshControl={
-          <RefreshControl 
-            refreshing={notificationsQuery.isRefetching} 
-            onRefresh={handleRefresh} 
-            tintColor="#10B981" 
+          <RefreshControl
+            refreshing={notificationsQuery.isRefetching}
+            onRefresh={handleRefresh}
+            tintColor="#10B981"
           />
         }
         onEndReached={() => {

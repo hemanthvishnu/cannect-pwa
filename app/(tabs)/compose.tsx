@@ -2,50 +2,45 @@
  * Compose Screen - Pure AT Protocol
  */
 
-import { useState, useCallback, useMemo } from "react";
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  Pressable, 
-  ActivityIndicator, 
-  KeyboardAvoidingView, 
-  Platform, 
+import { useState, useCallback, useMemo } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Image,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { X, Image as ImageIcon, Video as VideoIcon } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { X, Image as ImageIcon, Video as VideoIcon } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { router, useLocalSearchParams } from "expo-router";
-import { RichText } from "@atproto/api";
-import { useCreatePost } from "@/lib/hooks";
-import { useAuthStore } from "@/lib/stores";
-import * as atproto from "@/lib/atproto/agent";
+import { router, useLocalSearchParams } from 'expo-router';
+import { RichText } from '@atproto/api';
+import { useCreatePost } from '@/lib/hooks';
+import { useAuthStore } from '@/lib/stores';
+import * as atproto from '@/lib/atproto/agent';
 
 const MAX_LENGTH = 300; // Bluesky character limit
 
 export default function ComposeScreen() {
-  const { 
-    replyToUri, 
-    replyToCid,
-    rootUri,
-    rootCid,
-  } = useLocalSearchParams<{
+  const { replyToUri, replyToCid, rootUri, rootCid } = useLocalSearchParams<{
     replyToUri?: string;
     replyToCid?: string;
     rootUri?: string;
     rootCid?: string;
   }>();
-  
+
   const isReply = !!(replyToUri && replyToCid);
-  
-  const [content, setContent] = useState("");
+
+  const [content, setContent] = useState('');
   const [images, setImages] = useState<{ uri: string; mimeType: string }[]>([]);
   const [video, setVideo] = useState<{ uri: string; mimeType: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const createPostMutation = useCreatePost();
   const { isAuthenticated, profile, handle } = useAuthStore();
 
@@ -57,7 +52,8 @@ export default function ComposeScreen() {
 
   const remainingChars = MAX_LENGTH - graphemeLength;
   const isOverLimit = remainingChars < 0;
-  const canPost = content.trim().length > 0 && !isOverLimit && !createPostMutation.isPending && !isUploading;
+  const canPost =
+    content.trim().length > 0 && !isOverLimit && !createPostMutation.isPending && !isUploading;
   const hasMedia = images.length > 0 || video !== null;
 
   const handlePickImage = async () => {
@@ -71,7 +67,7 @@ export default function ComposeScreen() {
     });
 
     if (!result.canceled) {
-      const newImages = result.assets.map(asset => ({
+      const newImages = result.assets.map((asset) => ({
         uri: asset.uri,
         mimeType: asset.mimeType || 'image/jpeg',
       }));
@@ -108,18 +104,18 @@ export default function ComposeScreen() {
   const handlePost = useCallback(async () => {
     if (!canPost) return;
     if (!isAuthenticated) {
-      setError("You must be logged in to post");
+      setError('You must be logged in to post');
       return;
     }
-    
+
     setError(null);
     const mediaCount = video ? 1 : images.length;
     console.log('[Compose] Creating post with', mediaCount, 'media items');
-    
+
     try {
       let embed;
       setIsUploading(true);
-      
+
       // Upload video if any (video takes priority, can't have both)
       if (video) {
         // Fetch the video data
@@ -127,12 +123,12 @@ export default function ComposeScreen() {
         const blob = await response.blob();
         const arrayBuffer = await blob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        
+
         // Upload to Bluesky
         const uploadStart = Date.now();
         const uploadResult = await atproto.uploadBlob(uint8Array, video.mimeType);
         console.log('[Compose] Video uploaded in', Date.now() - uploadStart, 'ms');
-        
+
         embed = {
           $type: 'app.bsky.embed.video',
           video: uploadResult.data.blob,
@@ -142,14 +138,14 @@ export default function ComposeScreen() {
       else if (images.length > 0) {
         const uploadStart = Date.now();
         const uploadedImages = [];
-        
+
         for (const image of images) {
           // Fetch the image data
           const response = await fetch(image.uri);
           const blob = await response.blob();
           const arrayBuffer = await blob.arrayBuffer();
           const uint8Array = new Uint8Array(arrayBuffer);
-          
+
           // Upload to Bluesky
           const uploadResult = await atproto.uploadBlob(uint8Array, image.mimeType);
           uploadedImages.push({
@@ -157,49 +153,69 @@ export default function ComposeScreen() {
             image: uploadResult.data.blob,
           });
         }
-        
-        console.log('[Compose]', images.length, 'images uploaded in', Date.now() - uploadStart, 'ms');
-        
+
+        console.log(
+          '[Compose]',
+          images.length,
+          'images uploaded in',
+          Date.now() - uploadStart,
+          'ms'
+        );
+
         embed = {
           $type: 'app.bsky.embed.images',
           images: uploadedImages,
         };
       }
-      
+
       setIsUploading(false);
 
       // Build reply reference if this is a reply
-      const reply = isReply ? {
-        parent: { uri: replyToUri!, cid: replyToCid! },
-        root: { uri: rootUri || replyToUri!, cid: rootCid || replyToCid! },
-      } : undefined;
+      const reply = isReply
+        ? {
+            parent: { uri: replyToUri!, cid: replyToCid! },
+            root: { uri: rootUri || replyToUri!, cid: rootCid || replyToCid! },
+          }
+        : undefined;
 
       const result = await createPostMutation.mutateAsync({
         text: content.trim(),
         reply,
         embed,
       });
-      
+
       console.log('[Compose] Post created:', result?.uri);
-      
+
       // Success feedback
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      
-      setContent("");
+
+      setContent('');
       setImages([]);
       setVideo(null);
       router.back();
     } catch (err: any) {
       console.error('[Compose] Post creation error:', err.message);
-      setError(err.message || "Failed to create post");
+      setError(err.message || 'Failed to create post');
       setIsUploading(false);
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     }
-  }, [content, images, video, isAuthenticated, isReply, replyToUri, replyToCid, rootUri, rootCid, createPostMutation, canPost]);
+  }, [
+    content,
+    images,
+    video,
+    isAuthenticated,
+    isReply,
+    replyToUri,
+    replyToCid,
+    rootUri,
+    rootCid,
+    createPostMutation,
+    canPost,
+  ]);
 
   const handleClose = () => {
     if (content.trim() || images.length > 0 || video) {
@@ -209,9 +225,9 @@ export default function ComposeScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         {/* Header */}
@@ -219,7 +235,7 @@ export default function ComposeScreen() {
           <Pressable onPress={handleClose} className="w-10 h-10 items-center justify-center">
             <X size={24} color="#FAFAFA" />
           </Pressable>
-          
+
           <Pressable
             onPress={handlePost}
             disabled={!canPost}
@@ -255,12 +271,12 @@ export default function ComposeScreen() {
                 </Text>
               </View>
             )}
-            
+
             {/* Text Input */}
             <TextInput
               value={content}
               onChangeText={setContent}
-              placeholder={isReply ? "Write your reply..." : "What's happening?"}
+              placeholder={isReply ? 'Write your reply...' : "What's happening?"}
               placeholderTextColor="#6B7280"
               multiline
               autoFocus
@@ -311,14 +327,14 @@ export default function ComposeScreen() {
         <View className="flex-row items-center justify-between px-4 py-3 border-t border-border">
           {/* Media Buttons */}
           <View className="flex-row gap-4">
-            <Pressable 
+            <Pressable
               onPress={handlePickImage}
               disabled={images.length >= 4 || video !== null}
               className={images.length >= 4 || video !== null ? 'opacity-50' : ''}
             >
               <ImageIcon size={24} color="#10B981" />
             </Pressable>
-            <Pressable 
+            <Pressable
               onPress={handlePickVideo}
               disabled={images.length > 0 || video !== null}
               className={images.length > 0 || video !== null ? 'opacity-50' : ''}
@@ -328,7 +344,9 @@ export default function ComposeScreen() {
           </View>
 
           {/* Character Count */}
-          <Text className={`font-medium ${isOverLimit ? 'text-accent-error' : remainingChars < 50 ? 'text-yellow-500' : 'text-text-muted'}`}>
+          <Text
+            className={`font-medium ${isOverLimit ? 'text-accent-error' : remainingChars < 50 ? 'text-yellow-500' : 'text-text-muted'}`}
+          >
             {remainingChars}
           </Text>
         </View>

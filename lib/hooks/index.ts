@@ -1,11 +1,11 @@
 /**
  * Hooks Index - Pure AT Protocol
- * 
+ *
  * All hooks now use AT Protocol directly - no Supabase.
  */
 
 // Auth
-export { 
+export {
   useAuth,
   useLogin,
   useLogin as useSignIn,

@@ -1,6 +1,6 @@
 /**
  * usePWA - Diamond Standard PWA Hook
- * 
+ *
  * Provides access to advanced PWA capabilities:
  * - Installation status and prompt
  * - Persistent storage
@@ -50,16 +50,16 @@ export function usePWA() {
       // Check installation status
       const isInstalled = PWA.isInstalledPWA();
       const displayMode = PWA.getDisplayMode();
-      
+
       // Request persistent storage (best effort)
       const { persisted } = await PWA.requestPersistentStorage();
-      
+
       // Get storage info
       const storageInfo = await PWA.getStorageEstimate();
-      
+
       // Get sync queue count
       const syncQueueCount = PWA.getSyncQueue().length;
-      
+
       setState({
         isInstalled,
         displayMode,
@@ -72,18 +72,18 @@ export function usePWA() {
 
     // Initialize install prompt capture
     PWA.initInstallPrompt();
-    
+
     init();
 
     // Listen for install prompt availability
     const handleBeforeInstall = () => {
-      setState(prev => ({ ...prev, canInstall: true }));
+      setState((prev) => ({ ...prev, canInstall: true }));
     };
-    
+
     const handleInstalled = () => {
-      setState(prev => ({ 
-        ...prev, 
-        isInstalled: true, 
+      setState((prev) => ({
+        ...prev,
+        isInstalled: true,
         canInstall: false,
         displayMode: 'standalone',
       }));
@@ -105,7 +105,7 @@ export function usePWA() {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'cannect_sync_queue') {
         const count = PWA.getSyncQueue().length;
-        setState(prev => ({ ...prev, syncQueueCount: count }));
+        setState((prev) => ({ ...prev, syncQueueCount: count }));
       }
     };
 
@@ -117,7 +117,7 @@ export function usePWA() {
   const promptInstall = useCallback(async () => {
     const result = await PWA.showInstallPrompt();
     if (result === 'accepted') {
-      setState(prev => ({ ...prev, canInstall: false }));
+      setState((prev) => ({ ...prev, canInstall: false }));
     }
     return result;
   }, []);
@@ -145,7 +145,7 @@ export function usePWA() {
   // Queue an action for sync
   const queueForSync = useCallback((item: Parameters<typeof PWA.queueForSync>[0]) => {
     PWA.queueForSync(item);
-    setState(prev => ({ ...prev, syncQueueCount: prev.syncQueueCount + 1 }));
+    setState((prev) => ({ ...prev, syncQueueCount: prev.syncQueueCount + 1 }));
   }, []);
 
   // Process sync queue

@@ -1,6 +1,6 @@
 /**
  * AT Protocol Agent
- * 
+ *
  * Pure AT Protocol client using @atproto/api.
  * No Supabase dependency - all data goes directly to PDS.
  */
@@ -45,10 +45,10 @@ function notifySessionExpired() {
     return;
   }
   hasNotifiedExpiry = true;
-  
+
   console.warn('[Auth] 🔴 Session expired - notifying', sessionExpiredListeners.size, 'listeners');
-  
-  sessionExpiredListeners.forEach(handler => {
+
+  sessionExpiredListeners.forEach((handler) => {
     try {
       handler();
     } catch (err) {
@@ -63,27 +63,31 @@ function notifySessionExpired() {
  */
 export function isAuthError(error: any): boolean {
   if (!error) return false;
-  
+
   const status = error?.status || error?.response?.status;
   const errorCode = error?.error || error?.message || error?.data?.error;
-  const errorMessage = typeof error === 'string' ? error : 
-    error?.message || error?.data?.message || '';
-  
+  const errorMessage =
+    typeof error === 'string' ? error : error?.message || error?.data?.message || '';
+
   // Log the error being checked
-  console.log('[Agent] isAuthError checking:', { status, errorCode, errorMessage: errorMessage.substring(0,100) });
-  
+  console.log('[Agent] isAuthError checking:', {
+    status,
+    errorCode,
+    errorMessage: errorMessage.substring(0, 100),
+  });
+
   // 401 Unauthorized is always an auth error
   if (status === 401) {
     console.log('[Agent] 🔴 401 Unauthorized detected');
     return true;
   }
-  
+
   // 400 with specific auth-related error codes or messages
   // NOTE: Be VERY specific here to avoid false positives!
   if (status === 400) {
     const authPatterns = [
       'InvalidToken',
-      'ExpiredToken', 
+      'ExpiredToken',
       'AuthenticationRequired',
       'invalid_token',
       'token_expired',
@@ -91,22 +95,25 @@ export function isAuthError(error: any): boolean {
       'Bad token',
       'authentication required',
       'not authenticated',
-      'session expired',        // More specific than just 'session'
-      'invalid session',        // More specific than just 'session'
-      'session not found',      // More specific than just 'session'
+      'session expired', // More specific than just 'session'
+      'invalid session', // More specific than just 'session'
+      'session not found', // More specific than just 'session'
     ];
-    
+
     const textToCheck = `${errorCode || ''} ${errorMessage || ''}`.toLowerCase();
-    const matchedPattern = authPatterns.find(p => textToCheck.includes(p.toLowerCase()));
-    
+    const matchedPattern = authPatterns.find((p) => textToCheck.includes(p.toLowerCase()));
+
     if (matchedPattern) {
-      console.log('[Agent] 🔴 400 with auth pattern detected:', { pattern: matchedPattern, text: textToCheck.substring(0,100) });
+      console.log('[Agent] 🔴 400 with auth pattern detected:', {
+        pattern: matchedPattern,
+        text: textToCheck.substring(0, 100),
+      });
       return true;
     }
-    
-    console.log('[Agent] 400 error but no auth pattern match:', textToCheck.substring(0,100));
+
+    console.log('[Agent] 400 error but no auth pattern match:', textToCheck.substring(0, 100));
   }
-  
+
   return false;
 }
 
@@ -166,8 +173,12 @@ export function getAgent(): BskyAgent {
     agent = new BskyAgent({
       service: PDS_SERVICE,
       persistSession: (evt, sess) => {
-        console.log('[Agent] persistSession event:', evt, sess?.did ? `did:${sess.did.substring(8,20)}` : 'no session');
-        
+        console.log(
+          '[Agent] persistSession event:',
+          evt,
+          sess?.did ? `did:${sess.did.substring(8, 20)}` : 'no session'
+        );
+
         if (evt === 'expired') {
           // Refresh token expired - user must re-login
           console.warn('[Agent] 🔴 Session EXPIRED - user must re-login');
@@ -193,10 +204,13 @@ export function getAgent(): BskyAgent {
  */
 export async function initializeAgent(): Promise<BskyAgent> {
   const bskyAgent = getAgent();
-  
+
   const storedSession = await getStoredSession();
-  console.log('[Agent] initializeAgent - stored session:', storedSession ? `did:${storedSession.did?.substring(8,20)}` : 'none');
-  
+  console.log(
+    '[Agent] initializeAgent - stored session:',
+    storedSession ? `did:${storedSession.did?.substring(8, 20)}` : 'none'
+  );
+
   if (storedSession) {
     try {
       console.log('[Agent] Attempting to resume session...');
@@ -207,7 +221,7 @@ export async function initializeAgent(): Promise<BskyAgent> {
       await clearSession();
     }
   }
-  
+
   return bskyAgent;
 }
 
@@ -221,19 +235,17 @@ export async function createAccount(opts: {
   inviteCode?: string;
 }): Promise<{ did: string; handle: string }> {
   const bskyAgent = getAgent();
-  
+
   // Handle should be username.cannect.space for our PDS
-  const fullHandle = opts.handle.includes('.') 
-    ? opts.handle 
-    : `${opts.handle}.cannect.space`;
-  
+  const fullHandle = opts.handle.includes('.') ? opts.handle : `${opts.handle}.cannect.space`;
+
   const result = await bskyAgent.createAccount({
     email: opts.email,
     password: opts.password,
     handle: fullHandle,
     inviteCode: opts.inviteCode,
   });
-  
+
   return {
     did: result.data.did,
     handle: result.data.handle,
@@ -281,25 +293,25 @@ export function getSession() {
  */
 export async function refreshSession(): Promise<void> {
   const bskyAgent = getAgent();
-  
+
   // If no session, nothing to refresh
   if (!bskyAgent.session) {
     console.log('[Agent] No session to refresh');
     return;
   }
-  
+
   try {
     // BskyAgent.resumeSession will automatically refresh if needed
     await bskyAgent.resumeSession(bskyAgent.session);
     console.log('[Agent] Session refreshed successfully');
   } catch (err: any) {
     console.error('[Agent] Failed to refresh session:', err);
-    
+
     // Check if this is an auth error that means we need to re-login
     if (isAuthError(err)) {
       await handleAuthError();
     }
-    
+
     throw err;
   }
 }
@@ -307,35 +319,38 @@ export async function refreshSession(): Promise<void> {
 /**
  * Create a new post
  */
-export async function createPost(text: string, opts?: {
-  reply?: {
-    parent: { uri: string; cid: string };
-    root: { uri: string; cid: string };
-  };
-  embed?: any;
-  langs?: string[];
-}): Promise<{ uri: string; cid: string }> {
+export async function createPost(
+  text: string,
+  opts?: {
+    reply?: {
+      parent: { uri: string; cid: string };
+      root: { uri: string; cid: string };
+    };
+    embed?: any;
+    langs?: string[];
+  }
+): Promise<{ uri: string; cid: string }> {
   const bskyAgent = getAgent();
-  
+
   // Parse facets (mentions, links, hashtags)
   const rt = new RichText({ text });
   await rt.detectFacets(bskyAgent);
-  
+
   const record: any = {
     text: rt.text,
     facets: rt.facets,
     createdAt: new Date().toISOString(),
     langs: opts?.langs || ['en'],
   };
-  
+
   if (opts?.reply) {
     record.reply = opts.reply;
   }
-  
+
   if (opts?.embed) {
     record.embed = opts.embed;
   }
-  
+
   const result = await bskyAgent.post(record);
   return result;
 }
@@ -410,10 +425,14 @@ export async function getTimeline(cursor?: string, limit = 50) {
  * filter options: 'posts_with_replies', 'posts_no_replies', 'posts_with_media', 'posts_and_author_threads'
  */
 export async function getAuthorFeed(
-  actor: string, 
-  cursor?: string, 
+  actor: string,
+  cursor?: string,
   limit = 50,
-  filter?: 'posts_with_replies' | 'posts_no_replies' | 'posts_with_media' | 'posts_and_author_threads'
+  filter?:
+    | 'posts_with_replies'
+    | 'posts_no_replies'
+    | 'posts_with_media'
+    | 'posts_and_author_threads'
 ) {
   const bskyAgent = getAgent();
   const result = await bskyAgent.getAuthorFeed({ actor, cursor, limit, filter });
@@ -458,19 +477,19 @@ export async function updateProfile(update: {
   banner?: any;
 }) {
   const bskyAgent = getAgent();
-  
+
   // upsertProfile internally tries to get the existing profile first,
   // which may fail with 400 if no profile exists yet. This is expected behavior.
   // Only include fields that are explicitly set (not undefined) to avoid overwriting
   return bskyAgent.upsertProfile((existing) => {
     const result = { ...existing };
-    
+
     // Only update fields that are explicitly provided
     if (update.displayName !== undefined) result.displayName = update.displayName;
     if (update.description !== undefined) result.description = update.description;
     if (update.avatar !== undefined) result.avatar = update.avatar;
     if (update.banner !== undefined) result.banner = update.banner;
-    
+
     return result;
   });
 }
@@ -512,13 +531,13 @@ export async function getProfiles(dids: string[]) {
   for (let i = 0; i < dids.length; i += 25) {
     chunks.push(dids.slice(i, i + 25));
   }
-  
+
   try {
     const results = await Promise.all(
-      chunks.map(chunk => bskyAgent.getProfiles({ actors: chunk }))
+      chunks.map((chunk) => bskyAgent.getProfiles({ actors: chunk }))
     );
-    
-    const profiles = results.flatMap(r => r.data.profiles);
+
+    const profiles = results.flatMap((r) => r.data.profiles);
     console.log('[getProfiles] Got', profiles.length, 'profiles from batch');
     return profiles;
   } catch (error) {
@@ -587,27 +606,27 @@ export async function getExternalFeed(feedUri: string, cursor?: string, limit = 
 export async function getCannectPosts(limit = 30) {
   const dids = await listPdsRepos(50);
   if (dids.length === 0) return [];
-  
+
   const bskyAgent = getAgent();
-  
+
   // Get recent posts from up to 10 random users
   const shuffled = dids.sort(() => Math.random() - 0.5).slice(0, 10);
-  
+
   const results = await Promise.all(
     shuffled.map(async (did) => {
       try {
-        const feed = await bskyAgent.getAuthorFeed({ 
-          actor: did, 
+        const feed = await bskyAgent.getAuthorFeed({
+          actor: did,
           limit: 5,
-          filter: 'posts_no_replies'
+          filter: 'posts_no_replies',
         });
-        return feed.data.feed.map(item => item.post);
+        return feed.data.feed.map((item) => item.post);
       } catch {
         return [];
       }
     })
   );
-  
+
   // Flatten and sort by createdAt (when user posted)
   const allPosts = results.flat();
   const sorted = allPosts.sort((a, b) => {
@@ -615,7 +634,7 @@ export async function getCannectPosts(limit = 30) {
     const bDate = (b.record as any)?.createdAt || b.indexedAt;
     return new Date(bDate).getTime() - new Date(aDate).getTime();
   });
-  
+
   return sorted.slice(0, limit);
 }
 
@@ -633,7 +652,9 @@ export async function getNotifications(cursor?: string, limit = 50) {
 export async function markNotificationsRead(seenAt?: string) {
   const bskyAgent = getAgent();
   const dateStr = seenAt || new Date().toISOString();
-  return bskyAgent.updateSeenNotifications(dateStr as `${string}-${string}-${string}T${string}:${string}:${string}Z`);
+  return bskyAgent.updateSeenNotifications(
+    dateStr as `${string}-${string}-${string}T${string}:${string}:${string}Z`
+  );
 }
 
 /**
@@ -674,18 +695,19 @@ export async function getUnreadCount() {
  * Only accessible to *.cannect.space users
  */
 const CANNECT_FEED_URI = 'at://did:plc:ubkp6dfvxif7rmexyat5np6e/app.bsky.feed.generator/cannect';
-const CANNECT_FOLLOWING_URI = 'at://did:plc:ubkp6dfvxif7rmexyat5np6e/app.bsky.feed.generator/following';
+const CANNECT_FOLLOWING_URI =
+  'at://did:plc:ubkp6dfvxif7rmexyat5np6e/app.bsky.feed.generator/following';
 
 /**
  * Get the Cannect feed from our feed generator
- * 
+ *
  * Uses the Cannect Feed Generator at feed.cannect.space which:
  * - Indexes cannabis-related posts from the entire AT Protocol network
  * - Only accessible to cannect.space users
  */
 export async function getCannectFeed(cursor?: string, limit = 30) {
   const bskyAgent = getAgent();
-  
+
   try {
     // Use the official AT Protocol getFeed endpoint with our feed generator
     const result = await bskyAgent.app.bsky.feed.getFeed({
@@ -693,12 +715,12 @@ export async function getCannectFeed(cursor?: string, limit = 30) {
       cursor,
       limit,
     });
-    
+
     return {
       data: {
         feed: result.data.feed,
         cursor: result.data.cursor,
-      }
+      },
     };
   } catch (error: any) {
     console.error('[Cannect Feed] Failed to load feed:', error?.message || error);
@@ -707,32 +729,32 @@ export async function getCannectFeed(cursor?: string, limit = 30) {
       data: {
         feed: [],
         cursor: undefined,
-      }
+      },
     };
   }
 }
 
 /**
  * Get the Cannect Following feed from our feed generator
- * 
+ *
  * Shows posts from our database, filtered to only users you follow.
  * Includes migrated posts that Bluesky's timeline doesn't have.
  */
 export async function getCannectFollowingFeed(cursor?: string, limit = 30) {
   const bskyAgent = getAgent();
-  
+
   try {
     const result = await bskyAgent.app.bsky.feed.getFeed({
       feed: CANNECT_FOLLOWING_URI,
       cursor,
       limit,
     });
-    
+
     return {
       data: {
         feed: result.data.feed,
         cursor: result.data.cursor,
-      }
+      },
     };
   } catch (error: any) {
     console.error('[Cannect Following] Failed to load feed:', error?.message || error);
@@ -740,7 +762,7 @@ export async function getCannectFollowingFeed(cursor?: string, limit = 30) {
       data: {
         feed: [],
         cursor: undefined,
-      }
+      },
     };
   }
 }
@@ -765,22 +787,16 @@ export async function resetPassword(token: string, password: string): Promise<vo
  * Report content to AT Protocol moderation service
  * This sends a report to Bluesky's moderation team
  */
-export type ReportReason = 
-  | 'spam'
-  | 'violation' 
-  | 'misleading'
-  | 'sexual'
-  | 'rude'
-  | 'other';
+export type ReportReason = 'spam' | 'violation' | 'misleading' | 'sexual' | 'rude' | 'other';
 
 export async function reportPost(
-  postUri: string, 
-  postCid: string, 
+  postUri: string,
+  postCid: string,
   reason: ReportReason,
   additionalInfo?: string
 ): Promise<void> {
   const bskyAgent = getAgent();
-  
+
   // Map our simple reasons to AT Protocol reason types
   const reasonTypeMap: Record<ReportReason, string> = {
     spam: 'com.atproto.moderation.defs#reasonSpam',
@@ -811,7 +827,7 @@ export async function reportAccount(
   additionalInfo?: string
 ): Promise<void> {
   const bskyAgent = getAgent();
-  
+
   const reasonTypeMap: Record<ReportReason, string> = {
     spam: 'com.atproto.moderation.defs#reasonSpam',
     violation: 'com.atproto.moderation.defs#reasonViolation',

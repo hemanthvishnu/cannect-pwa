@@ -1,9 +1,9 @@
-import React, { memo } from "react";
-import { View, Text, Pressable } from "react-native";
-import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import { Heart, Repeat2, MessageCircle, Quote, UserPlus } from "lucide-react-native";
-import { formatDistanceToNow } from "@/lib/utils/date";
+import React, { memo } from 'react';
+import { View, Text, Pressable } from 'react-native';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { Heart, Repeat2, MessageCircle, Quote, UserPlus } from 'lucide-react-native';
+import { formatDistanceToNow } from '@/lib/utils/date';
 
 // Bluesky butterfly logo component
 const BlueskyLogo = ({ size = 12 }: { size?: number }) => (
@@ -40,81 +40,76 @@ interface NotificationItemProps {
   };
 }
 
-export const NotificationItem = memo(function NotificationItem({ 
-  notification 
+export const NotificationItem = memo(function NotificationItem({
+  notification,
 }: NotificationItemProps) {
   const router = useRouter();
   const isExternal = notification.is_external;
   const isUnread = !notification.is_read;
 
   // Get actor info - prefer display name, but use handle if they're the same
-  const rawDisplayName = isExternal 
-    ? notification.actor_display_name 
+  const rawDisplayName = isExternal
+    ? notification.actor_display_name
     : notification.actor?.display_name;
-  
-  const actorHandle = isExternal
-    ? notification.actor_handle
-    : notification.actor?.username;
+
+  const actorHandle = isExternal ? notification.actor_handle : notification.actor?.username;
 
   // Only show display name if it's different from the handle
-  const displayNameIsDifferent = rawDisplayName && 
-    rawDisplayName !== actorHandle && 
-    rawDisplayName !== `@${actorHandle}`;
+  const displayNameIsDifferent =
+    rawDisplayName && rawDisplayName !== actorHandle && rawDisplayName !== `@${actorHandle}`;
 
-  const actorName = displayNameIsDifferent 
-    ? rawDisplayName 
-    : (isExternal ? actorHandle?.split('.')[0] : actorHandle) || "User";
+  const actorName = displayNameIsDifferent
+    ? rawDisplayName
+    : (isExternal ? actorHandle?.split('.')[0] : actorHandle) || 'User';
 
-  const actorAvatar = isExternal
-    ? notification.actor_avatar
-    : notification.actor?.avatar_url;
+  const actorAvatar = isExternal ? notification.actor_avatar : notification.actor?.avatar_url;
 
   const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(actorName || 'U')}&background=3B82F6&color=fff`;
 
   // Get icon and text based on reason
   const getNotificationDetails = () => {
     switch (notification.reason) {
-      case "like":
+      case 'like':
         return {
           icon: <Heart size={16} color="#EF4444" fill="#EF4444" />,
-          text: "liked your post",
-          color: "#EF4444",
+          text: 'liked your post',
+          color: '#EF4444',
         };
-      case "repost":
+      case 'repost':
         return {
           icon: <Repeat2 size={16} color="#10B981" />,
-          text: "reposted your post",
-          color: "#10B981",
+          text: 'reposted your post',
+          color: '#10B981',
         };
-      case "reply":
+      case 'reply':
         return {
           icon: <MessageCircle size={16} color="#3B82F6" />,
-          text: "replied to your post",
-          color: "#3B82F6",
+          text: 'replied to your post',
+          color: '#3B82F6',
         };
-      case "quote":
+      case 'quote':
         return {
           icon: <Quote size={16} color="#8B5CF6" />,
-          text: "quoted your post",
-          color: "#8B5CF6",
+          text: 'quoted your post',
+          color: '#8B5CF6',
         };
-      case "follow":
+      case 'follow':
         return {
           icon: <UserPlus size={16} color="#10B981" />,
-          text: "followed you",
-          color: "#10B981",
+          text: 'followed you',
+          color: '#10B981',
         };
-      case "mention":
+      case 'mention':
         return {
           icon: <MessageCircle size={16} color="#F59E0B" />,
-          text: "mentioned you",
-          color: "#F59E0B",
+          text: 'mentioned you',
+          color: '#F59E0B',
         };
       default:
         return {
           icon: <Heart size={16} color="#6B7280" />,
-          text: "interacted with you",
-          color: "#6B7280",
+          text: 'interacted with you',
+          color: '#6B7280',
         };
     }
   };
@@ -133,15 +128,17 @@ export const NotificationItem = memo(function NotificationItem({
         return;
       }
     }
-    
+
     // Fallback: navigate to user profile
-    const identifier = notification.actor_handle || notification.actor?.username || notification.actor?.id;
+    const identifier =
+      notification.actor_handle || notification.actor?.username || notification.actor?.id;
     if (identifier) router.push(`/user/${identifier}` as any);
   };
 
   const handleAvatarPress = () => {
     // Use best available identifier
-    const identifier = notification.actor_handle || notification.actor?.username || notification.actor?.id;
+    const identifier =
+      notification.actor_handle || notification.actor?.username || notification.actor?.id;
     if (identifier) router.push(`/user/${identifier}` as any);
   };
 
@@ -153,9 +150,7 @@ export const NotificationItem = memo(function NotificationItem({
       }`}
     >
       {/* Icon */}
-      <View className="w-8 items-end mr-3 mt-1">
-        {icon}
-      </View>
+      <View className="w-8 items-end mr-3 mt-1">{icon}</View>
 
       {/* Avatar with Bluesky indicator */}
       <Pressable onPress={handleAvatarPress} className="mr-3 relative">
@@ -187,18 +182,12 @@ export const NotificationItem = memo(function NotificationItem({
           <Text className="text-text-muted text-xs">
             {formatDistanceToNow(new Date(notification.created_at))}
           </Text>
-          {isExternal && (
-            <Text className="text-blue-500 text-xs">
-              via Bluesky
-            </Text>
-          )}
+          {isExternal && <Text className="text-blue-500 text-xs">via Bluesky</Text>}
         </View>
       </View>
 
       {/* Unread indicator */}
-      {isUnread && (
-        <View className="w-2 h-2 rounded-full bg-primary mt-2" />
-      )}
+      {isUnread && <View className="w-2 h-2 rounded-full bg-primary mt-2" />}
     </Pressable>
   );
 });

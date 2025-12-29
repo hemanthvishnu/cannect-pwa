@@ -37,10 +37,10 @@ export function formatDistanceToNow(date: Date): string {
  * Format a date to a readable string (e.g., "Jan 15, 2024")
  */
 export function formatDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
   });
 }
 
@@ -48,9 +48,9 @@ export function formatDate(date: Date): string {
  * Format a date with time (e.g., "Jan 15, 2024 at 3:45 PM")
  */
 export function formatDateTime(date: Date): string {
-  return `${formatDate(date)} at ${date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
+  return `${formatDate(date)} at ${date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
     hour12: true,
   })}`;
 }

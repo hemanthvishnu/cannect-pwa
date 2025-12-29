@@ -1,6 +1,6 @@
-import { Redirect } from "expo-router";
-import { View, ActivityIndicator } from "react-native";
-import { useAuthStore } from "@/lib/stores";
+import { Redirect } from 'expo-router';
+import { View, ActivityIndicator } from 'react-native';
+import { useAuthStore } from '@/lib/stores';
 
 export default function Index() {
   const { isLoading, isAuthenticated } = useAuthStore();

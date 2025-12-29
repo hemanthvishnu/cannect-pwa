@@ -15,7 +15,7 @@ interface State {
 
 /**
  * ErrorBoundary - Catches React errors and shows recovery UI
- * 
+ *
  * Prevents the dreaded "white screen of death" by:
  * - Catching render errors in child components
  * - Showing a branded error screen with retry options
@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('[ErrorBoundary] Caught error:', error);
     console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
-    
+
     // 🔒 Send to Sentry with full context
     Sentry.captureException(error, {
       extra: {
@@ -72,10 +72,10 @@ export class ErrorBoundary extends Component<Props, State> {
             <View style={styles.iconContainer}>
               <AlertTriangle size={32} color="#EF4444" />
             </View>
-            
+
             {/* Title */}
             <Text style={styles.title}>Something went wrong</Text>
-            
+
             {/* Description */}
             <Text style={styles.description}>
               We hit an unexpected error. Try again or reload the app.
@@ -83,18 +83,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
             {/* Action Buttons */}
             <View style={styles.buttonRow}>
-              <Pressable
-                onPress={this.handleRetry}
-                style={styles.secondaryButton}
-              >
+              <Pressable onPress={this.handleRetry} style={styles.secondaryButton}>
                 <RefreshCw size={18} color="#A1A1AA" />
                 <Text style={styles.secondaryButtonText}>Try Again</Text>
               </Pressable>
-              
-              <Pressable
-                onPress={this.handleReload}
-                style={styles.primaryButton}
-              >
+
+              <Pressable onPress={this.handleReload} style={styles.primaryButton}>
                 <Text style={styles.primaryButtonText}>Reload App</Text>
               </Pressable>
             </View>
@@ -109,9 +103,7 @@ export class ErrorBoundary extends Component<Props, State> {
             {__DEV__ && this.state.error && (
               <View style={styles.debugContainer}>
                 <Text style={styles.debugTitle}>Debug Info:</Text>
-                <Text style={styles.debugText}>
-                  {this.state.error.message}
-                </Text>
+                <Text style={styles.debugText}>{this.state.error.message}</Text>
               </View>
             )}
           </View>

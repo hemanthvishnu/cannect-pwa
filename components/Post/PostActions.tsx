@@ -1,6 +1,6 @@
 /**
  * PostActions - Unified action buttons with built-in optimistic mutations
- * 
+ *
  * Single source of truth for ALL post interactions:
  * - Like/Unlike (with optimistic updates)
  * - Repost/Unrepost (with menu for quote option)
@@ -8,7 +8,7 @@
  * - Reply (navigate to compose)
  * - Share (platform-aware)
  * - Options Menu (delete, report, copy link)
- * 
+ *
  * Built-in:
  * - RepostMenu integrated
  * - OptionsMenu integrated (delete, report, copy link, share)
@@ -35,7 +35,13 @@ import {
 import { memo, useCallback, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import * as Clipboard from 'expo-clipboard';
-import { useLikePost, useUnlikePost, useRepost, useDeleteRepost, useDeletePost } from '../../lib/hooks';
+import {
+  useLikePost,
+  useUnlikePost,
+  useRepost,
+  useDeleteRepost,
+  useDeletePost,
+} from '../../lib/hooks';
 import { useAuthStore } from '../../lib/stores';
 import * as atproto from '../../lib/atproto/agent';
 import type { ReportReason } from '../../lib/atproto/agent';
@@ -75,7 +81,7 @@ export const PostActions = memo(function PostActions({
 }: PostActionsProps) {
   const router = useRouter();
   const { did: currentUserDid } = useAuthStore();
-  
+
   // Mutation hooks with optimistic updates
   const likeMutation = useLikePost();
   const unlikeMutation = useUnlikePost();
@@ -97,7 +103,7 @@ export const PostActions = memo(function PostActions({
   const replyCount = post.replyCount || 0;
   const isOwnPost = post.author.did === currentUserDid;
   const record = post.record as AppBskyFeedPost.Record;
-  
+
   // Build post URL
   const getPostUrl = useCallback(() => {
     const parts = post.uri.split('/');
@@ -110,7 +116,7 @@ export const PostActions = memo(function PostActions({
     if (isLikeLoading) return;
     triggerHaptic();
     setIsLikeLoading(true);
-    
+
     try {
       if (isLiked && post.viewer?.like) {
         await unlikeMutation.mutateAsync({
@@ -142,7 +148,7 @@ export const PostActions = memo(function PostActions({
     triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
     setIsRepostLoading(true);
     setRepostMenuVisible(false);
-    
+
     try {
       if (isReposted && post.viewer?.repost) {
         await unrepostMutation.mutateAsync({
@@ -166,7 +172,7 @@ export const PostActions = memo(function PostActions({
   const handleQuotePost = useCallback(() => {
     triggerHaptic();
     setRepostMenuVisible(false);
-    
+
     router.push({
       pathname: '/compose',
       params: {
@@ -182,10 +188,10 @@ export const PostActions = memo(function PostActions({
     const parts = post.uri.split('/');
     const did = parts[2];
     const rkey = parts[4];
-    
+
     router.push({
       pathname: '/compose',
-      params: { 
+      params: {
         replyTo: post.uri,
         replyToDid: did,
         replyToRkey: rkey,
@@ -197,7 +203,7 @@ export const PostActions = memo(function PostActions({
   const handleShare = useCallback(async () => {
     triggerHaptic();
     const url = getPostUrl();
-    
+
     try {
       if (Platform.OS === 'web') {
         await Clipboard.setStringAsync(url);
@@ -230,7 +236,7 @@ export const PostActions = memo(function PostActions({
   const handleNativeShare = useCallback(async () => {
     triggerHaptic();
     const url = getPostUrl();
-    
+
     try {
       await navigator.share({
         title: `Post by @${post.author.handle}`,
@@ -247,11 +253,11 @@ export const PostActions = memo(function PostActions({
   const handleDelete = useCallback(async () => {
     triggerHaptic(Haptics.ImpactFeedbackStyle.Heavy);
     setOptionsMenuVisible(false);
-    
+
     const confirmDelete = () => {
       deletePostMutation.mutate(post.uri);
     };
-    
+
     if (Platform.OS === 'web') {
       if (window.confirm('Delete this post? This cannot be undone.')) {
         confirmDelete();
@@ -304,11 +310,15 @@ export const PostActions = memo(function PostActions({
       const reason = window.prompt(
         'Report this post?\n\nReasons:\n1. Sexual Content\n2. Spam\n3. Harassment\n4. Misleading\n5. Violation\n6. Other\n\nEnter number (1-6):'
       );
-      
+
       if (reason) {
         const reasonMap: Record<string, ReportReason> = {
-          '1': 'sexual', '2': 'spam', '3': 'rude',
-          '4': 'misleading', '5': 'violation', '6': 'other',
+          '1': 'sexual',
+          '2': 'spam',
+          '3': 'rude',
+          '4': 'misleading',
+          '5': 'violation',
+          '6': 'other',
         };
         const selectedReason = reasonMap[reason];
         if (selectedReason) {
@@ -316,17 +326,13 @@ export const PostActions = memo(function PostActions({
         }
       }
     } else {
-      Alert.alert(
-        'Report Post',
-        'Why are you reporting this content?',
-        [
-          ...reportReasons.map(r => ({
-            text: r.label,
-            onPress: () => submitReport(r.value),
-          })),
-          { text: 'Cancel', style: 'cancel' as const },
-        ]
-      );
+      Alert.alert('Report Post', 'Why are you reporting this content?', [
+        ...reportReasons.map((r) => ({
+          text: r.label,
+          onPress: () => submitReport(r.value),
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
     }
   }, [post.uri, post.cid]);
 
@@ -338,148 +344,142 @@ export const PostActions = memo(function PostActions({
   const canUseNativeShare = canShare();
 
   // Action buttons JSX
-  const actionButtons = variant === 'compact' ? (
-    <View className="flex-row items-center justify-between mt-3 pr-4">
-      {/* Reply */}
-      <Pressable 
-        onPress={(e) => { e.stopPropagation(); handleReply(); }}
-        className="flex-row items-center py-1"
-        hitSlop={8}
-      >
-        <MessageCircle size={iconSize} color={mutedColor} />
-        {!hideReplyCounts && replyCount > 0 && (
-          <Text className="text-text-muted text-sm ml-1.5">
-            {replyCount}
-          </Text>
-        )}
-      </Pressable>
-
-      {/* Repost */}
-      <Pressable 
-        onPress={(e) => { e.stopPropagation(); handleRepostPress(); }}
-        className="flex-row items-center py-1"
-        disabled={isRepostLoading}
-        hitSlop={8}
-      >
-        <Repeat2 size={iconSize} color={repostColor} />
-        {repostCount > 0 && (
-          <Text className={`text-sm ml-1.5 ${isReposted ? 'text-green-500' : 'text-text-muted'}`}>
-            {repostCount}
-          </Text>
-        )}
-      </Pressable>
-
-      {/* Like */}
-      <Pressable 
-        onPress={(e) => { e.stopPropagation(); handleLike(); }}
-        className="flex-row items-center py-1"
-        disabled={isLikeLoading}
-        hitSlop={8}
-      >
-        <Heart 
-          size={iconSize} 
-          color={likeColor}
-          fill={isLiked ? '#EF4444' : 'none'}
-        />
-        {likeCount > 0 && (
-          <Text className={`text-sm ml-1.5 ${isLiked ? 'text-red-500' : 'text-text-muted'}`}>
-            {likeCount}
-          </Text>
-        )}
-      </Pressable>
-
-      {/* Share */}
-      <Pressable 
-        onPress={(e) => { e.stopPropagation(); handleShare(); }}
-        className="flex-row items-center py-1"
-        hitSlop={8}
-      >
-        <Share size={iconSize} color={mutedColor} />
-      </Pressable>
-
-      {/* More Options */}
-      {!hideOptions && (
-        <Pressable 
-          onPress={(e) => { e.stopPropagation(); handleOptionsPress(); }}
+  const actionButtons =
+    variant === 'compact' ? (
+      <View className="flex-row items-center justify-between mt-3 pr-4">
+        {/* Reply */}
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            handleReply();
+          }}
           className="flex-row items-center py-1"
           hitSlop={8}
         >
-          <MoreHorizontal size={iconSize} color={mutedColor} />
+          <MessageCircle size={iconSize} color={mutedColor} />
+          {!hideReplyCounts && replyCount > 0 && (
+            <Text className="text-text-muted text-sm ml-1.5">{replyCount}</Text>
+          )}
         </Pressable>
-      )}
-    </View>
-  ) : (
-    // Expanded layout (for ThreadPost detail view)
-    <View className="flex-row justify-around py-2 border-b border-border mb-4">
-      {/* Reply */}
-      <Pressable 
-        onPress={handleReply}
-        className="flex-row items-center p-2"
-        hitSlop={8}
-      >
-        <MessageCircle size={iconSize} color={mutedColor} />
-      </Pressable>
 
-      {/* Repost */}
-      <Pressable 
-        onPress={handleRepostPress}
-        className="flex-row items-center p-2"
-        disabled={isRepostLoading}
-        hitSlop={8}
-      >
-        <Repeat2 size={iconSize} color={repostColor} />
-      </Pressable>
-
-      {/* Like */}
-      <Pressable 
-        onPress={handleLike}
-        className="flex-row items-center p-2"
-        disabled={isLikeLoading}
-        hitSlop={8}
-      >
-        <Heart 
-          size={iconSize} 
-          color={likeColor}
-          fill={isLiked ? '#EF4444' : 'transparent'}
-        />
-      </Pressable>
-
-      {/* Share */}
-      <Pressable 
-        onPress={handleShare}
-        className="flex-row items-center p-2"
-        hitSlop={8}
-      >
-        <Share size={iconSize} color={mutedColor} />
-      </Pressable>
-
-      {/* Options */}
-      {!hideOptions && (
-        <Pressable 
-          onPress={handleOptionsPress}
-          className="flex-row items-center p-2"
+        {/* Repost */}
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            handleRepostPress();
+          }}
+          className="flex-row items-center py-1"
+          disabled={isRepostLoading}
           hitSlop={8}
         >
-          <MoreHorizontal size={iconSize} color={mutedColor} />
+          <Repeat2 size={iconSize} color={repostColor} />
+          {repostCount > 0 && (
+            <Text className={`text-sm ml-1.5 ${isReposted ? 'text-green-500' : 'text-text-muted'}`}>
+              {repostCount}
+            </Text>
+          )}
         </Pressable>
-      )}
-    </View>
-  );
+
+        {/* Like */}
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            handleLike();
+          }}
+          className="flex-row items-center py-1"
+          disabled={isLikeLoading}
+          hitSlop={8}
+        >
+          <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'none'} />
+          {likeCount > 0 && (
+            <Text className={`text-sm ml-1.5 ${isLiked ? 'text-red-500' : 'text-text-muted'}`}>
+              {likeCount}
+            </Text>
+          )}
+        </Pressable>
+
+        {/* Share */}
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            handleShare();
+          }}
+          className="flex-row items-center py-1"
+          hitSlop={8}
+        >
+          <Share size={iconSize} color={mutedColor} />
+        </Pressable>
+
+        {/* More Options */}
+        {!hideOptions && (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              handleOptionsPress();
+            }}
+            className="flex-row items-center py-1"
+            hitSlop={8}
+          >
+            <MoreHorizontal size={iconSize} color={mutedColor} />
+          </Pressable>
+        )}
+      </View>
+    ) : (
+      // Expanded layout (for ThreadPost detail view)
+      <View className="flex-row justify-around py-2 border-b border-border mb-4">
+        {/* Reply */}
+        <Pressable onPress={handleReply} className="flex-row items-center p-2" hitSlop={8}>
+          <MessageCircle size={iconSize} color={mutedColor} />
+        </Pressable>
+
+        {/* Repost */}
+        <Pressable
+          onPress={handleRepostPress}
+          className="flex-row items-center p-2"
+          disabled={isRepostLoading}
+          hitSlop={8}
+        >
+          <Repeat2 size={iconSize} color={repostColor} />
+        </Pressable>
+
+        {/* Like */}
+        <Pressable
+          onPress={handleLike}
+          className="flex-row items-center p-2"
+          disabled={isLikeLoading}
+          hitSlop={8}
+        >
+          <Heart size={iconSize} color={likeColor} fill={isLiked ? '#EF4444' : 'transparent'} />
+        </Pressable>
+
+        {/* Share */}
+        <Pressable onPress={handleShare} className="flex-row items-center p-2" hitSlop={8}>
+          <Share size={iconSize} color={mutedColor} />
+        </Pressable>
+
+        {/* Options */}
+        {!hideOptions && (
+          <Pressable onPress={handleOptionsPress} className="flex-row items-center p-2" hitSlop={8}>
+            <MoreHorizontal size={iconSize} color={mutedColor} />
+          </Pressable>
+        )}
+      </View>
+    );
 
   return (
     <>
       {actionButtons}
 
       {/* ========== REPOST MENU MODAL ========== */}
-      <Modal 
-        visible={repostMenuVisible} 
-        animationType="slide" 
+      <Modal
+        visible={repostMenuVisible}
+        animationType="slide"
         transparent
         statusBarTranslucent
         onRequestClose={() => setRepostMenuVisible(false)}
       >
         <Pressable className="flex-1 bg-black/50" onPress={() => setRepostMenuVisible(false)} />
-        
+
         <View className="bg-surface-elevated rounded-t-3xl pb-8 pt-2">
           <View className="items-center py-3">
             <View className="w-10 h-1 bg-zinc-600 rounded-full" />
@@ -491,15 +491,19 @@ export const PostActions = memo(function PostActions({
               onPress={handleRepost}
               className="flex-row items-center gap-4 py-4 px-4 rounded-xl active:bg-zinc-800/50"
             >
-              <View className={`w-11 h-11 rounded-full items-center justify-center ${isReposted ? 'bg-primary/20' : 'bg-zinc-800'}`}>
-                <Repeat2 size={22} color={isReposted ? "#10B981" : "#FAFAFA"} />
+              <View
+                className={`w-11 h-11 rounded-full items-center justify-center ${isReposted ? 'bg-primary/20' : 'bg-zinc-800'}`}
+              >
+                <Repeat2 size={22} color={isReposted ? '#10B981' : '#FAFAFA'} />
               </View>
               <View className="flex-1">
-                <Text className={`text-lg font-semibold ${isReposted ? 'text-primary' : 'text-text-primary'}`}>
-                  {isReposted ? "Undo Repost" : "Repost"}
+                <Text
+                  className={`text-lg font-semibold ${isReposted ? 'text-primary' : 'text-text-primary'}`}
+                >
+                  {isReposted ? 'Undo Repost' : 'Repost'}
                 </Text>
                 <Text className="text-text-muted text-sm">
-                  {isReposted ? "Remove from your profile" : "Share to your followers instantly"}
+                  {isReposted ? 'Remove from your profile' : 'Share to your followers instantly'}
                 </Text>
               </View>
             </Pressable>
@@ -515,7 +519,9 @@ export const PostActions = memo(function PostActions({
                 </View>
                 <View className="flex-1">
                   <Text className="text-text-primary text-lg font-semibold">Quote Post</Text>
-                  <Text className="text-text-muted text-sm">Add your thoughts with the original post</Text>
+                  <Text className="text-text-muted text-sm">
+                    Add your thoughts with the original post
+                  </Text>
                 </View>
               </Pressable>
             )}
@@ -533,15 +539,15 @@ export const PostActions = memo(function PostActions({
       </Modal>
 
       {/* ========== OPTIONS MENU MODAL ========== */}
-      <Modal 
-        visible={optionsMenuVisible} 
-        animationType="slide" 
+      <Modal
+        visible={optionsMenuVisible}
+        animationType="slide"
         transparent
         statusBarTranslucent
         onRequestClose={() => setOptionsMenuVisible(false)}
       >
         <Pressable className="flex-1 bg-black/50" onPress={() => setOptionsMenuVisible(false)} />
-        
+
         <View className="bg-surface-elevated rounded-t-3xl pb-8 pt-2">
           <View className="items-center py-3">
             <View className="w-10 h-1 bg-zinc-600 rounded-full" />

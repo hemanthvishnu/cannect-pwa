@@ -2,27 +2,27 @@
  * Edit Profile Screen - Pure AT Protocol
  */
 
-import { useState, useEffect } from "react";
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  Pressable, 
-  ActivityIndicator, 
+import { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
   Image,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   Switch,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, Camera, Bell, BellOff } from "lucide-react-native";
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft, Camera, Bell, BellOff } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { triggerNotification } from "@/lib/utils/haptics";
-import { router } from "expo-router";
-import { useMyProfile, useUpdateProfile, useWebPush } from "@/lib/hooks";
-import { useAuthStore } from "@/lib/stores";
+import { triggerNotification } from '@/lib/utils/haptics';
+import { router } from 'expo-router';
+import { useMyProfile, useUpdateProfile, useWebPush } from '@/lib/hooks';
+import { useAuthStore } from '@/lib/stores';
 
 // AT Protocol max blob size is ~1MB, aim for 900KB to be safe
 const MAX_IMAGE_SIZE_BYTES = 900 * 1024;
@@ -33,10 +33,10 @@ const MAX_IMAGE_SIZE_BYTES = 900 * 1024;
  */
 function PushNotificationToggle() {
   const webPush = useWebPush();
-  
+
   // Only show on web
   if (Platform.OS !== 'web') return null;
-  
+
   // Wait for initialization
   if (!webPush.isInitialized || webPush.isLoading) {
     return (
@@ -51,7 +51,7 @@ function PushNotificationToggle() {
       </View>
     );
   }
-  
+
   // Not supported on this browser
   if (!webPush.isSupported) {
     return (
@@ -61,11 +61,11 @@ function PushNotificationToggle() {
           <View className="bg-surface-elevated rounded-xl p-4 flex-row items-center">
             <BellOff size={20} color="#6B7280" />
             <View className="flex-1 ml-3">
-              <Text className="text-text-muted text-sm">
-                Push notifications not supported
-              </Text>
+              <Text className="text-text-muted text-sm">Push notifications not supported</Text>
               <Text className="text-text-muted text-xs mt-1">
-                {webPush.isIOSPWA ? 'Requires iOS 16.4+' : 'Your browser doesn\'t support push notifications'}
+                {webPush.isIOSPWA
+                  ? 'Requires iOS 16.4+'
+                  : "Your browser doesn't support push notifications"}
               </Text>
             </View>
           </View>
@@ -73,13 +73,14 @@ function PushNotificationToggle() {
       </View>
     );
   }
-  
+
   // iOS but not installed as PWA
-  const isIOSSafari = Platform.OS === 'web' && 
-    typeof navigator !== 'undefined' && 
-    /iPad|iPhone|iPod/.test(navigator.userAgent) && 
+  const isIOSSafari =
+    Platform.OS === 'web' &&
+    typeof navigator !== 'undefined' &&
+    /iPad|iPhone|iPod/.test(navigator.userAgent) &&
     !webPush.isIOSPWA;
-  
+
   if (isIOSSafari) {
     return (
       <View className="px-4 mt-6 mb-4">
@@ -88,9 +89,7 @@ function PushNotificationToggle() {
           <View className="bg-surface-elevated rounded-xl p-4 flex-row items-center">
             <Bell size={20} color="#6B7280" />
             <View className="flex-1 ml-3">
-              <Text className="text-text-muted text-sm">
-                Add to Home Screen first
-              </Text>
+              <Text className="text-text-muted text-sm">Add to Home Screen first</Text>
               <Text className="text-text-muted text-xs mt-1">
                 Install Cannect as an app to enable push notifications
               </Text>
@@ -100,7 +99,7 @@ function PushNotificationToggle() {
       </View>
     );
   }
-  
+
   // Permission denied
   if (webPush.permission === 'denied') {
     return (
@@ -110,9 +109,7 @@ function PushNotificationToggle() {
           <View className="bg-surface-elevated rounded-xl p-4 flex-row items-center">
             <BellOff size={20} color="#EF4444" />
             <View className="flex-1 ml-3">
-              <Text className="text-text-muted text-sm">
-                Notifications blocked
-              </Text>
+              <Text className="text-text-muted text-sm">Notifications blocked</Text>
               <Text className="text-text-muted text-xs mt-1">
                 Enable in your browser/device settings
               </Text>
@@ -122,10 +119,10 @@ function PushNotificationToggle() {
       </View>
     );
   }
-  
+
   const handleToggle = async () => {
     if (Platform.OS !== 'web') return;
-    
+
     if (webPush.isSubscribed) {
       await webPush.unsubscribe();
       triggerNotification('success');
@@ -138,7 +135,7 @@ function PushNotificationToggle() {
       }
     }
   };
-  
+
   return (
     <View className="px-4 mt-6 mb-4">
       <View className="border-t border-border pt-6">
@@ -150,18 +147,14 @@ function PushNotificationToggle() {
             <BellOff size={20} color="#6B7280" />
           )}
           <View className="flex-1 ml-3">
-            <Text className="text-text-primary text-sm">
-              Push Notifications
-            </Text>
+            <Text className="text-text-primary text-sm">Push Notifications</Text>
             <Text className="text-text-muted text-xs mt-1">
-              {webPush.isSubscribed 
-                ? 'Receive notifications for likes, replies, and follows' 
+              {webPush.isSubscribed
+                ? 'Receive notifications for likes, replies, and follows'
                 : 'Get notified when someone interacts with your posts'}
             </Text>
             {webPush.error && (
-              <Text className="text-accent-error text-xs mt-1">
-                {webPush.error}
-              </Text>
+              <Text className="text-accent-error text-xs mt-1">{webPush.error}</Text>
             )}
           </View>
           {webPush.isLoading ? (
@@ -185,41 +178,45 @@ function PushNotificationToggle() {
  * Uses progressive quality reduction until under limit
  */
 async function compressImage(
-  uri: string, 
+  uri: string,
   maxSize: number = MAX_IMAGE_SIZE_BYTES,
   isAvatar: boolean = false
 ): Promise<{ uri: string; mimeType: string }> {
   // Start with reasonable dimensions
   const maxDimension = isAvatar ? 800 : 1500; // Avatar smaller, banner wider
   let quality = 0.9;
-  
+
   // First resize to max dimensions
   let result = await ImageManipulator.manipulateAsync(
     uri,
     [{ resize: { width: maxDimension, height: maxDimension } }],
     { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
   );
-  
+
   // Check file size and progressively reduce quality if needed
   let response = await fetch(result.uri);
   let blob = await response.blob();
-  
+
   while (blob.size > maxSize && quality > 0.1) {
     quality -= 0.1;
-    console.log(`[Compress] Size ${(blob.size / 1024).toFixed(0)}KB > ${(maxSize / 1024).toFixed(0)}KB, reducing quality to ${(quality * 100).toFixed(0)}%`);
-    
+    console.log(
+      `[Compress] Size ${(blob.size / 1024).toFixed(0)}KB > ${(maxSize / 1024).toFixed(0)}KB, reducing quality to ${(quality * 100).toFixed(0)}%`
+    );
+
     result = await ImageManipulator.manipulateAsync(
       uri,
       [{ resize: { width: maxDimension, height: maxDimension } }],
       { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
     );
-    
+
     response = await fetch(result.uri);
     blob = await response.blob();
   }
-  
-  console.log(`[Compress] Final size: ${(blob.size / 1024).toFixed(0)}KB at ${(quality * 100).toFixed(0)}% quality`);
-  
+
+  console.log(
+    `[Compress] Final size: ${(blob.size / 1024).toFixed(0)}KB at ${(quality * 100).toFixed(0)}% quality`
+  );
+
   return {
     uri: result.uri,
     mimeType: 'image/jpeg',
@@ -230,9 +227,9 @@ export default function EditProfileScreen() {
   const { handle } = useAuthStore();
   const profileQuery = useMyProfile();
   const updateProfileMutation = useUpdateProfile();
-  
-  const [displayName, setDisplayName] = useState("");
-  const [description, setDescription] = useState("");
+
+  const [displayName, setDisplayName] = useState('');
+  const [description, setDescription] = useState('');
   const [avatar, setAvatar] = useState<{ uri: string; mimeType: string } | null>(null);
   const [banner, setBanner] = useState<{ uri: string; mimeType: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -242,8 +239,8 @@ export default function EditProfileScreen() {
   // Initialize form with current profile data
   useEffect(() => {
     if (profileQuery.data) {
-      setDisplayName(profileQuery.data.displayName || "");
-      setDescription(profileQuery.data.description || "");
+      setDisplayName(profileQuery.data.displayName || '');
+      setDescription(profileQuery.data.description || '');
     }
   }, [profileQuery.data]);
 
@@ -294,7 +291,7 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     setError(null);
     setIsSaving(true);
-    
+
     try {
       const update: any = {
         displayName: displayName.trim(),
@@ -321,14 +318,14 @@ export default function EditProfileScreen() {
 
       // Navigate back FIRST to avoid white flash from query invalidation
       router.back();
-      
+
       // Then update in background - the onSuccess will update the store
       await updateProfileMutation.mutateAsync(update);
 
       triggerNotification('success');
     } catch (err: any) {
       setIsSaving(false);
-      setError(err.message || "Failed to update profile");
+      setError(err.message || 'Failed to update profile');
       triggerNotification('error');
     }
   };
@@ -350,19 +347,22 @@ export default function EditProfileScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         {/* Header */}
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
-          <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
+          <Pressable
+            onPress={() => router.back()}
+            className="w-10 h-10 items-center justify-center"
+          >
             <ArrowLeft size={24} color="#FAFAFA" />
           </Pressable>
-          
+
           <Text className="text-text-primary text-lg font-semibold">Edit Profile</Text>
-          
+
           <Pressable
             onPress={handleSave}
             disabled={!canSave}
@@ -402,8 +402,8 @@ export default function EditProfileScreen() {
           <View className="px-4 -mt-12">
             <Pressable onPress={handlePickAvatar} className="relative">
               {currentAvatar ? (
-                <Image 
-                  source={{ uri: currentAvatar }} 
+                <Image
+                  source={{ uri: currentAvatar }}
                   className="w-24 h-24 rounded-full border-4 border-background"
                 />
               ) : (
@@ -459,9 +459,7 @@ export default function EditProfileScreen() {
               <View className="bg-surface-elevated px-4 py-3 rounded-xl opacity-50">
                 <Text className="text-text-muted">@{profileQuery.data?.handle || handle}</Text>
               </View>
-              <Text className="text-text-muted text-xs mt-1">
-                Handle cannot be changed
-              </Text>
+              <Text className="text-text-muted text-xs mt-1">Handle cannot be changed</Text>
             </View>
           </View>
 

@@ -1,6 +1,6 @@
 /**
  * AT Protocol Auth Hook
- * 
+ *
  * Pure AT Protocol authentication - no Supabase.
  * Uses @atproto/api directly for login/logout.
  */
@@ -16,19 +16,19 @@ import { queryKeys } from '@/lib/query-client';
  * Main auth hook - handles session initialization and auth state
  */
 export function useAuth() {
-  const { 
-    session, 
-    profile, 
-    isLoading, 
-    isAuthenticated, 
-    did, 
+  const {
+    session,
+    profile,
+    isLoading,
+    isAuthenticated,
+    did,
     handle,
-    setSession, 
-    setProfile, 
-    setLoading, 
-    clear 
+    setSession,
+    setProfile,
+    setLoading,
+    clear,
   } = useAuthStore();
-  
+
   const queryClient = useQueryClient();
 
   // Subscribe to session expiry events
@@ -39,7 +39,7 @@ export function useAuth() {
       clear();
       queryClient.clear();
     });
-    
+
     return () => {
       console.log('[useAuth] Cleaning up session expiry listener');
       unsubscribe();
@@ -50,11 +50,14 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true;
     console.log('[useAuth] Mounting, initializing agent...');
-    
+
     async function init() {
       try {
         const agent = await atproto.initializeAgent();
-        console.log('[useAuth] Agent initialized, session:', agent.session ? `did:${agent.session.did?.substring(8,20)}` : 'none');
+        console.log(
+          '[useAuth] Agent initialized, session:',
+          agent.session ? `did:${agent.session.did?.substring(8, 20)}` : 'none'
+        );
         if (mounted && agent.session) {
           console.log('[useAuth] ✅ Setting session in store');
           setSession(agent.session);
@@ -69,9 +72,9 @@ export function useAuth() {
         }
       }
     }
-    
+
     init();
-    
+
     return () => {
       mounted = false;
     };
@@ -103,7 +106,7 @@ export function useAuth() {
         followsCount: profileData.followsCount,
         postsCount: profileData.postsCount,
       });
-      
+
       // 🔐 Set Sentry user context for error tracking
       Sentry.setUser({
         id: profileData.did,
@@ -188,14 +191,14 @@ export function useCreateAccount() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      email, 
-      password, 
+    mutationFn: async ({
+      email,
+      password,
       handle,
       inviteCode,
-    }: { 
-      email: string; 
-      password: string; 
+    }: {
+      email: string;
+      password: string;
       handle: string;
       inviteCode?: string;
     }) => {

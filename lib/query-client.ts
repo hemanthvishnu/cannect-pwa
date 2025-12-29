@@ -1,5 +1,5 @@
-import { QueryClient } from "@tanstack/react-query";
-import { isAuthError, handleAuthError } from "./atproto/agent";
+import { QueryClient } from '@tanstack/react-query';
+import { isAuthError, handleAuthError } from './atproto/agent';
 
 // Track if we're already handling an auth error to prevent multiple triggers
 let isHandlingAuthError = false;
@@ -21,7 +21,7 @@ function shouldRetry(failureCount: number, error: any): boolean {
   const status = error?.status || error?.response?.status;
   const errorMsg = error?.message || error?.data?.message || String(error).substring(0, 100);
   const now = Date.now();
-  
+
   // Track consecutive 400 errors
   if (status === 400) {
     if (now - last400Time < CONSECUTIVE_400_WINDOW_MS) {
@@ -30,14 +30,18 @@ function shouldRetry(failureCount: number, error: any): boolean {
       consecutive400Count = 1;
     }
     last400Time = now;
-    
+
     // Multiple 400s in quick succession = likely auth failure
     if (consecutive400Count >= CONSECUTIVE_400_THRESHOLD && !isHandlingAuthError) {
-      console.warn(`[QueryClient] 🔴 ${consecutive400Count} consecutive 400 errors - triggering auth failure`);
+      console.warn(
+        `[QueryClient] 🔴 ${consecutive400Count} consecutive 400 errors - triggering auth failure`
+      );
       isHandlingAuthError = true;
       consecutive400Count = 0;
       handleAuthError().finally(() => {
-        setTimeout(() => { isHandlingAuthError = false; }, 5000);
+        setTimeout(() => {
+          isHandlingAuthError = false;
+        }, 5000);
       });
       return false;
     }
@@ -45,32 +49,34 @@ function shouldRetry(failureCount: number, error: any): boolean {
     // Reset on non-400 status
     consecutive400Count = 0;
   }
-  
+
   // Check if this is a specific auth error - trigger session expiry
   const authError = isAuthError(error);
-  
+
   if (authError && !isHandlingAuthError) {
     isHandlingAuthError = true;
     console.warn('[QueryClient] 🔴 Auth error detected, triggering session expiry');
     handleAuthError().finally(() => {
       // Reset after a delay to allow re-detection if needed
-      setTimeout(() => { isHandlingAuthError = false; }, 5000);
+      setTimeout(() => {
+        isHandlingAuthError = false;
+      }, 5000);
     });
     return false;
   }
-  
+
   // Rate limited - retry more aggressively with backoff
   if (status === 429) {
     console.log('[QueryClient] Rate limited, will retry');
     return failureCount < 5;
   }
-  
+
   // Other client errors (400, 401, 403, 404) - don't retry
   if (status >= 400 && status < 500) {
     console.log('[QueryClient] Client error, not retrying');
     return false;
   }
-  
+
   // Server errors or network errors - retry up to 2 times
   console.log('[QueryClient] Will retry server/network error');
   return failureCount < 2;
@@ -83,11 +89,11 @@ function shouldRetry(failureCount: number, error: any): boolean {
  */
 function getRetryDelay(attemptIndex: number, error: any): number {
   const status = error?.status || error?.response?.status;
-  
+
   // For rate limits, check Retry-After header first
   if (status === 429) {
-    const retryAfter = error?.headers?.get?.('retry-after') || 
-                       error?.response?.headers?.['retry-after'];
+    const retryAfter =
+      error?.headers?.get?.('retry-after') || error?.response?.headers?.['retry-after'];
     if (retryAfter) {
       const seconds = parseInt(retryAfter, 10);
       if (!isNaN(seconds)) {
@@ -95,7 +101,7 @@ function getRetryDelay(attemptIndex: number, error: any): number {
       }
     }
   }
-  
+
   // Exponential backoff: 1s, 2s, 4s, 8s, 16s
   const baseDelay = Math.min(1000 * Math.pow(2, attemptIndex), 30000);
   // Add jitter (±25%)
@@ -123,43 +129,43 @@ export const queryClient = new QueryClient({
 export const queryKeys = {
   // Auth
   auth: {
-    session: ["auth", "session"] as const,
-    user: ["auth", "user"] as const,
+    session: ['auth', 'session'] as const,
+    user: ['auth', 'user'] as const,
   },
-  
+
   // Profiles
   profiles: {
-    all: ["profiles"] as const,
-    detail: (id: string) => ["profiles", id] as const,
-    byUsername: (username: string) => ["profiles", "username", username] as const,
+    all: ['profiles'] as const,
+    detail: (id: string) => ['profiles', id] as const,
+    byUsername: (username: string) => ['profiles', 'username', username] as const,
   },
-  
+
   // Posts / Feed
   posts: {
-    all: ["posts"] as const,
-    feed: (userId?: string) => ["posts", "feed", userId] as const,
-    detail: (id: string) => ["posts", id] as const,
-    byUser: (userId: string) => ["posts", "user", userId] as const,
-    replies: (postId: string) => ["posts", "replies", postId] as const,
+    all: ['posts'] as const,
+    feed: (userId?: string) => ['posts', 'feed', userId] as const,
+    detail: (id: string) => ['posts', id] as const,
+    byUser: (userId: string) => ['posts', 'user', userId] as const,
+    replies: (postId: string) => ['posts', 'replies', postId] as const,
   },
-  
+
   // Notifications
   notifications: {
-    all: ["notifications"] as const,
-    unreadCount: ["notifications", "unread"] as const,
+    all: ['notifications'] as const,
+    unreadCount: ['notifications', 'unread'] as const,
   },
-  
+
   // Search
   search: {
-    users: (query: string) => ["search", "users", query] as const,
-    posts: (query: string) => ["search", "posts", query] as const,
+    users: (query: string) => ['search', 'users', query] as const,
+    posts: (query: string) => ['search', 'posts', query] as const,
   },
-  
+
   // Following / Followers
   follows: {
-    followers: (userId: string) => ["follows", "followers", userId] as const,
-    following: (userId: string) => ["follows", "following", userId] as const,
+    followers: (userId: string) => ['follows', 'followers', userId] as const,
+    following: (userId: string) => ['follows', 'following', userId] as const,
     isFollowing: (userId: string, targetId: string) =>
-      ["follows", "isFollowing", userId, targetId] as const,
+      ['follows', 'isFollowing', userId, targetId] as const,
   },
 };

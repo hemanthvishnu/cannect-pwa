@@ -1,43 +1,60 @@
 /**
  * Search Screen - Unified Search with Official Bluesky APIs
- * 
+ *
  * - No query: Shows suggested users to follow (getSuggestions)
  * - With query: Shows both users and posts in unified results
  */
 
-import { useState, useMemo, useCallback, useEffect } from "react";
-import { View, Text, TextInput, Pressable, ActivityIndicator, Image, Platform, RefreshControl } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { FlashList } from "@shopify/flash-list";
-import { Search as SearchIcon, X, Users, Sparkles, UserPlus, Check, FileText } from "lucide-react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
-import * as Haptics from "expo-haptics";
-import { useSearchUsers, useSuggestedUsers, useFollow, useSearchPosts } from "@/lib/hooks";
-import { useDebounce } from "@/lib/hooks";
-import { useAuthStore } from "@/lib/stores";
-import { useQueryClient } from "@tanstack/react-query";
-import { PostCard } from "@/components/Post";
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  Image,
+  Platform,
+  RefreshControl,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
+import {
+  Search as SearchIcon,
+  X,
+  Users,
+  Sparkles,
+  UserPlus,
+  Check,
+  FileText,
+} from 'lucide-react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { useSearchUsers, useSuggestedUsers, useFollow, useSearchPosts } from '@/lib/hooks';
+import { useDebounce } from '@/lib/hooks';
+import { useAuthStore } from '@/lib/stores';
+import { useQueryClient } from '@tanstack/react-query';
+import { PostCard } from '@/components/Post';
 import type { AppBskyActorDefs, AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
 type ProfileViewDetailed = AppBskyActorDefs.ProfileViewDetailed;
 type AnyProfileView = ProfileView | ProfileViewDetailed;
 
-type SearchResultItem = 
+type SearchResultItem =
   | { type: 'section'; title: string; icon: 'users' | 'posts' }
   | { type: 'user'; data: AnyProfileView }
   | { type: 'post'; data: AppBskyFeedDefs.PostView }
   | { type: 'empty'; section: 'users' | 'posts' };
 
-function UserRow({ 
-  user, 
-  onPress, 
+function UserRow({
+  user,
+  onPress,
   onFollow,
   isFollowPending,
   showFollowButton = true,
   currentUserDid,
-}: { 
-  user: AnyProfileView; 
+}: {
+  user: AnyProfileView;
   onPress: () => void;
   onFollow?: () => void;
   isFollowPending?: boolean;
@@ -49,7 +66,7 @@ function UserRow({
   const canShowFollow = showFollowButton && !isFollowing && !isSelf && onFollow;
 
   return (
-    <Pressable 
+    <Pressable
       onPress={onPress}
       className="flex-row items-center px-4 py-3 border-b border-border active:bg-surface-elevated"
     >
@@ -69,7 +86,7 @@ function UserRow({
           </Text>
         )}
       </View>
-      
+
       {/* Follow Button */}
       {canShowFollow && (
         <Pressable
@@ -90,7 +107,7 @@ function UserRow({
           )}
         </Pressable>
       )}
-      
+
       {/* Already Following Badge */}
       {isFollowing && !isSelf && (
         <View className="ml-2 flex-row items-center gap-1 px-3 py-2 rounded-full bg-surface-elevated">
@@ -118,25 +135,25 @@ function SectionHeader({ title, icon }: { title: string; icon: 'users' | 'posts'
 export default function SearchScreen() {
   const router = useRouter();
   const { q } = useLocalSearchParams<{ q?: string }>();
-  const [query, setQuery] = useState(q || "");
-  
+  const [query, setQuery] = useState(q || '');
+
   // Update query when URL param changes (e.g., clicking hashtag)
   useEffect(() => {
     if (q && q !== query) {
       setQuery(q);
     }
   }, [q]);
-  
+
   const debouncedQuery = useDebounce(query, 300);
   const hasQuery = debouncedQuery.trim().length >= 2;
 
   // Search queries - only run when we have a query
-  const usersQuery = useSearchUsers(hasQuery ? debouncedQuery : "");
-  const postsQuery = useSearchPosts(hasQuery ? debouncedQuery : "");
-  
+  const usersQuery = useSearchUsers(hasQuery ? debouncedQuery : '');
+  const postsQuery = useSearchPosts(hasQuery ? debouncedQuery : '');
+
   // Suggested users - shown when no query
   const suggestedUsersQuery = useSuggestedUsers();
-  
+
   const { did: currentUserDid } = useAuthStore();
   const followMutation = useFollow();
   const queryClient = useQueryClient();
@@ -144,41 +161,41 @@ export default function SearchScreen() {
 
   // Filter search results
   const searchUsers = useMemo(() => {
-    const allUsers = usersQuery.data?.pages?.flatMap(page => page.actors) || [];
-    return allUsers.filter(user => user.did !== currentUserDid);
+    const allUsers = usersQuery.data?.pages?.flatMap((page) => page.actors) || [];
+    return allUsers.filter((user) => user.did !== currentUserDid);
   }, [usersQuery.data, currentUserDid]);
 
   const searchPosts = useMemo(() => {
-    return postsQuery.data?.pages?.flatMap(page => page.posts) || [];
+    return postsQuery.data?.pages?.flatMap((page) => page.posts) || [];
   }, [postsQuery.data]);
 
   // Suggested users when no query
   const suggestedUsers = useMemo(() => {
     const allUsers = suggestedUsersQuery.data || [];
-    
+
     // Filter out invalid/test accounts
     const testPatterns = /^(test|demo|fake|dummy|sample|example|admin|bot|temp|tmp)/i;
-    
-    return allUsers.filter(user => {
+
+    return allUsers.filter((user) => {
       // Skip current user
       if (user.did === currentUserDid) return false;
-      
+
       // Skip users we already follow
       if (user.viewer?.following) return false;
-      
+
       // Skip accounts with no handle
       if (!user.handle) return false;
-      
+
       // Skip test/invalid handles
       const handleName = user.handle.split('.')[0]; // Get the part before .cannect.space
       if (testPatterns.test(handleName)) return false;
-      
+
       // Skip handles that are just numbers or very short
       if (/^\d+$/.test(handleName) || handleName.length < 3) return false;
-      
+
       // Skip accounts with no display name AND no bio (likely incomplete)
       if (!user.displayName && !user.description) return false;
-      
+
       return true;
     });
   }, [suggestedUsersQuery.data, currentUserDid]);
@@ -186,30 +203,30 @@ export default function SearchScreen() {
   // Build unified search results
   const searchResults: SearchResultItem[] = useMemo(() => {
     if (!hasQuery) return [];
-    
+
     const results: SearchResultItem[] = [];
-    
+
     // Users section
     results.push({ type: 'section', title: 'People', icon: 'users' });
     if (searchUsers.length > 0) {
       // Show top 5 users
-      searchUsers.slice(0, 5).forEach(user => {
+      searchUsers.slice(0, 5).forEach((user) => {
         results.push({ type: 'user', data: user });
       });
     } else if (!usersQuery.isLoading) {
       results.push({ type: 'empty', section: 'users' });
     }
-    
+
     // Posts section
     results.push({ type: 'section', title: 'Posts', icon: 'posts' });
     if (searchPosts.length > 0) {
-      searchPosts.forEach(post => {
+      searchPosts.forEach((post) => {
         results.push({ type: 'post', data: post });
       });
     } else if (!postsQuery.isLoading) {
       results.push({ type: 'empty', section: 'posts' });
     }
-    
+
     return results;
   }, [hasQuery, searchUsers, searchPosts, usersQuery.isLoading, postsQuery.isLoading]);
 
@@ -217,67 +234,69 @@ export default function SearchScreen() {
     router.push(`/user/${user.handle}`);
   };
 
-  const handleFollow = useCallback(async (user: AnyProfileView) => {
-    if (Platform.OS !== "web") {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-    
-    setPendingFollows(prev => new Set(prev).add(user.did));
-    
-    try {
-      await followMutation.mutateAsync(user.did);
-      queryClient.invalidateQueries({ queryKey: ['searchUsers'] });
-      queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] });
-    } catch (error) {
-      console.error('Failed to follow:', error);
-    } finally {
-      setPendingFollows(prev => {
-        const next = new Set(prev);
-        next.delete(user.did);
-        return next;
-      });
-    }
-  }, [followMutation, queryClient]);
+  const handleFollow = useCallback(
+    async (user: AnyProfileView) => {
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+
+      setPendingFollows((prev) => new Set(prev).add(user.did));
+
+      try {
+        await followMutation.mutateAsync(user.did);
+        queryClient.invalidateQueries({ queryKey: ['searchUsers'] });
+        queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] });
+      } catch (error) {
+        console.error('Failed to follow:', error);
+      } finally {
+        setPendingFollows((prev) => {
+          const next = new Set(prev);
+          next.delete(user.did);
+          return next;
+        });
+      }
+    },
+    [followMutation, queryClient]
+  );
 
   const isSearching = hasQuery && (usersQuery.isLoading || postsQuery.isLoading);
 
-  const renderItem = useCallback(({ item }: { item: SearchResultItem }) => {
-    switch (item.type) {
-      case 'section':
-        return <SectionHeader title={item.title} icon={item.icon} />;
-      case 'user':
-        return (
-          <UserRow 
-            user={item.data} 
-            onPress={() => handleUserPress(item.data)}
-            onFollow={() => handleFollow(item.data)}
-            isFollowPending={pendingFollows.has(item.data.did)}
-            currentUserDid={currentUserDid || undefined}
-          />
-        );
-      case 'post':
-        return (
-          <PostCard 
-            post={item.data}
-          />
-        );
-      case 'empty':
-        return (
-          <View className="py-4 px-4">
-            <Text className="text-text-muted text-center">
-              {item.section === 'users' ? 'No users found' : 'No posts found'}
-            </Text>
-          </View>
-        );
-      default:
-        return null;
-    }
-  }, [pendingFollows, currentUserDid, handleFollow, router]);
+  const renderItem = useCallback(
+    ({ item }: { item: SearchResultItem }) => {
+      switch (item.type) {
+        case 'section':
+          return <SectionHeader title={item.title} icon={item.icon} />;
+        case 'user':
+          return (
+            <UserRow
+              user={item.data}
+              onPress={() => handleUserPress(item.data)}
+              onFollow={() => handleFollow(item.data)}
+              isFollowPending={pendingFollows.has(item.data.did)}
+              currentUserDid={currentUserDid || undefined}
+            />
+          );
+        case 'post':
+          return <PostCard post={item.data} />;
+        case 'empty':
+          return (
+            <View className="py-4 px-4">
+              <Text className="text-text-muted text-center">
+                {item.section === 'users' ? 'No users found' : 'No posts found'}
+              </Text>
+            </View>
+          );
+        default:
+          return null;
+      }
+    },
+    [pendingFollows, currentUserDid, handleFollow, router]
+  );
 
   const getItemType = (item: SearchResultItem) => item.type;
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       {/* Search Header */}
       <View className="px-4 py-3 border-b border-border">
         <View className="flex-row items-center bg-surface-elevated rounded-xl px-4 py-2">
@@ -292,7 +311,7 @@ export default function SearchScreen() {
             autoCorrect={false}
           />
           {query.length > 0 && (
-            <Pressable onPress={() => setQuery("")}>
+            <Pressable onPress={() => setQuery('')}>
               <X size={20} color="#6B7280" />
             </Pressable>
           )}
@@ -311,22 +330,20 @@ export default function SearchScreen() {
               refreshing={suggestedUsersQuery.isRefetching}
               onRefresh={() => suggestedUsersQuery.refetch()}
               tintColor="#10B981"
-              colors={["#10B981"]}
+              colors={['#10B981']}
             />
           }
           ListHeaderComponent={
             <View className="px-4 pt-4 pb-2">
               <View className="flex-row items-center gap-2 mb-3">
                 <Sparkles size={18} color="#10B981" />
-                <Text className="text-text-primary font-semibold text-lg">
-                  Suggested for you
-                </Text>
+                <Text className="text-text-primary font-semibold text-lg">Suggested for you</Text>
               </View>
             </View>
           }
           renderItem={({ item }) => (
-            <UserRow 
-              user={item} 
+            <UserRow
+              user={item}
               onPress={() => handleUserPress(item)}
               onFollow={() => handleFollow(item)}
               isFollowPending={pendingFollows.has(item.did)}
@@ -379,7 +396,7 @@ export default function SearchScreen() {
                 postsQuery.refetch();
               }}
               tintColor="#10B981"
-              colors={["#10B981"]}
+              colors={['#10B981']}
             />
           }
           renderItem={renderItem}

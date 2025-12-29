@@ -1,9 +1,9 @@
-import { Tabs, Redirect } from "expo-router";
-import { Home, Search, PlusSquare, Bell, User } from "lucide-react-native";
-import { View, ActivityIndicator } from "react-native";
-import { useEffect } from "react";
-import { useAuthStore } from "@/lib/stores";
-import { useUnreadNotificationCount, usePWA } from "@/lib/hooks";
+import { Tabs, Redirect } from 'expo-router';
+import { Home, Search, PlusSquare, Bell, User } from 'lucide-react-native';
+import { View, ActivityIndicator } from 'react-native';
+import { useEffect } from 'react';
+import { useAuthStore } from '@/lib/stores';
+import { useUnreadNotificationCount, usePWA } from '@/lib/hooks';
 
 export default function TabsLayout() {
   const { isLoading, isAuthenticated } = useAuthStore();
@@ -20,7 +20,14 @@ export default function TabsLayout() {
   // Show loading while checking auth
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0A0A0A" }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: '#0A0A0A',
+        }}
+      >
         <ActivityIndicator size="large" color="#10B981" />
       </View>
     );
@@ -36,15 +43,15 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#141414",
-          borderTopColor: "#2A2A2A",
+          backgroundColor: '#141414',
+          borderTopColor: '#2A2A2A',
           borderTopWidth: 1,
           height: 80,
           paddingBottom: 20,
           paddingTop: 10,
         },
-        tabBarActiveTintColor: "#10B981",
-        tabBarInactiveTintColor: "#6B6B6B",
+        tabBarActiveTintColor: '#10B981',
+        tabBarInactiveTintColor: '#6B6B6B',
         tabBarShowLabel: false,
       }}
     >
@@ -70,7 +77,8 @@ export default function TabsLayout() {
         name="notifications"
         options={{
           tabBarIcon: ({ color, size }) => <Bell size={size} color={color} />,
-          tabBarBadge: unreadCount && unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
+          tabBarBadge:
+            unreadCount && unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
           tabBarBadgeStyle: { backgroundColor: '#EF4444', fontSize: 10 },
         }}
       />

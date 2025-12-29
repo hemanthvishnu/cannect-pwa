@@ -1,9 +1,9 @@
 /**
  * AT Protocol Feed & Posts Hooks
- * 
+ *
  * Pure AT Protocol - no Supabase.
  * All data comes directly from the PDS.
- * 
+ *
  * Feed aggregation is done server-side by the Cannect Feed Service
  * (feed.cannect.space) to reduce API calls from 100+ to just 1-2.
  */
@@ -11,12 +11,9 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import * as atproto from '@/lib/atproto/agent';
 import { useAuthStore } from '@/lib/stores/auth-store-atp';
-import {
-  createOptimisticContext,
-  postUpdaters,
-} from './optimistic-updates';
-import type { 
-  AppBskyFeedDefs, 
+import { createOptimisticContext, postUpdaters } from './optimistic-updates';
+import type {
+  AppBskyFeedDefs,
   AppBskyFeedPost,
   AppBskyFeedGetTimeline,
   AppBskyFeedGetAuthorFeed,
@@ -39,7 +36,7 @@ const BLOCKED_LABELS = new Set([
   // Sexual content
   'porn',
   'sexual',
-  'nsfw', 
+  'nsfw',
   'nudity',
   'adult',
   // Violence/gore
@@ -63,19 +60,57 @@ const BLOCKED_LABELS = new Set([
  */
 const BLOCKED_KEYWORDS = [
   // Sexual content - explicit terms
-  'nude', 'nudes', 'naked', 'dick', 'cock', 'pussy', 'penis', 'vagina',
-  'boobs', 'tits', 'titties', 'sex', 'sexy', 'horny', 'cum', 'cumshot',
-  'blowjob', 'bj', 'handjob', 'fuck', 'fucking', 'fucked', 'fucks',
-  'anal', 'porn', 'pornhub', 'xvideos', 'onlyfans', 'fansly',
-  'hentai', 'xxx', 'nsfw', 'erotic', 'masturbat',
+  'nude',
+  'nudes',
+  'naked',
+  'dick',
+  'cock',
+  'pussy',
+  'penis',
+  'vagina',
+  'boobs',
+  'tits',
+  'titties',
+  'sex',
+  'sexy',
+  'horny',
+  'cum',
+  'cumshot',
+  'blowjob',
+  'bj',
+  'handjob',
+  'fuck',
+  'fucking',
+  'fucked',
+  'fucks',
+  'anal',
+  'porn',
+  'pornhub',
+  'xvideos',
+  'onlyfans',
+  'fansly',
+  'hentai',
+  'xxx',
+  'nsfw',
+  'erotic',
+  'masturbat',
   // Child safety - CSAM indicators
-  'cp', 'pedo', 'pedophile', 'underage', 'minor', 'jailbait', 'loli', 'shota',
-  'child porn', 'kiddie', 'preteen',
+  'cp',
+  'pedo',
+  'pedophile',
+  'underage',
+  'minor',
+  'jailbait',
+  'loli',
+  'shota',
+  'child porn',
+  'kiddie',
+  'preteen',
 ];
 
 // Build regex for efficient keyword matching
 const BLOCKED_KEYWORDS_REGEX = new RegExp(
-  '\\b(' + BLOCKED_KEYWORDS.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b',
+  '\\b(' + BLOCKED_KEYWORDS.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')\\b',
   'i'
 );
 
@@ -99,7 +134,7 @@ function shouldFilterPost(post: PostView): boolean {
       }
     }
   }
-  
+
   // Check author labels (account-level moderation)
   if (post.author?.labels && post.author.labels.length > 0) {
     for (const label of post.author.labels) {
@@ -119,7 +154,7 @@ function shouldFilterPost(post: PostView): boolean {
   if (post.author?.displayName && containsBlockedKeywords(post.author.displayName)) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -127,7 +162,7 @@ function shouldFilterPost(post: PostView): boolean {
  * Filter an array of feed posts for moderation
  */
 function filterFeedForModeration(feed: FeedViewPost[]): FeedViewPost[] {
-  return feed.filter(item => !shouldFilterPost(item.post));
+  return feed.filter((item) => !shouldFilterPost(item.post));
 }
 
 /**
@@ -143,14 +178,14 @@ export function useTimeline() {
       if (!did) {
         return { feed: [], cursor: undefined };
       }
-      
+
       try {
         // Use official Bluesky getTimeline API - single call!
         const result = await atproto.getTimeline(pageParam, 50);
-        
+
         // Apply content moderation filter
         const moderated = filterFeedForModeration(result.data.feed);
-        
+
         return {
           feed: moderated,
           cursor: result.data.cursor,
@@ -172,8 +207,8 @@ export function useTimeline() {
  * The Feed Service returns a simplified format, we wrap it for compatibility
  */
 async function fetchFromFeedService(
-  endpoint: 'local' | 'global', 
-  cursor?: string, 
+  endpoint: 'local' | 'global',
+  cursor?: string,
   limit: number = 50
 ): Promise<{ feed: FeedViewPost[]; cursor: string | undefined }> {
   const url = new URL(`${FEED_SERVICE_URL}/feed/${endpoint}`);
@@ -181,16 +216,16 @@ async function fetchFromFeedService(
   if (cursor) {
     url.searchParams.set('cursor', cursor);
   }
-  
+
   try {
     const response = await fetch(url.toString());
-    
+
     if (!response.ok) {
       throw new Error(`Feed service error: ${response.status}`);
     }
-    
+
     const data = await response.json();
-    
+
     // Convert Feed Service format to FeedViewPost format expected by the app
     const feed: FeedViewPost[] = data.posts.map((post: any) => ({
       post: {
@@ -218,7 +253,7 @@ async function fetchFromFeedService(
       // No reply context from feed service (yet)
       reply: undefined,
     }));
-    
+
     return {
       feed,
       cursor: data.cursor,
@@ -230,7 +265,7 @@ async function fetchFromFeedService(
 
 /**
  * Get Global feed - aggregated cannabis content from Cannect Feed Service
- * 
+ *
  * This is now a SINGLE API call instead of 14+ parallel feed requests.
  * The Feed Service aggregates content from curated cannabis accounts.
  */
@@ -242,7 +277,7 @@ export function useGlobalFeed() {
     queryFn: async ({ pageParam }) => {
       // Single API call to Feed Service
       const result = await fetchFromFeedService('global', pageParam, 50);
-      
+
       // Apply content moderation filter (in case of any slipped through)
       const moderated = filterFeedForModeration(result.feed);
 
@@ -261,7 +296,7 @@ export function useGlobalFeed() {
 
 /**
  * Get Cannect feed - posts from Cannect PDS users via Feed Service
- * 
+ *
  * This is now a SINGLE API call instead of 100+ parallel getAuthorFeed requests.
  * The Feed Service maintains a real-time cache of all Cannect user posts via Jetstream.
  */
@@ -273,7 +308,7 @@ export function useCannectFeed() {
     queryFn: async ({ pageParam }) => {
       // Single API call to Feed Service
       const result = await fetchFromFeedService('local', pageParam, 50);
-      
+
       // Apply content moderation filter
       const moderated = filterFeedForModeration(result.feed);
 
@@ -295,8 +330,12 @@ export function useCannectFeed() {
  * Uses Bluesky's official API
  */
 export function useAuthorFeed(
-  actor: string | undefined, 
-  filter?: 'posts_with_replies' | 'posts_no_replies' | 'posts_with_media' | 'posts_and_author_threads'
+  actor: string | undefined,
+  filter?:
+    | 'posts_with_replies'
+    | 'posts_no_replies'
+    | 'posts_with_media'
+    | 'posts_and_author_threads'
 ) {
   return useInfiniteQuery({
     queryKey: ['authorFeed', actor, filter],
@@ -356,12 +395,12 @@ export function useCreatePost() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      text, 
+    mutationFn: async ({
+      text,
       reply,
       embed,
-    }: { 
-      text: string; 
+    }: {
+      text: string;
       reply?: {
         parent: { uri: string; cid: string };
         root: { uri: string; cid: string };
@@ -564,7 +603,7 @@ export function useSearchPosts(query: string) {
  */
 export function useSuggestedPosts() {
   const { isAuthenticated } = useAuthStore();
-  
+
   return useQuery({
     queryKey: ['suggestedPosts', 'cannect'],
     queryFn: async () => {
@@ -584,32 +623,34 @@ export function useSuggestedPosts() {
  */
 export function useLocalFeed() {
   const { isAuthenticated } = useAuthStore();
-  
+
   // Use the VPS which hydrates posts with full profile data
   const FEED_SERVICE_URL = 'https://feed.cannect.space';
-  
+
   return useInfiniteQuery({
     queryKey: ['localFeed'],
     queryFn: async ({ pageParam }) => {
       // First page or subsequent pages
-      const url = pageParam 
+      const url = pageParam
         ? `${FEED_SERVICE_URL}/feed/local/more`
         : `${FEED_SERVICE_URL}/feed/local`;
-      
+
       const res = await fetch(url, {
         method: pageParam ? 'POST' : 'GET',
-        headers: pageParam ? { 
-          'Content-Type': 'application/json',
-          'X-Session': pageParam 
-        } : undefined,
+        headers: pageParam
+          ? {
+              'Content-Type': 'application/json',
+              'X-Session': pageParam,
+            }
+          : undefined,
       });
-      
+
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
       }
-      
+
       const data = await res.json();
-      
+
       // Convert VPS format to FeedViewPost format
       const feed = (data.posts || []).map((p: any) => ({
         post: {
@@ -622,12 +663,12 @@ export function useLocalFeed() {
           repostCount: p.repostCount || 0,
           replyCount: p.replyCount || 0,
           indexedAt: p.indexedAt,
-        }
+        },
       }));
-      
-      return { 
-        feed, 
-        cursor: data.hasMore ? data.session : undefined 
+
+      return {
+        feed,
+        cursor: data.hasMore ? data.session : undefined,
       };
     },
     getNextPageParam: (lastPage) => lastPage.cursor,

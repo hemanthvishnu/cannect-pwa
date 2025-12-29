@@ -1,17 +1,17 @@
 /**
  * Followers List Screen - Pure AT Protocol
- * 
+ *
  * Route: /user/[handle]/followers
  */
 
-import { View, Text, Pressable, ActivityIndicator, RefreshControl } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { FlashList } from "@shopify/flash-list";
-import { useLocalSearchParams, Stack, useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
-import { Image } from "expo-image";
-import { useMemo, useCallback } from "react";
-import { useProfile, useFollowers } from "@/lib/hooks";
+import { View, Text, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
+import { Image } from 'expo-image';
+import { useMemo, useCallback } from 'react';
+import { useProfile, useFollowers } from '@/lib/hooks';
 import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
@@ -25,12 +25,16 @@ function formatNumber(num: number | undefined): string {
 
 function UserRow({ user, onPress }: { user: ProfileView; onPress: () => void }) {
   return (
-    <Pressable 
+    <Pressable
       onPress={onPress}
       className="flex-row items-center px-4 py-3 border-b border-border active:bg-surface-elevated"
     >
       {user.avatar ? (
-        <Image source={{ uri: user.avatar }} className="w-12 h-12 rounded-full" contentFit="cover" />
+        <Image
+          source={{ uri: user.avatar }}
+          className="w-12 h-12 rounded-full"
+          contentFit="cover"
+        />
       ) : (
         <View className="w-12 h-12 rounded-full bg-surface-elevated items-center justify-center">
           <Text className="text-text-muted text-lg">{user.handle[0].toUpperCase()}</Text>
@@ -52,12 +56,12 @@ function UserRow({ user, onPress }: { user: ProfileView; onPress: () => void }) 
 export default function FollowersScreen() {
   const { handle } = useLocalSearchParams<{ handle: string }>();
   const router = useRouter();
-  
-  const profileQuery = useProfile(handle || "");
+
+  const profileQuery = useProfile(handle || '');
   const followersQuery = useFollowers(profileQuery.data?.did);
 
   const followers = useMemo(() => {
-    return followersQuery.data?.pages?.flatMap(page => page.followers) || [];
+    return followersQuery.data?.pages?.flatMap((page) => page.followers) || [];
   }, [followersQuery.data]);
 
   const handleBack = () => {
@@ -79,13 +83,13 @@ export default function FollowersScreen() {
   const followerCount = profileQuery.data?.followersCount || 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
-      <Stack.Screen 
-        options={{ 
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <Stack.Screen
+        options={{
           headerShown: true,
-          headerTitle: "Followers",
-          headerStyle: { backgroundColor: "#0A0A0A" },
-          headerTintColor: "#FAFAFA",
+          headerTitle: 'Followers',
+          headerStyle: { backgroundColor: '#0A0A0A' },
+          headerTintColor: '#FAFAFA',
           headerLeft: () => (
             <Pressable onPress={handleBack} className="p-2 -ml-2 active:opacity-70">
               <ArrowLeft size={24} color="#FAFAFA" />
@@ -111,9 +115,7 @@ export default function FollowersScreen() {
           data={followers}
           keyExtractor={(item, index) => `${item.did}-${index}`}
           estimatedItemSize={80}
-          renderItem={({ item }) => (
-            <UserRow user={item} onPress={() => handleUserPress(item)} />
-          )}
+          renderItem={({ item }) => <UserRow user={item} onPress={() => handleUserPress(item)} />}
           refreshControl={
             <RefreshControl
               refreshing={followersQuery.isRefetching}

@@ -16,7 +16,7 @@ interface MediaGridItemProps {
 
 /**
  * Gold Standard Media Grid Item
- * 
+ *
  * A square thumbnail that:
  * - Shows the first image/video from a post
  * - Displays overlay icons for galleries (multiple images) or videos
@@ -31,7 +31,7 @@ export function MediaGridItem({ item }: MediaGridItemProps) {
   if (!firstMedia) return null;
 
   return (
-    <Pressable 
+    <Pressable
       onPress={() => {
         if (item.did && item.rkey) {
           router.push(`/post/${item.did}/${item.rkey}`);
@@ -40,14 +40,14 @@ export function MediaGridItem({ item }: MediaGridItemProps) {
       className="p-[1px] active:opacity-80"
       style={{ width: '33.33%', aspectRatio: 1 }}
     >
-      <Image 
-        source={{ uri: firstMedia }} 
+      <Image
+        source={{ uri: firstMedia }}
         className="w-full h-full bg-surface"
         contentFit="cover"
         placeholder={BLURHASH_PLACEHOLDERS.NEUTRAL}
         transition={200}
       />
-      
+
       {/* Indicator Overlays */}
       {(mediaCount > 1 || hasVideo) && (
         <View className="absolute top-2 right-2">

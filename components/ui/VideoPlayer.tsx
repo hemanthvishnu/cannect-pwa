@@ -1,13 +1,21 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { View, Pressable, Text, ActivityIndicator, Platform, StyleSheet, Image as RNImage } from 'react-native';
+import {
+  View,
+  Pressable,
+  Text,
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  Image as RNImage,
+} from 'react-native';
 import { Video, ResizeMode, AVPlaybackStatus, Audio } from 'expo-av';
 import { Play, Pause, Volume2, VolumeX, Maximize2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import Animated, { 
-  FadeIn, 
-  FadeOut, 
-  useAnimatedStyle, 
-  useSharedValue, 
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -44,7 +52,9 @@ export function VideoPlayer({
 
   // Derived state (moved before hooks that depend on them)
   const isPlaying = status?.isLoaded && status.isPlaying;
-  const progress = status?.isLoaded ? (status.positionMillis / (status.durationMillis || 1)) * 100 : 0;
+  const progress = status?.isLoaded
+    ? (status.positionMillis / (status.durationMillis || 1)) * 100
+    : 0;
   const duration = status?.isLoaded ? status.durationMillis || 0 : 0;
   const position = status?.isLoaded ? status.positionMillis || 0 : 0;
 
@@ -108,7 +118,7 @@ export function VideoPlayer({
   }, [isMuted]);
 
   const handlePress = useCallback(() => {
-    setShowControls(prev => !prev);
+    setShowControls((prev) => !prev);
   }, []);
 
   // Handler to load video on first tap (lazy loading)
@@ -133,7 +143,7 @@ export function VideoPlayer({
   // Return static fallback during SSR to prevent hydration mismatch
   if (Platform.OS === 'web' && !isMounted) {
     return (
-      <View 
+      <View
         className="relative rounded-xl overflow-hidden bg-black items-center justify-center"
         style={{ aspectRatio }}
       >
@@ -157,10 +167,7 @@ export function VideoPlayer({
 
   if (hasError) {
     return (
-      <View 
-        className="bg-surface items-center justify-center rounded-xl"
-        style={{ aspectRatio }}
-      >
+      <View className="bg-surface items-center justify-center rounded-xl" style={{ aspectRatio }}>
         <Text className="text-text-muted">Failed to load video</Text>
       </View>
     );
@@ -169,7 +176,7 @@ export function VideoPlayer({
   // Show thumbnail with play button until user taps (lazy loading to save resources)
   if (!isVideoLoaded) {
     return (
-      <Pressable 
+      <Pressable
         onPress={handleLoadVideo}
         className="relative rounded-xl overflow-hidden bg-black items-center justify-center"
         style={{ aspectRatio }}
@@ -191,7 +198,7 @@ export function VideoPlayer({
   }
 
   return (
-    <Pressable 
+    <Pressable
       onPress={handlePress}
       className="relative rounded-xl overflow-hidden bg-black"
       style={{ aspectRatio }}
@@ -227,7 +234,7 @@ export function VideoPlayer({
 
       {/* Controls Overlay */}
       {showControls && !isLoading && (
-        <Animated.View 
+        <Animated.View
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(200)}
           className="absolute inset-0"
@@ -236,7 +243,7 @@ export function VideoPlayer({
           <View className="absolute inset-0 bg-black/20" />
 
           {/* Center Play/Pause */}
-          <Pressable 
+          <Pressable
             onPress={handlePlayPause}
             className="absolute inset-0 items-center justify-center"
           >
@@ -253,10 +260,7 @@ export function VideoPlayer({
           <View className="absolute bottom-0 left-0 right-0 px-3 pb-3">
             {/* Progress Bar */}
             <View className="h-1 bg-white/30 rounded-full mb-2 overflow-hidden">
-              <Animated.View 
-                className="h-full bg-primary rounded-full"
-                style={progressStyle}
-              />
+              <Animated.View className="h-full bg-primary rounded-full" style={progressStyle} />
             </View>
 
             {/* Controls Row */}

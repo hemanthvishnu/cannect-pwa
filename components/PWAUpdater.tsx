@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, Pressable, Platform, StyleSheet } from 'react-native';
-import Animated, { 
-  FadeInUp, 
-  FadeOutDown, 
+import Animated, {
+  FadeInUp,
+  FadeOutDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -16,7 +16,7 @@ interface PWAUpdaterProps {
 
 /**
  * PWAUpdater - ABSOLUTE GOLD STANDARD Update Handler
- * 
+ *
  * Handles:
  * - Atomic cache updates (no Frankenstein state)
  * - Zombie tab cleanup
@@ -31,11 +31,11 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updateType, setUpdateType] = useState<'normal' | 'critical'>('normal');
-  
+
   // 💎 Guards against reload loops and race conditions
   const isRefreshingRef = useRef(false);
   const hasShownToastRef = useRef(false);
-  
+
   // Animation for the refresh icon
   const rotation = useSharedValue(0);
   const animatedIconStyle = useAnimatedStyle(() => ({
@@ -60,7 +60,7 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
       try {
         // Get existing registration
         let reg = await navigator.serviceWorker.getRegistration();
-        
+
         // If no registration, register the SW
         if (!reg) {
           reg = await navigator.serviceWorker.register('/sw.js', {
@@ -68,7 +68,7 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
           });
           console.log('[PWAUpdater] Service Worker registered');
         }
-        
+
         handleRegistration(reg);
       } catch (error: any) {
         console.error('[PWAUpdater] Error:', error);
@@ -85,7 +85,7 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
         return;
       }
       isRefreshingRef.current = true;
-      
+
       console.log('[PWAUpdater] New controller active - executing atomic reload');
       window.location.reload();
     };
@@ -98,7 +98,7 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
         console.log(`[PWAUpdater] SW activated: ${event.data.version}`);
       }
     };
-    
+
     navigator.serviceWorker.addEventListener('message', handleMessage);
 
     return () => {
@@ -168,7 +168,7 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
   const checkForForceUpdate = useCallback((worker: ServiceWorker) => {
     // Check if this is a critical update that should be forced
     const channel = new MessageChannel();
-    
+
     channel.port1.onmessage = (event) => {
       if (event.data?.type === 'FORCE_UPDATE_RESULT') {
         if (event.data.shouldForce) {
@@ -189,7 +189,7 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
         }
       }
     };
-    
+
     worker.postMessage({ type: 'CHECK_FORCE_UPDATE' }, [channel.port2]);
   }, []);
 
@@ -200,7 +200,7 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
     if (!registration?.waiting) return;
 
     setIsUpdating(true);
-    
+
     // Animate the refresh icon
     rotation.value = withSpring(rotation.value + 360, {
       damping: 10,
@@ -254,36 +254,30 @@ export function PWAUpdater({ checkInterval = 60000 }: PWAUpdaterProps) {
             {isCritical ? 'Critical Update Required' : 'Update Available'}
           </Text>
           <Text style={styles.subtitle}>
-            {isCritical 
+            {isCritical
               ? 'Please update now to continue using Cannect'
-              : 'Tap to refresh and get the latest features'
-            }
+              : 'Tap to refresh and get the latest features'}
           </Text>
         </View>
 
         {/* Buttons */}
         <View style={styles.buttonContainer}>
           {!isCritical && (
-            <Pressable
-              onPress={handleDismiss}
-              style={styles.laterButton}
-            >
+            <Pressable onPress={handleDismiss} style={styles.laterButton}>
               <Text style={styles.laterText}>Later</Text>
             </Pressable>
           )}
-          
+
           <Pressable
             onPress={handleUpdate}
             disabled={isUpdating}
             style={[
-              styles.updateButton, 
+              styles.updateButton,
               isUpdating && styles.updateButtonDisabled,
-              isCritical && styles.updateButtonCritical
+              isCritical && styles.updateButtonCritical,
             ]}
           >
-            <Text style={styles.updateText}>
-              {isUpdating ? 'Updating...' : 'Update'}
-            </Text>
+            <Text style={styles.updateText}>{isUpdating ? 'Updating...' : 'Update'}</Text>
           </Pressable>
         </View>
       </View>

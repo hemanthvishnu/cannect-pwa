@@ -1,6 +1,6 @@
 /**
  * PostEmbeds - Renders all types of post embeds
- * 
+ *
  * Handles:
  * - Images (single or grid)
  * - Videos
@@ -13,7 +13,13 @@ import { View, Text, Pressable, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { ExternalLink } from 'lucide-react-native';
 import { VideoPlayer } from '@/components/ui/VideoPlayer';
-import type { AppBskyEmbedImages, AppBskyEmbedExternal, AppBskyEmbedRecord, AppBskyEmbedVideo, AppBskyEmbedRecordWithMedia } from '@atproto/api';
+import type {
+  AppBskyEmbedImages,
+  AppBskyEmbedExternal,
+  AppBskyEmbedRecord,
+  AppBskyEmbedVideo,
+  AppBskyEmbedRecordWithMedia,
+} from '@atproto/api';
 
 interface PostEmbedsProps {
   embed: any; // The post.embed object
@@ -65,25 +71,25 @@ export function PostEmbeds({ embed, onImagePress }: PostEmbedsProps) {
 // Sub-components
 // ============================================
 
-function ImageGrid({ 
-  images, 
-  onImagePress 
-}: { 
+function ImageGrid({
+  images,
+  onImagePress,
+}: {
   images: AppBskyEmbedImages.ViewImage[];
   onImagePress?: (images: string[], index: number) => void;
 }) {
-  const imageUrls = images.map(img => img.fullsize || img.thumb);
+  const imageUrls = images.map((img) => img.fullsize || img.thumb);
 
   if (images.length === 1) {
     return (
-      <Pressable 
-        onPress={(e) => { 
-          e.stopPropagation(); 
-          onImagePress?.(imageUrls, 0); 
+      <Pressable
+        onPress={(e) => {
+          e.stopPropagation();
+          onImagePress?.(imageUrls, 0);
         }}
         className="mt-2 rounded-xl overflow-hidden"
       >
-        <Image 
+        <Image
           source={{ uri: images[0].thumb }}
           className="w-full h-48 rounded-xl bg-surface-elevated"
           contentFit="cover"
@@ -98,15 +104,15 @@ function ImageGrid({
   return (
     <View className="mt-2 flex-row flex-wrap gap-1 rounded-xl overflow-hidden">
       {images.slice(0, 4).map((img, idx) => (
-        <Pressable 
+        <Pressable
           key={idx}
-          onPress={(e) => { 
-            e.stopPropagation(); 
-            onImagePress?.(imageUrls, idx); 
+          onPress={(e) => {
+            e.stopPropagation();
+            onImagePress?.(imageUrls, idx);
           }}
           className="w-[48%]"
         >
-          <Image 
+          <Image
             source={{ uri: img.thumb }}
             className="w-full h-32 rounded-lg bg-surface-elevated"
             contentFit="cover"
@@ -133,12 +139,15 @@ function LinkPreview({ external }: { external: AppBskyEmbedExternal.ViewExternal
   }
 
   return (
-    <Pressable 
-      onPress={(e) => { e.stopPropagation(); handlePress(); }}
+    <Pressable
+      onPress={(e) => {
+        e.stopPropagation();
+        handlePress();
+      }}
       className="mt-2 border border-border rounded-xl overflow-hidden"
     >
       {external.thumb && (
-        <Image 
+        <Image
           source={{ uri: external.thumb }}
           className="w-full h-32 bg-surface-elevated"
           contentFit="cover"
@@ -158,9 +167,7 @@ function LinkPreview({ external }: { external: AppBskyEmbedExternal.ViewExternal
         )}
         <View className="flex-row items-center mt-2">
           <ExternalLink size={12} color="#6B7280" />
-          <Text className="text-text-muted text-xs ml-1">
-            {hostname}
-          </Text>
+          <Text className="text-text-muted text-xs ml-1">{hostname}</Text>
         </View>
       </View>
     </Pressable>
@@ -175,7 +182,7 @@ function QuotePost({ record }: { record: any }) {
     <View className="mt-2 border border-border rounded-xl p-3">
       <View className="flex-row items-center mb-1">
         {author?.avatar && (
-          <Image 
+          <Image
             source={{ uri: author.avatar }}
             className="w-5 h-5 rounded-full mr-2 bg-surface-elevated"
             contentFit="cover"
@@ -187,9 +194,7 @@ function QuotePost({ record }: { record: any }) {
         <Text className="text-text-primary font-medium text-sm">
           {author?.displayName || author?.handle}
         </Text>
-        <Text className="text-text-muted text-sm ml-1">
-          @{author?.handle}
-        </Text>
+        <Text className="text-text-muted text-sm ml-1">@{author?.handle}</Text>
       </View>
       <Text className="text-text-primary text-sm" numberOfLines={3}>
         {text}
@@ -199,9 +204,10 @@ function QuotePost({ record }: { record: any }) {
 }
 
 function VideoEmbed({ video }: { video: AppBskyEmbedVideo.View }) {
-  const aspectRatio = video.aspectRatio?.width && video.aspectRatio?.height
-    ? video.aspectRatio.width / video.aspectRatio.height
-    : 16 / 9;
+  const aspectRatio =
+    video.aspectRatio?.width && video.aspectRatio?.height
+      ? video.aspectRatio.width / video.aspectRatio.height
+      : 16 / 9;
 
   return (
     <View className="mt-2 rounded-xl overflow-hidden">
@@ -216,10 +222,10 @@ function VideoEmbed({ video }: { video: AppBskyEmbedVideo.View }) {
   );
 }
 
-function RecordWithMedia({ 
-  data, 
-  onImagePress 
-}: { 
+function RecordWithMedia({
+  data,
+  onImagePress,
+}: {
   data: AppBskyEmbedRecordWithMedia.View;
   onImagePress?: (images: string[], index: number) => void;
 }) {
@@ -232,9 +238,7 @@ function RecordWithMedia({
       {media.$type === 'app.bsky.embed.images#view' && (
         <ImageGrid images={(media as any).images} onImagePress={onImagePress} />
       )}
-      {media.$type === 'app.bsky.embed.video#view' && (
-        <VideoEmbed video={media as any} />
-      )}
+      {media.$type === 'app.bsky.embed.video#view' && <VideoEmbed video={media as any} />}
 
       {/* Quote part */}
       {record && record.$type === 'app.bsky.embed.record#viewRecord' && (

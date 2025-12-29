@@ -34,18 +34,14 @@ export function ZoomableImage({ uri, onSwipeDown }: ZoomableImageProps) {
   if (Platform.OS === 'web' && !isMounted) {
     return (
       <View style={styles.container}>
-        <Image
-          source={uri}
-          style={styles.image}
-          contentFit="contain"
-        />
+        <Image source={uri} style={styles.image} contentFit="contain" />
       </View>
     );
   }
   // Scale values
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
-  
+
   // Translation values for panning when zoomed
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -79,9 +75,9 @@ export function ZoomableImage({ uri, onSwipeDown }: ZoomableImageProps) {
     .onUpdate((e) => {
       if (scale.value > 1) {
         // ✅ Fix: Add boundary constraints to prevent panning off-screen
-        const maxTranslateX = (scale.value - 1) * SCREEN_WIDTH / 2;
-        const maxTranslateY = (scale.value - 1) * SCREEN_HEIGHT / 2;
-        
+        const maxTranslateX = ((scale.value - 1) * SCREEN_WIDTH) / 2;
+        const maxTranslateY = ((scale.value - 1) * SCREEN_HEIGHT) / 2;
+
         translateX.value = Math.max(
           -maxTranslateX,
           Math.min(maxTranslateX, savedTranslateX.value + e.translationX)

@@ -1,9 +1,9 @@
 /**
  * PostCard - Universal post component for all list views
- * 
+ *
  * Uses expo-image for fast cached images
  * Handles all embed types via PostEmbeds
- * 
+ *
  * Used in:
  * - Feed tabs (Global, Local, Following)
  * - Profile tabs (Posts, Reposts, Replies, Likes)
@@ -61,16 +61,16 @@ export function PostCard({
   showBorder = true,
 }: PostCardProps) {
   const router = useRouter();
-  
+
   // Support both FeedViewPost (item) and raw PostView (post)
   const post = item?.post ?? rawPost;
-  
+
   // Guard: must have either item or post
   if (!post) {
     console.warn('PostCard: Neither item nor post provided');
     return null;
   }
-  
+
   const record = post.record as AppBskyFeedPost.Record;
   const author = post.author;
 
@@ -96,7 +96,7 @@ export function PostCard({
   };
 
   return (
-    <Pressable 
+    <Pressable
       onPress={handlePress}
       className={`px-4 py-3 active:bg-surface-elevated/50 ${showBorder ? 'border-b border-border' : ''}`}
     >
@@ -112,9 +112,14 @@ export function PostCard({
 
       <View className="flex-row">
         {/* Avatar - using expo-image for caching */}
-        <Pressable onPress={(e) => { e.stopPropagation(); handleAuthorPress(); }}>
+        <Pressable
+          onPress={(e) => {
+            e.stopPropagation();
+            handleAuthorPress();
+          }}
+        >
           {author.avatar ? (
-            <Image 
+            <Image
               source={{ uri: getOptimizedAvatarUrl(author.avatar, 40) }}
               className="w-10 h-10 rounded-full bg-surface-elevated"
               contentFit="cover"
@@ -124,9 +129,7 @@ export function PostCard({
             />
           ) : (
             <View className="w-10 h-10 rounded-full bg-surface-elevated items-center justify-center">
-              <Text className="text-text-muted text-lg">
-                {author.handle[0].toUpperCase()}
-              </Text>
+              <Text className="text-text-muted text-lg">{author.handle[0].toUpperCase()}</Text>
             </View>
           )}
         </Pressable>
@@ -134,22 +137,26 @@ export function PostCard({
         {/* Content */}
         <View className="flex-1 ml-3">
           {/* Header - Row 1: Name and Time */}
-          <Pressable 
-            onPress={(e) => { e.stopPropagation(); handleAuthorPress(); }}
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              handleAuthorPress();
+            }}
             className="flex-row items-center flex-wrap self-start"
           >
             <Text className="font-semibold text-text-primary flex-shrink" numberOfLines={1}>
               {author.displayName || author.handle}
             </Text>
             <Text className="text-text-muted mx-1">·</Text>
-            <Text className="text-text-muted flex-shrink-0">
-              {formatTime(record.createdAt)}
-            </Text>
+            <Text className="text-text-muted flex-shrink-0">{formatTime(record.createdAt)}</Text>
           </Pressable>
 
           {/* Header - Row 2: Handle */}
-          <Pressable 
-            onPress={(e) => { e.stopPropagation(); handleAuthorPress(); }}
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation();
+              handleAuthorPress();
+            }}
             className="self-start"
           >
             <Text className="text-text-muted text-sm" numberOfLines={1}>
@@ -158,23 +165,13 @@ export function PostCard({
           </Pressable>
 
           {/* Post text with facets (mentions, links, hashtags) */}
-          <RichText
-            text={record.text}
-            facets={record.facets}
-            className="mt-1"
-          />
+          <RichText text={record.text} facets={record.facets} className="mt-1" />
 
           {/* Embeds (images, video, link preview, quote) */}
-          <PostEmbeds 
-            embed={post.embed} 
-            onImagePress={onImagePress}
-          />
+          <PostEmbeds embed={post.embed} onImagePress={onImagePress} />
 
           {/* Action buttons with built-in optimistic mutations */}
-          <PostActions 
-            post={post} 
-            variant="compact" 
-          />
+          <PostActions post={post} variant="compact" />
         </View>
       </View>
     </Pressable>

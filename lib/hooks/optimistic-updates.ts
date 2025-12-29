@@ -1,6 +1,6 @@
 /**
  * Optimistic Updates - Unified utilities for React Query mutations
- * 
+ *
  * Provides reusable helpers for:
  * - Canceling queries before mutation
  * - Snapshotting state for rollback
@@ -39,9 +39,7 @@ export async function cancelFeedQueries(
   queryClient: QueryClient,
   keys: string[] = [...SINGLE_QUERY_KEYS, ...MULTI_QUERY_KEYS]
 ) {
-  await Promise.all(
-    keys.map(key => queryClient.cancelQueries({ queryKey: [key] }))
-  );
+  await Promise.all(keys.map((key) => queryClient.cancelQueries({ queryKey: [key] })));
 }
 
 /**
@@ -52,8 +50,8 @@ export function snapshotFeedState(
   keys: string[] = [...SINGLE_QUERY_KEYS, ...MULTI_QUERY_KEYS]
 ): Record<string, any> {
   const snapshots: Record<string, any> = {};
-  
-  keys.forEach(key => {
+
+  keys.forEach((key) => {
     if (MULTI_QUERY_KEYS.includes(key)) {
       // Get all queries matching the prefix
       snapshots[key] = queryClient.getQueriesData({ queryKey: [key] });
@@ -61,17 +59,14 @@ export function snapshotFeedState(
       snapshots[key] = queryClient.getQueryData([key]);
     }
   });
-  
+
   return snapshots;
 }
 
 /**
  * Restore feed state from snapshot (on error)
  */
-export function restoreFeedState(
-  queryClient: QueryClient,
-  snapshots: Record<string, any>
-) {
+export function restoreFeedState(queryClient: QueryClient, snapshots: Record<string, any>) {
   Object.entries(snapshots).forEach(([key, data]) => {
     if (MULTI_QUERY_KEYS.includes(key) && Array.isArray(data)) {
       // Restore multi-query data
@@ -116,11 +111,9 @@ export function updatePostInFeeds(
   };
 
   // Update single-query feeds
-  SINGLE_QUERY_KEYS
-    .filter(key => !skipKeys.includes(key))
-    .forEach(key => {
-      queryClient.setQueryData([key], updateFeed);
-    });
+  SINGLE_QUERY_KEYS.filter((key) => !skipKeys.includes(key)).forEach((key) => {
+    queryClient.setQueryData([key], updateFeed);
+  });
 
   // Update authorFeed (all user profile feeds)
   if (!skipKeys.includes('authorFeed')) {
@@ -180,11 +173,9 @@ export function removePostFromFeeds(
   };
 
   // Remove from single-query feeds
-  SINGLE_QUERY_KEYS
-    .filter(key => !skipKeys.includes(key))
-    .forEach(key => {
-      queryClient.setQueryData([key], removeFromFeed);
-    });
+  SINGLE_QUERY_KEYS.filter((key) => !skipKeys.includes(key)).forEach((key) => {
+    queryClient.setQueryData([key], removeFromFeed);
+  });
 
   // Remove from all authorFeed queries
   if (!skipKeys.includes('authorFeed')) {
@@ -209,12 +200,12 @@ export function invalidateFeeds(
   }
 ) {
   const { exclude = [], only } = options || {};
-  
+
   const keysToInvalidate = only || [...SINGLE_QUERY_KEYS, 'authorFeed', 'thread'];
-  
+
   keysToInvalidate
-    .filter(key => !exclude.includes(key))
-    .forEach(key => {
+    .filter((key) => !exclude.includes(key))
+    .forEach((key) => {
       queryClient.invalidateQueries({ queryKey: [key] });
     });
 }
@@ -248,16 +239,20 @@ export const postUpdaters = {
   }),
 
   /** Update like URI after server confirms */
-  confirmLike: (likeUri: string) => (post: PostView): PostView => ({
-    ...post,
-    viewer: { ...post.viewer, like: likeUri },
-  }),
+  confirmLike:
+    (likeUri: string) =>
+    (post: PostView): PostView => ({
+      ...post,
+      viewer: { ...post.viewer, like: likeUri },
+    }),
 
   /** Update repost URI after server confirms */
-  confirmRepost: (repostUri: string) => (post: PostView): PostView => ({
-    ...post,
-    viewer: { ...post.viewer, repost: repostUri },
-  }),
+  confirmRepost:
+    (repostUri: string) =>
+    (post: PostView): PostView => ({
+      ...post,
+      viewer: { ...post.viewer, repost: repostUri },
+    }),
 };
 
 /**
@@ -269,11 +264,14 @@ export function createOptimisticContext(queryClient: QueryClient) {
     cancel: (keys?: string[]) => cancelFeedQueries(queryClient, keys),
     snapshot: (keys?: string[]) => snapshotFeedState(queryClient, keys),
     restore: (snapshots: Record<string, any>) => restoreFeedState(queryClient, snapshots),
-    updatePost: (uri: string, updater: (post: PostView) => PostView, options?: Parameters<typeof updatePostInFeeds>[3]) => 
-      updatePostInFeeds(queryClient, uri, updater, options),
-    removePost: (uri: string, skipKeys?: string[]) => 
+    updatePost: (
+      uri: string,
+      updater: (post: PostView) => PostView,
+      options?: Parameters<typeof updatePostInFeeds>[3]
+    ) => updatePostInFeeds(queryClient, uri, updater, options),
+    removePost: (uri: string, skipKeys?: string[]) =>
       removePostFromFeeds(queryClient, uri, skipKeys),
-    invalidate: (options?: Parameters<typeof invalidateFeeds>[1]) => 
+    invalidate: (options?: Parameters<typeof invalidateFeeds>[1]) =>
       invalidateFeeds(queryClient, options),
   };
 }

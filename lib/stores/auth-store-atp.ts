@@ -1,11 +1,11 @@
 /**
  * AT Protocol Auth Store
- * 
+ *
  * Pure AT Protocol auth state management using Zustand.
  * No Supabase dependency.
  */
 
-import { create } from "zustand";
+import { create } from 'zustand';
 import type { AtpSessionData } from '@atproto/api';
 
 export interface AtpProfile {
@@ -26,11 +26,11 @@ interface AuthState {
   profile: AtpProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  
+
   // Convenience getters
   did: string | null;
   handle: string | null;
-  
+
   // Actions
   setSession: (session: AtpSessionData | null) => void;
   setProfile: (profile: AtpProfile | null) => void;
@@ -45,7 +45,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   did: null,
   handle: null,
-  
+
   setSession: (session) =>
     set({
       session,
@@ -54,11 +54,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       did: session?.did ?? null,
       handle: session?.handle ?? null,
     }),
-    
+
   setProfile: (profile) => set({ profile }),
-  
+
   setLoading: (isLoading) => set({ isLoading }),
-  
+
   clear: () =>
     set({
       session: null,

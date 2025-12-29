@@ -1,6 +1,6 @@
 /**
  * AT Protocol Utilities
- * 
+ *
  * Provides utilities for generating AT Protocol compliant identifiers,
  * parsing rich text into facets, and building AT URIs.
  */
@@ -18,16 +18,16 @@ export function generateTID(): string {
   const now = BigInt(Date.now()) * 1000n; // Convert to microseconds
   const clockId = BigInt(Math.floor(Math.random() * 1024)); // 10-bit clock ID for uniqueness
   const tid = (now << 10n) | clockId;
-  
+
   // Encode as base32-sortable
   let encoded = '';
   let remaining = tid;
-  
+
   for (let i = 0; i < 13; i++) {
     encoded = TID_CHARS[Number(remaining & 31n)] + encoded;
     remaining = remaining >> 5n;
   }
-  
+
   return encoded;
 }
 
@@ -45,7 +45,7 @@ export function buildAtUri(did: string, collection: string, rkey: string): strin
 export function parseAtUri(uri: string): { did: string; collection: string; rkey: string } | null {
   const match = uri.match(/^at:\/\/([^/]+)\/([^/]+)\/([^/]+)$/);
   if (!match) return null;
-  
+
   return {
     did: match[1],
     collection: match[2],
@@ -77,38 +77,42 @@ export interface UnresolvedFacet extends Facet {
  * Parse text content into AT Protocol facets (mentions, links, hashtags)
  * Note: Mentions will have _unresolvedHandle that needs DID resolution
  */
-export function parseTextToFacets(text: string): { 
-  text: string; 
-  facets: UnresolvedFacet[]; 
+export function parseTextToFacets(text: string): {
+  text: string;
+  facets: UnresolvedFacet[];
 } {
   const facets: UnresolvedFacet[] = [];
   const encoder = new TextEncoder();
-  
+
   // Regex patterns (from Bluesky's official regex patterns)
   // Mentions: @handle.domain.tld
-  const mentionRegex = /@([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?/g;
-  
+  const mentionRegex =
+    /@([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?/g;
+
   // URLs: http(s)://...
-  const urlRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)/g;
-  
+  const urlRegex =
+    /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)/g;
+
   // Hashtags: #word
   const hashtagRegex = /#[a-zA-Z][a-zA-Z0-9_]*/g;
 
   // Find mentions
   let match: RegExpExecArray | null;
-  
+
   // Reset regex lastIndex
   mentionRegex.lastIndex = 0;
   while ((match = mentionRegex.exec(text)) !== null) {
     const byteStart = encoder.encode(text.slice(0, match.index)).length;
     const byteEnd = byteStart + encoder.encode(match[0]).length;
-    
+
     facets.push({
       index: { byteStart, byteEnd },
-      features: [{
-        $type: 'app.bsky.richtext.facet#mention',
-        did: '', // Will be resolved later by the server
-      }],
+      features: [
+        {
+          $type: 'app.bsky.richtext.facet#mention',
+          did: '', // Will be resolved later by the server
+        },
+      ],
       _unresolvedHandle: match[0].slice(1), // Remove @ prefix
     });
   }
@@ -118,13 +122,15 @@ export function parseTextToFacets(text: string): {
   while ((match = urlRegex.exec(text)) !== null) {
     const byteStart = encoder.encode(text.slice(0, match.index)).length;
     const byteEnd = byteStart + encoder.encode(match[0]).length;
-    
+
     facets.push({
       index: { byteStart, byteEnd },
-      features: [{
-        $type: 'app.bsky.richtext.facet#link',
-        uri: match[0],
-      }],
+      features: [
+        {
+          $type: 'app.bsky.richtext.facet#link',
+          uri: match[0],
+        },
+      ],
     });
   }
 
@@ -133,13 +139,15 @@ export function parseTextToFacets(text: string): {
   while ((match = hashtagRegex.exec(text)) !== null) {
     const byteStart = encoder.encode(text.slice(0, match.index)).length;
     const byteEnd = byteStart + encoder.encode(match[0]).length;
-    
+
     facets.push({
       index: { byteStart, byteEnd },
-      features: [{
-        $type: 'app.bsky.richtext.facet#tag',
-        tag: match[0].slice(1), // Remove # prefix
-      }],
+      features: [
+        {
+          $type: 'app.bsky.richtext.facet#tag',
+          tag: match[0].slice(1), // Remove # prefix
+        },
+      ],
     });
   }
 
@@ -175,17 +183,17 @@ export function buildPostRecord(params: {
 
   // Add facets if present (filter out unresolved mention facets)
   if (params.facets && params.facets.length > 0) {
-    const resolvedFacets = params.facets.filter(f => {
+    const resolvedFacets = params.facets.filter((f) => {
       // Filter out mention facets without DIDs
       const mentionFeature = f.features.find(
-        feat => feat.$type === 'app.bsky.richtext.facet#mention'
+        (feat) => feat.$type === 'app.bsky.richtext.facet#mention'
       );
       if (mentionFeature && !mentionFeature.did) {
         return false;
       }
       return true;
     });
-    
+
     if (resolvedFacets.length > 0) {
       record.facets = resolvedFacets;
     }
@@ -228,7 +236,9 @@ export function isValidDid(did: string): boolean {
  */
 export function isValidHandle(handle: string): boolean {
   // Handles are domain-like: segment.segment.tld
-  return /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/.test(handle);
+  return /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/.test(
+    handle
+  );
 }
 
 /**
@@ -240,7 +250,7 @@ export function getGraphemeLength(text: string): number {
     const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
     return [...segmenter.segment(text)].length;
   }
-  
+
   // Fallback: count code points (less accurate for emoji)
   return [...text].length;
 }

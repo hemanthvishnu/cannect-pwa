@@ -14,14 +14,14 @@ export async function triggerNotification(
 ): Promise<void> {
   // Only run on native
   if (Platform.OS === 'web') return;
-  
+
   try {
     const feedbackType = {
       success: Haptics.NotificationFeedbackType.Success,
       warning: Haptics.NotificationFeedbackType.Warning,
       error: Haptics.NotificationFeedbackType.Error,
     }[type];
-    
+
     await Haptics.notificationAsync(feedbackType);
   } catch {
     // Silently fail - haptics not critical
@@ -32,18 +32,16 @@ export async function triggerNotification(
  * Trigger impact haptic feedback (light, medium, heavy)
  * Safe to call on web - will silently no-op
  */
-export async function triggerImpact(
-  style: 'light' | 'medium' | 'heavy' = 'medium'
-): Promise<void> {
+export async function triggerImpact(style: 'light' | 'medium' | 'heavy' = 'medium'): Promise<void> {
   if (Platform.OS === 'web') return;
-  
+
   try {
     const impactStyle = {
       light: Haptics.ImpactFeedbackStyle.Light,
       medium: Haptics.ImpactFeedbackStyle.Medium,
       heavy: Haptics.ImpactFeedbackStyle.Heavy,
     }[style];
-    
+
     await Haptics.impactAsync(impactStyle);
   } catch {
     // Silently fail
@@ -56,7 +54,7 @@ export async function triggerImpact(
  */
 export async function triggerSelection(): Promise<void> {
   if (Platform.OS === 'web') return;
-  
+
   try {
     await Haptics.selectionAsync();
   } catch {

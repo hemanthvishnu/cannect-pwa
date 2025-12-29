@@ -8,11 +8,11 @@ interface HydrationSafeTextProps extends TextProps {
 
 /**
  * 💎 HydrationSafeText - Prevents hydration mismatch for dynamic text
- * 
+ *
  * On web, this component returns empty text during SSR and only renders
  * the actual content after mount. This prevents mismatches for values
  * that differ between server and client (like relative timestamps).
- * 
+ *
  * On native, it renders immediately since there's no SSR.
  */
 export function HydrationSafeText({ children, fallback = '', ...props }: HydrationSafeTextProps) {
@@ -26,9 +26,5 @@ export function HydrationSafeText({ children, fallback = '', ...props }: Hydrati
 
   // On web during SSR, show fallback (empty or placeholder)
   // After mount or on native, show actual content
-  return (
-    <Text {...props}>
-      {isMounted ? children : fallback}
-    </Text>
-  );
+  return <Text {...props}>{isMounted ? children : fallback}</Text>;
 }

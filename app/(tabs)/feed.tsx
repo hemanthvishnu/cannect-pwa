@@ -1,27 +1,35 @@
 /**
  * Feed Screen - v3.0 Simplified Architecture
- * 
+ *
  * Displays three feeds:
  * - Global: Cannabis content (server-managed via feed.cannect.space)
  * - Local: Posts from cannect.space users (DIRECT from PDS - no VPS!)
  * - Following: Posts from users you follow (direct Bluesky API)
- * 
+ *
  * v3.0: Local feed now direct from PDS - simpler, faster, real-time
  */
 
-import { View, Text, RefreshControl, ActivityIndicator, Platform, Pressable, useWindowDimensions } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { FlashList } from "@shopify/flash-list";
-import { useRouter } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
-import { Leaf } from "lucide-react-native";
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import * as Haptics from "expo-haptics";
-import { useTimeline, useLocalFeed } from "@/lib/hooks";
-import { useAuthStore } from "@/lib/stores";
-import { OfflineBanner } from "@/components/OfflineBanner";
-import { MediaViewer } from "@/components/ui/MediaViewer";
-import { PostCard, FeedSkeleton } from "@/components/Post";
+import {
+  View,
+  Text,
+  RefreshControl,
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  useWindowDimensions,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
+import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
+import { Leaf } from 'lucide-react-native';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import * as Haptics from 'expo-haptics';
+import { useTimeline, useLocalFeed } from '@/lib/hooks';
+import { useAuthStore } from '@/lib/stores';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { MediaViewer } from '@/components/ui/MediaViewer';
+import { PostCard, FeedSkeleton } from '@/components/Post';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
 type FeedType = 'global' | 'local' | 'following';
@@ -36,11 +44,11 @@ export default function FeedScreen() {
   const { height } = useWindowDimensions();
   const [activeFeed, setActiveFeed] = useState<FeedType>('global');
   const listRef = useRef<FlashList<FeedViewPost>>(null);
-  
+
   // === SCROLL POSITION PRESERVATION ===
   // Store scroll offset per feed to restore when coming back from post detail
   const scrollOffsets = useRef<Record<FeedType, number>>({ global: 0, local: 0, following: 0 });
-  
+
   // Restore scroll position when screen regains focus
   useFocusEffect(
     useCallback(() => {
@@ -54,22 +62,22 @@ export default function FeedScreen() {
       return () => clearTimeout(timer);
     }, [activeFeed])
   );
-  
+
   // === GLOBAL FEED (VPS - server-managed for curated cannabis content) ===
   const [globalPosts, setGlobalPosts] = useState<FeedViewPost[]>([]);
   const [globalSession, setGlobalSession] = useState<string | null>(null);
   const [globalHasMore, setGlobalHasMore] = useState(true);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
-  
+
   // === LOCAL FEED (Direct from Cannect PDS - no VPS!) ===
   const localQuery = useLocalFeed();
-  
+
   // === FOLLOWING FEED (Direct Bluesky API) ===
   const followingQuery = useTimeline();
-  
+
   // === GLOBAL FEED API CALLS ===
-  
+
   // Convert server post format to FeedViewPost
   const convertPost = (p: any): FeedViewPost => ({
     post: {
@@ -86,18 +94,18 @@ export default function FeedScreen() {
       labels: [],
     },
   });
-  
+
   // Load initial global feed
   const loadGlobalFeed = useCallback(async () => {
     if (globalLoading) return;
     setGlobalLoading(true);
     setGlobalError(null);
-    
+
     try {
       const res = await fetch(`${FEED_SERVICE_URL}/feed/global`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      
+
       setGlobalPosts(data.posts.map(convertPost));
       setGlobalSession(data.session);
       setGlobalHasMore(data.hasMore);
@@ -109,24 +117,24 @@ export default function FeedScreen() {
       setGlobalLoading(false);
     }
   }, [globalLoading]);
-  
+
   // Load more global posts
   const loadMoreGlobal = useCallback(async () => {
     if (globalLoading || !globalHasMore || !globalSession) return;
     setGlobalLoading(true);
-    
+
     try {
       const res = await fetch(`${FEED_SERVICE_URL}/feed/global/more`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'X-Session': globalSession 
+          'X-Session': globalSession,
         },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      
-      setGlobalPosts(prev => [...prev, ...data.posts.map(convertPost)]);
+
+      setGlobalPosts((prev) => [...prev, ...data.posts.map(convertPost)]);
       setGlobalHasMore(data.hasMore);
       console.log('[Feed] Global feed more:', data.posts.length, 'posts loaded');
     } catch (err: any) {
@@ -135,22 +143,22 @@ export default function FeedScreen() {
       setGlobalLoading(false);
     }
   }, [globalLoading, globalHasMore, globalSession]);
-  
+
   // Refresh global feed
   const refreshGlobal = useCallback(async () => {
     setGlobalLoading(true);
-    
+
     try {
       const res = await fetch(`${FEED_SERVICE_URL}/feed/global/refresh`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          ...(globalSession && { 'X-Session': globalSession })
+          ...(globalSession && { 'X-Session': globalSession }),
         },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      
+
       setGlobalPosts(data.posts.map(convertPost)); // Replace, not append
       setGlobalSession(data.session);
       setGlobalHasMore(data.hasMore);
@@ -160,7 +168,7 @@ export default function FeedScreen() {
       setGlobalLoading(false);
     }
   }, [globalSession]);
-  
+
   // Load initial global feed on mount
   useEffect(() => {
     if (isAuthenticated) {
@@ -168,48 +176,60 @@ export default function FeedScreen() {
       // localQuery and followingQuery auto-fetch via React Query
     }
   }, [isAuthenticated]);
-  
+
   // === DERIVED STATE ===
-  
+
   // Flatten local feed pages into array
-  const localPosts = useMemo(() => 
-    localQuery.data?.pages?.flatMap(page => page.feed) || [],
+  const localPosts = useMemo(
+    () => localQuery.data?.pages?.flatMap((page) => page.feed) || [],
     [localQuery.data]
   );
-  
+
   const posts = useMemo(() => {
     if (activeFeed === 'global') return globalPosts;
     if (activeFeed === 'local') return localPosts;
     // Following uses React Query
-    return followingQuery.data?.pages?.flatMap(page => page.feed) || [];
+    return followingQuery.data?.pages?.flatMap((page) => page.feed) || [];
   }, [activeFeed, globalPosts, localPosts, followingQuery.data]);
-  
+
   const isLoading = useMemo(() => {
     if (activeFeed === 'global') return globalLoading && globalPosts.length === 0;
     if (activeFeed === 'local') return localQuery.isLoading;
     return followingQuery.isLoading;
-  }, [activeFeed, globalLoading, globalPosts.length, localQuery.isLoading, followingQuery.isLoading]);
-  
+  }, [
+    activeFeed,
+    globalLoading,
+    globalPosts.length,
+    localQuery.isLoading,
+    followingQuery.isLoading,
+  ]);
+
   const isRefreshing = useMemo(() => {
     if (activeFeed === 'global') return globalLoading && globalPosts.length > 0;
     if (activeFeed === 'local') return localQuery.isRefetching;
     return followingQuery.isRefetching;
-  }, [activeFeed, globalLoading, globalPosts.length, localQuery.isRefetching, followingQuery.isRefetching]);
-  
+  }, [
+    activeFeed,
+    globalLoading,
+    globalPosts.length,
+    localQuery.isRefetching,
+    followingQuery.isRefetching,
+  ]);
+
   const hasMore = useMemo(() => {
     if (activeFeed === 'global') return globalHasMore;
     if (activeFeed === 'local') return localQuery.hasNextPage;
     return followingQuery.hasNextPage;
   }, [activeFeed, globalHasMore, localQuery.hasNextPage, followingQuery.hasNextPage]);
-  
+
   const feedError = useMemo(() => {
     if (activeFeed === 'global') return globalError;
     if (activeFeed === 'local') return localQuery.isError ? 'Failed to load' : null;
     return followingQuery.isError ? 'Failed to load' : null;
   }, [activeFeed, globalError, localQuery.isError, followingQuery.isError]);
-  
+
   // === HANDLERS ===
-  
+
   const handleTabChange = useCallback((feed: FeedType) => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -221,7 +241,7 @@ export default function FeedScreen() {
       listRef.current?.scrollToOffset({ offset: savedOffset, animated: false });
     }, 50);
   }, []);
-  
+
   const handleRefresh = useCallback(() => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -230,22 +250,21 @@ export default function FeedScreen() {
     else if (activeFeed === 'local') localQuery.refetch();
     else followingQuery.refetch();
   }, [activeFeed, refreshGlobal, localQuery, followingQuery]);
-  
+
   const handleLoadMore = useCallback(() => {
     if (activeFeed === 'global') loadMoreGlobal();
     else if (activeFeed === 'local' && localQuery.hasNextPage && !localQuery.isFetchingNextPage) {
       localQuery.fetchNextPage();
-    }
-    else if (followingQuery.hasNextPage && !followingQuery.isFetchingNextPage) {
+    } else if (followingQuery.hasNextPage && !followingQuery.isFetchingNextPage) {
       followingQuery.fetchNextPage();
     }
   }, [activeFeed, loadMoreGlobal, localQuery, followingQuery]);
-  
+
   // Media viewer state
   const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
   const [mediaViewerImages, setMediaViewerImages] = useState<string[]>([]);
   const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
-  
+
   // Web refresh indicator - auto-hides after 3 seconds
   const [showRefreshHint, setShowRefreshHint] = useState(false);
   const refreshHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -276,12 +295,15 @@ export default function FeedScreen() {
     setMediaViewerVisible(true);
   }, []);
 
-  const handlePostPress = useCallback((post: PostView) => {
-    // Navigate to thread view using DID and rkey
-    const uriParts = post.uri.split('/');
-    const rkey = uriParts[uriParts.length - 1];
-    router.push(`/post/${post.author.did}/${rkey}`);
-  }, [router]);
+  const handlePostPress = useCallback(
+    (post: PostView) => {
+      // Navigate to thread view using DID and rkey
+      const uriParts = post.uri.split('/');
+      const rkey = uriParts[uriParts.length - 1];
+      router.push(`/post/${post.author.did}/${rkey}`);
+    },
+    [router]
+  );
 
   // Error state
   if (feedError) {
@@ -297,7 +319,7 @@ export default function FeedScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={["top"]}>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       {/* Header with Logo */}
       <View className="flex-row items-center justify-center px-5 py-3 border-b border-border">
         <Leaf size={24} color="#10B981" />
@@ -306,27 +328,33 @@ export default function FeedScreen() {
 
       {/* Feed Tabs */}
       <View className="flex-row border-b border-border">
-        <Pressable 
+        <Pressable
           onPress={() => handleTabChange('global')}
           className={`flex-1 py-3 items-center ${activeFeed === 'global' ? 'border-b-2 border-primary' : ''}`}
         >
-          <Text className={`font-semibold ${activeFeed === 'global' ? 'text-primary' : 'text-text-muted'}`}>
+          <Text
+            className={`font-semibold ${activeFeed === 'global' ? 'text-primary' : 'text-text-muted'}`}
+          >
             Global
           </Text>
         </Pressable>
-        <Pressable 
+        <Pressable
           onPress={() => handleTabChange('local')}
           className={`flex-1 py-3 items-center ${activeFeed === 'local' ? 'border-b-2 border-primary' : ''}`}
         >
-          <Text className={`font-semibold ${activeFeed === 'local' ? 'text-primary' : 'text-text-muted'}`}>
+          <Text
+            className={`font-semibold ${activeFeed === 'local' ? 'text-primary' : 'text-text-muted'}`}
+          >
             Local
           </Text>
         </Pressable>
-        <Pressable 
+        <Pressable
           onPress={() => handleTabChange('following')}
           className={`flex-1 py-3 items-center ${activeFeed === 'following' ? 'border-b-2 border-primary' : ''}`}
         >
-          <Text className={`font-semibold ${activeFeed === 'following' ? 'text-primary' : 'text-text-muted'}`}>
+          <Text
+            className={`font-semibold ${activeFeed === 'following' ? 'text-primary' : 'text-text-muted'}`}
+          >
             Following
           </Text>
         </Pressable>
@@ -355,7 +383,7 @@ export default function FeedScreen() {
             drawDistance={300}
             ListHeaderComponent={
               Platform.OS === 'web' && (showRefreshHint || isRefreshing) ? (
-                <Pressable 
+                <Pressable
                   onPress={handleRefresh}
                   className="py-3 items-center border-b border-border"
                 >
@@ -380,11 +408,11 @@ export default function FeedScreen() {
             }}
             scrollEventThrottle={16}
             refreshControl={
-              <RefreshControl 
-                refreshing={isRefreshing} 
-                onRefresh={handleRefresh} 
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
                 tintColor="#10B981"
-                colors={["#10B981"]}
+                colors={['#10B981']}
               />
             }
             onEndReached={handleLoadMore}
@@ -393,8 +421,8 @@ export default function FeedScreen() {
             ListEmptyComponent={
               <View className="flex-1 items-center justify-center py-20">
                 <Text className="text-text-muted text-center">
-                  {activeFeed === 'global' 
-                    ? 'No cannabis content found.\nCheck back later!' 
+                  {activeFeed === 'global'
+                    ? 'No cannabis content found.\nCheck back later!'
                     : activeFeed === 'local'
                       ? 'No posts from Cannect users yet.\nBe the first to post!'
                       : 'Your timeline is empty.\nFollow some people to see their posts!'}
@@ -415,7 +443,7 @@ export default function FeedScreen() {
           />
         </View>
       )}
-      
+
       {/* Media Viewer */}
       <MediaViewer
         isVisible={mediaViewerVisible}

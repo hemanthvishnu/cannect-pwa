@@ -33,12 +33,7 @@ interface MediaViewerProps {
  * Uses PagerView, Reanimated gestures, and Haptics
  * This file is only loaded on iOS/Android (not web)
  */
-export function MediaViewer({
-  isVisible,
-  images,
-  initialIndex,
-  onClose,
-}: MediaViewerProps) {
+export function MediaViewer({ isVisible, images, initialIndex, onClose }: MediaViewerProps) {
   const [currentPage, setCurrentPage] = useState(initialIndex);
   const [isSaving, setIsSaving] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
@@ -62,10 +57,7 @@ export function MediaViewer({
       const { status } = await MediaLibrary.requestPermissionsAsync();
 
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please allow access to your photos to save images.'
-        );
+        Alert.alert('Permission Required', 'Please allow access to your photos to save images.');
         return;
       }
 
@@ -92,13 +84,10 @@ export function MediaViewer({
     }
   }, [images, currentPage]);
 
-  const handlePageSelected = useCallback(
-    (e: { nativeEvent: { position: number } }) => {
-      setCurrentPage(e.nativeEvent.position);
-      setHasSaved(false);
-    },
-    []
-  );
+  const handlePageSelected = useCallback((e: { nativeEvent: { position: number } }) => {
+    setCurrentPage(e.nativeEvent.position);
+    setHasSaved(false);
+  }, []);
 
   const handleSwipeDown = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

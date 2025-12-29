@@ -7,18 +7,18 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         {/* 💎 Diamond Move: viewport-fit=cover for the Notch */}
-        <meta 
-          name="viewport" 
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" 
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
         />
-        
+
         {/* ================================
             PWA Configuration
         ================================ */}
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#10B981" />
         <meta name="mobile-web-app-capable" content="yes" />
-        
+
         {/* ================================
             iOS/Safari Support
         ================================ */}
@@ -28,22 +28,27 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
-        
+
         {/* ================================
             SEO & Social
         ================================ */}
-        <meta name="description" content="A Diamond Standard social network with Bluesky federation" />
+        <meta
+          name="description"
+          content="A Diamond Standard social network with Bluesky federation"
+        />
         <meta property="og:title" content="Cannect" />
         <meta property="og:description" content="Connect with your community" />
         <meta property="og:type" content="website" />
         <meta property="og:image" content="/icon-512.png" />
         <meta name="twitter:card" content="summary_large_image" />
-        
+
         {/* ================================
             Styles
         ================================ */}
         <ScrollViewStyleReset />
-        <style dangerouslySetInnerHTML={{ __html: `
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
           html, body, #root {
             -webkit-text-size-adjust: 100%;
             background-color: #0A0A0A;
@@ -81,7 +86,9 @@ export default function Root({ children }: { children: React.ReactNode }) {
           input, textarea, select {
             font-size: 16px;
           }
-        `}} />
+        `,
+          }}
+        />
       </head>
       <body>{children}</body>
     </html>

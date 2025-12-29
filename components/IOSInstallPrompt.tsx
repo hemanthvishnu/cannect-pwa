@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, Platform, Dimensions, StyleSheet } from 'react-native';
-import Animated, { 
-  FadeInUp, 
+import Animated, {
+  FadeInUp,
   FadeOutDown,
   useAnimatedStyle,
   useSharedValue,
@@ -33,11 +33,11 @@ const SHOW_DELAY = 5000; // Show after 5 seconds on page
 
 /**
  * IOSInstallPrompt - Guides iOS Safari users to install the PWA
- * 
+ *
  * iOS Safari never shows an automatic install banner, so users don't know
  * they can add the app to their home screen. This component detects iOS Safari
  * users who haven't installed the PWA yet and shows a helpful guide.
- * 
+ *
  * Features:
  * - Only shows on iOS Safari (not Chrome/Firefox on iOS)
  * - Doesn't show if already installed as PWA
@@ -48,10 +48,10 @@ export function IOSInstallPrompt() {
   // 💎 Prevent hydration mismatch - don't render on SSR
   const [isMounted, setIsMounted] = useState(false);
   const [show, setShow] = useState(false);
-  
+
   // Bounce animation for the arrow
   const bounceY = useSharedValue(0);
-  
+
   const arrowStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: bounceY.value }],
   }));
@@ -72,7 +72,7 @@ export function IOSInstallPrompt() {
     const checkAndShow = async () => {
       try {
         const dismissed = await AsyncStorage.getItem(DISMISS_KEY);
-        
+
         // Don't show if dismissed in last 7 days
         if (dismissed) {
           const dismissedAt = parseInt(dismissed, 10);
@@ -83,18 +83,14 @@ export function IOSInstallPrompt() {
         // Show after delay to not interrupt initial experience
         setTimeout(() => {
           setShow(true);
-          
+
           // Start bounce animation
           bounceY.value = withRepeat(
-            withSequence(
-              withTiming(8, { duration: 500 }),
-              withTiming(0, { duration: 500 })
-            ),
+            withSequence(withTiming(8, { duration: 500 }), withTiming(0, { duration: 500 })),
             -1,
             true
           );
         }, SHOW_DELAY);
-        
       } catch (error) {
         console.error('[IOSInstall] Error:', error);
       }
@@ -135,12 +131,8 @@ export function IOSInstallPrompt() {
               <Text style={styles.subtitle}>Add to your home screen</Text>
             </View>
           </View>
-          
-          <Pressable 
-            onPress={handleDismiss}
-            hitSlop={12}
-            style={styles.closeButton}
-          >
+
+          <Pressable onPress={handleDismiss} hitSlop={12} style={styles.closeButton}>
             <X size={20} color="#71717A" />
           </Pressable>
         </View>
@@ -155,11 +147,11 @@ export function IOSInstallPrompt() {
               Tap the{' '}
               <View style={styles.inlineIcon}>
                 <Share2 size={14} color="#10B981" />
-              </View>
-              {' '}Share button below
+              </View>{' '}
+              Share button below
             </Text>
           </View>
-          
+
           <View style={styles.step}>
             <View style={styles.stepNumber}>
               <Text style={styles.stepNumberText}>2</Text>

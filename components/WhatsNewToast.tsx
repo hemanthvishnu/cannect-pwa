@@ -36,7 +36,7 @@ const STORAGE_KEY = 'cannect_whats_new_version';
 
 /**
  * WhatsNewToast - Shows after an app update with new features
- * 
+ *
  * Features:
  * - Only shows once per version
  * - Delays slightly to not conflict with other toasts
@@ -52,7 +52,7 @@ export function WhatsNewToast() {
     const checkVersion = async () => {
       try {
         const lastSeenVersion = await AsyncStorage.getItem(STORAGE_KEY);
-        
+
         if (lastSeenVersion && lastSeenVersion !== CURRENT_VERSION) {
           // User has updated! Show what's new
           // Delay slightly so it doesn't conflict with PWAUpdater

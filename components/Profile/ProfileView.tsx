@@ -1,30 +1,38 @@
 /**
  * ProfileView - Unified profile layout component
- * 
+ *
  * Used by both:
  * - app/(tabs)/profile.tsx (own profile)
  * - app/user/[handle].tsx (other users)
- * 
+ *
  * Conditional elements:
  * - Own profile: Edit Profile + Logout buttons, Likes tab always visible
  * - Other users: Follow/Unfollow button, Likes tab hidden (API limitation)
  */
 
-import { View, Text, Pressable, ActivityIndicator, RefreshControl, Share as RNShare, Platform } from "react-native";
-import { Image } from "expo-image";
-import { FlashList } from "@shopify/flash-list";
-import { useRouter } from "expo-router";
-import { LogOut, Edit3, UserPlus, UserMinus, MoreHorizontal } from "lucide-react-native";
-import { useState, useMemo, useCallback } from "react";
-import * as Haptics from "expo-haptics";
-import { useAuthorFeed, useActorLikes, useFollow, useUnfollow } from "@/lib/hooks";
-import { PostCard } from "@/components/Post";
+import {
+  View,
+  Text,
+  Pressable,
+  ActivityIndicator,
+  RefreshControl,
+  Share as RNShare,
+  Platform,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { FlashList } from '@shopify/flash-list';
+import { useRouter } from 'expo-router';
+import { LogOut, Edit3, UserPlus, UserMinus, MoreHorizontal } from 'lucide-react-native';
+import { useState, useMemo, useCallback } from 'react';
+import * as Haptics from 'expo-haptics';
+import { useAuthorFeed, useActorLikes, useFollow, useUnfollow } from '@/lib/hooks';
+import { PostCard } from '@/components/Post';
 import type { AppBskyFeedDefs, AppBskyActorDefs } from '@atproto/api';
 
 type FeedViewPost = AppBskyFeedDefs.FeedViewPost;
 type PostView = AppBskyFeedDefs.PostView;
 type ProfileViewDetailed = AppBskyActorDefs.ProfileViewDetailed;
-type ProfileTab = "posts" | "reposts" | "replies" | "likes";
+type ProfileTab = 'posts' | 'reposts' | 'replies' | 'likes';
 
 function formatNumber(num: number | undefined): string {
   if (!num) return '0';
@@ -60,12 +68,12 @@ export function ProfileView({
   onLogout,
 }: ProfileViewProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
-  
+  const [activeTab, setActiveTab] = useState<ProfileTab>('posts');
+
   // Follow mutations (for other users)
   const followMutation = useFollow();
   const unfollowMutation = useUnfollow();
-  
+
   // Different feeds based on active tab
   const postsQuery = useAuthorFeed(profileData.did, 'posts_no_replies');
   const repliesQuery = useAuthorFeed(profileData.did, 'posts_with_replies');
@@ -74,25 +82,25 @@ export function ProfileView({
 
   // Get posts data based on active tab
   const posts = useMemo(() => {
-    if (activeTab === "posts") {
-      return postsQuery.data?.pages?.flatMap(page => page.feed) || [];
-    } else if (activeTab === "reposts") {
-      const allPosts = postsQuery.data?.pages?.flatMap(page => page.feed) || [];
-      return allPosts.filter(item => item.reason?.$type === 'app.bsky.feed.defs#reasonRepost');
-    } else if (activeTab === "replies") {
-      const allPosts = repliesQuery.data?.pages?.flatMap(page => page.feed) || [];
-      return allPosts.filter(item => {
+    if (activeTab === 'posts') {
+      return postsQuery.data?.pages?.flatMap((page) => page.feed) || [];
+    } else if (activeTab === 'reposts') {
+      const allPosts = postsQuery.data?.pages?.flatMap((page) => page.feed) || [];
+      return allPosts.filter((item) => item.reason?.$type === 'app.bsky.feed.defs#reasonRepost');
+    } else if (activeTab === 'replies') {
+      const allPosts = repliesQuery.data?.pages?.flatMap((page) => page.feed) || [];
+      return allPosts.filter((item) => {
         const record = item.post.record as any;
         return record?.reply;
       });
-    } else if (activeTab === "likes") {
-      return likesQuery.data?.pages?.flatMap(page => page.feed) || [];
+    } else if (activeTab === 'likes') {
+      return likesQuery.data?.pages?.flatMap((page) => page.feed) || [];
     }
     return [];
   }, [activeTab, postsQuery.data, repliesQuery.data, likesQuery.data]);
 
-  const currentQuery = activeTab === "likes" ? likesQuery : 
-                       activeTab === "replies" ? repliesQuery : postsQuery;
+  const currentQuery =
+    activeTab === 'likes' ? likesQuery : activeTab === 'replies' ? repliesQuery : postsQuery;
 
   const triggerHaptic = () => {
     if (Platform.OS !== 'web') {
@@ -108,7 +116,7 @@ export function ProfileView({
 
   const handleFollowToggle = useCallback(async () => {
     triggerHaptic();
-    
+
     if (profileData.viewer?.following) {
       await unfollowMutation.mutateAsync(profileData.viewer.following);
     } else {
@@ -121,10 +129,10 @@ export function ProfileView({
 
   // Tabs: Likes only visible for own profile
   const tabs: { key: ProfileTab; label: string }[] = [
-    { key: "posts", label: "Posts" },
-    { key: "reposts", label: "Reposts" },
-    { key: "replies", label: "Replies" },
-    ...(isOwnProfile ? [{ key: "likes" as ProfileTab, label: "Likes" }] : []),
+    { key: 'posts', label: 'Posts' },
+    { key: 'reposts', label: 'Reposts' },
+    { key: 'replies', label: 'Replies' },
+    ...(isOwnProfile ? [{ key: 'likes' as ProfileTab, label: 'Likes' }] : []),
   ];
 
   return (
@@ -137,8 +145,8 @@ export function ProfileView({
           <View>
             {/* Banner */}
             {profileData.banner ? (
-              <Image 
-                source={{ uri: profileData.banner }} 
+              <Image
+                source={{ uri: profileData.banner }}
                 className="w-full h-32"
                 contentFit="cover"
               />
@@ -150,8 +158,8 @@ export function ProfileView({
             <View className="px-4 -mt-12">
               {/* Avatar */}
               {profileData.avatar ? (
-                <Image 
-                  source={{ uri: profileData.avatar }} 
+                <Image
+                  source={{ uri: profileData.avatar }}
                   className="w-24 h-24 rounded-full border-4 border-background"
                   contentFit="cover"
                 />
@@ -167,14 +175,14 @@ export function ProfileView({
               <View className="absolute right-4 top-14 flex-row gap-2">
                 {isOwnProfile ? (
                   <>
-                    <Pressable 
+                    <Pressable
                       onPress={onEditProfile}
                       className="bg-surface-elevated border border-border px-4 py-2 rounded-full flex-row items-center active:opacity-70"
                     >
                       <Edit3 size={16} color="#FAFAFA" />
                       <Text className="text-text-primary font-semibold ml-2">Edit Profile</Text>
                     </Pressable>
-                    <Pressable 
+                    <Pressable
                       onPress={onLogout}
                       className="bg-surface-elevated border border-border p-2 rounded-full items-center justify-center active:opacity-70"
                     >
@@ -186,7 +194,7 @@ export function ProfileView({
                     <Pressable className="p-2 rounded-full border border-border bg-surface-elevated active:opacity-70">
                       <MoreHorizontal size={18} color="#6B7280" />
                     </Pressable>
-                    <Pressable 
+                    <Pressable
                       onPress={handleFollowToggle}
                       disabled={isFollowPending}
                       className={`px-4 py-2 rounded-full flex-row items-center ${
@@ -194,7 +202,10 @@ export function ProfileView({
                       } ${isFollowPending ? 'opacity-50' : ''} active:opacity-70`}
                     >
                       {isFollowPending ? (
-                        <ActivityIndicator size="small" color={isFollowing ? "#6B7280" : "#FFFFFF"} />
+                        <ActivityIndicator
+                          size="small"
+                          color={isFollowing ? '#6B7280' : '#FFFFFF'}
+                        />
                       ) : (
                         <>
                           {isFollowing ? (
@@ -202,7 +213,9 @@ export function ProfileView({
                           ) : (
                             <UserPlus size={16} color="#FFFFFF" />
                           )}
-                          <Text className={`ml-1 font-semibold ${isFollowing ? 'text-text-muted' : 'text-white'}`}>
+                          <Text
+                            className={`ml-1 font-semibold ${isFollowing ? 'text-text-muted' : 'text-white'}`}
+                          >
                             {isFollowing ? 'Unfollow' : 'Follow'}
                           </Text>
                         </>
@@ -225,7 +238,7 @@ export function ProfileView({
 
               {/* Stats */}
               <View className="flex-row gap-4 mt-3">
-                <Pressable 
+                <Pressable
                   className="flex-row items-center active:opacity-70"
                   onPress={() => router.push(`/user/${profileData.handle}/followers` as any)}
                 >
@@ -234,7 +247,7 @@ export function ProfileView({
                   </Text>
                   <Text className="text-text-muted ml-1">followers</Text>
                 </Pressable>
-                <Pressable 
+                <Pressable
                   className="flex-row items-center active:opacity-70"
                   onPress={() => router.push(`/user/${profileData.handle}/following` as any)}
                 >
@@ -258,9 +271,13 @@ export function ProfileView({
                 <Pressable
                   key={tab.key}
                   onPress={() => setActiveTab(tab.key)}
-                  className={`flex-1 py-3 items-center ${activeTab === tab.key ? "border-b-2 border-primary" : ""}`}
+                  className={`flex-1 py-3 items-center ${activeTab === tab.key ? 'border-b-2 border-primary' : ''}`}
                 >
-                  <Text className={activeTab === tab.key ? "text-primary font-semibold" : "text-text-muted"}>
+                  <Text
+                    className={
+                      activeTab === tab.key ? 'text-primary font-semibold' : 'text-text-muted'
+                    }
+                  >
                     {tab.label}
                   </Text>
                 </Pressable>
@@ -268,11 +285,7 @@ export function ProfileView({
             </View>
           </View>
         }
-        renderItem={({ item }) => (
-          <PostCard 
-            item={item}
-          />
-        )}
+        renderItem={({ item }) => <PostCard item={item} />}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing || currentQuery.isRefetching}
@@ -295,10 +308,10 @@ export function ProfileView({
           ) : (
             <View className="py-20 items-center">
               <Text className="text-text-muted">
-                {activeTab === "posts" && "No posts yet"}
-                {activeTab === "reposts" && "No reposts yet"}
-                {activeTab === "replies" && "No replies yet"}
-                {activeTab === "likes" && "No likes yet"}
+                {activeTab === 'posts' && 'No posts yet'}
+                {activeTab === 'reposts' && 'No reposts yet'}
+                {activeTab === 'replies' && 'No replies yet'}
+                {activeTab === 'likes' && 'No likes yet'}
               </Text>
             </View>
           )
@@ -323,19 +336,19 @@ export function ProfileSkeleton() {
     <View className="flex-1">
       {/* Banner skeleton */}
       <View className="w-full h-32 bg-surface-elevated" />
-      
+
       <View className="px-4 -mt-12">
         {/* Avatar skeleton */}
         <View className="w-24 h-24 rounded-full border-4 border-background bg-surface-elevated" />
-        
+
         {/* Name skeleton */}
         <View className="h-6 w-40 bg-surface-elevated rounded mt-3" />
         <View className="h-4 w-32 bg-surface-elevated rounded mt-2" />
-        
+
         {/* Bio skeleton */}
         <View className="h-4 w-full bg-surface-elevated rounded mt-3" />
         <View className="h-4 w-3/4 bg-surface-elevated rounded mt-1" />
-        
+
         {/* Stats skeleton */}
         <View className="flex-row gap-4 mt-3">
           <View className="h-4 w-20 bg-surface-elevated rounded" />
@@ -343,7 +356,7 @@ export function ProfileSkeleton() {
           <View className="h-4 w-16 bg-surface-elevated rounded" />
         </View>
       </View>
-      
+
       {/* Tabs skeleton */}
       <View className="flex-row border-b border-border mt-4 px-4">
         <View className="flex-1 py-3 items-center">

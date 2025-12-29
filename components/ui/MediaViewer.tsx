@@ -27,12 +27,7 @@ interface MediaViewerProps {
  * Web-compatible MediaViewer
  * Uses ScrollView instead of PagerView for Vercel compatibility
  */
-export function MediaViewer({
-  isVisible,
-  images,
-  initialIndex,
-  onClose,
-}: MediaViewerProps) {
+export function MediaViewer({ isVisible, images, initialIndex, onClose }: MediaViewerProps) {
   const [currentPage, setCurrentPage] = useState(initialIndex);
   const [isDownloading, setIsDownloading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -66,7 +61,7 @@ export function MediaViewer({
   // ✅ Fix: Add keyboard navigation for web accessibility
   React.useEffect(() => {
     if (!isVisible) return;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
@@ -76,17 +71,20 @@ export function MediaViewer({
         goToNext();
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isVisible, onClose, goToPrevious, goToNext]);
 
-  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-    if (page !== currentPage && page >= 0 && page < images.length) {
-      setCurrentPage(page);
-    }
-  }, [currentPage, images.length]);
+  const handleScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+      if (page !== currentPage && page >= 0 && page < images.length) {
+        setCurrentPage(page);
+      }
+    },
+    [currentPage, images.length]
+  );
 
   const handleDownload = useCallback(async () => {
     // ✅ Fix: Proper download using blob for cross-origin images
@@ -115,12 +113,7 @@ export function MediaViewer({
   if (!images || images.length === 0) return null;
 
   return (
-    <Modal
-      visible={isVisible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible={isVisible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.container}>
         {/* Header Controls */}
         <View style={styles.header}>
@@ -171,12 +164,7 @@ export function MediaViewer({
         >
           {images.map((url, index) => (
             <View key={`${url}-${index}`} style={styles.page}>
-              <Image
-                source={url}
-                style={styles.image}
-                contentFit="contain"
-                transition={300}
-              />
+              <Image source={url} style={styles.image} contentFit="contain" transition={300} />
             </View>
           ))}
         </ScrollView>
