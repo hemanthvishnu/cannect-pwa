@@ -4,7 +4,7 @@
  * Route: /user/[handle]/followers
  */
 
-import { View, Text, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -12,6 +12,7 @@ import { ArrowLeft } from 'lucide-react-native';
 import { Image } from 'expo-image';
 import { useMemo, useCallback } from 'react';
 import { useProfile, useFollowers } from '@/lib/hooks';
+import { UserListSkeleton } from '@/components/ui/Skeleton';
 import type { AppBskyActorDefs } from '@atproto/api';
 
 type ProfileView = AppBskyActorDefs.ProfileView;
@@ -106,10 +107,8 @@ export default function FollowersScreen() {
         <Text className="text-text-muted">@{handle}</Text>
       </View>
 
-      {profileQuery.isLoading || followersQuery.isLoading ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#10B981" />
-        </View>
+      {(profileQuery.isLoading || followersQuery.isLoading) && followers.length === 0 ? (
+        <UserListSkeleton count={10} />
       ) : (
         <FlashList
           data={followers}

@@ -18,6 +18,7 @@ import { Repeat2 } from 'lucide-react-native';
 import { PostEmbeds } from './PostEmbeds';
 import { PostActions } from './PostActions';
 import { RichText } from './RichText';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { getOptimizedAvatarUrl } from '../../lib/utils/avatar';
 import type { AppBskyFeedDefs, AppBskyFeedPost } from '@atproto/api';
 
@@ -180,33 +181,35 @@ export function PostCard({
 }
 
 /**
- * PostSkeleton - Loading placeholder matching PostCard layout
+ * PostSkeleton - Animated loading placeholder matching PostCard layout
  */
 export function PostSkeleton() {
   return (
     <View className="px-4 py-3 border-b border-border">
       <View className="flex-row">
         {/* Avatar skeleton */}
-        <View className="w-10 h-10 rounded-full bg-surface-elevated" />
+        <Skeleton width={40} height={40} radius="full" />
         <View className="flex-1 ml-3">
           {/* Header skeleton - name + time */}
           <View className="flex-row items-center mb-1">
-            <View className="h-4 w-24 bg-surface-elevated rounded" />
-            <View className="h-3 w-3 bg-surface-elevated rounded-full mx-2" />
-            <View className="h-3 w-8 bg-surface-elevated rounded" />
+            <Skeleton width={96} height={16} radius="sm" />
+            <View className="mx-2">
+              <Skeleton width={12} height={12} radius="full" />
+            </View>
+            <Skeleton width={32} height={12} radius="sm" />
           </View>
           {/* Handle skeleton */}
-          <View className="h-3 w-32 bg-surface-elevated rounded mb-2" />
+          <Skeleton width={128} height={12} radius="sm" className="mb-2" />
           {/* Text content skeleton - 2-3 lines */}
-          <View className="h-4 w-full bg-surface-elevated rounded mb-1" />
-          <View className="h-4 w-11/12 bg-surface-elevated rounded mb-1" />
-          <View className="h-4 w-3/4 bg-surface-elevated rounded mb-3" />
+          <Skeleton width="100%" height={16} radius="sm" className="mb-1" />
+          <Skeleton width="92%" height={16} radius="sm" className="mb-1" />
+          <Skeleton width="75%" height={16} radius="sm" className="mb-3" />
           {/* Action bar skeleton */}
           <View className="flex-row justify-between pr-8 mt-1">
-            <View className="h-5 w-10 bg-surface-elevated rounded" />
-            <View className="h-5 w-10 bg-surface-elevated rounded" />
-            <View className="h-5 w-10 bg-surface-elevated rounded" />
-            <View className="h-5 w-5 bg-surface-elevated rounded" />
+            <Skeleton width={40} height={20} radius="sm" />
+            <Skeleton width={40} height={20} radius="sm" />
+            <Skeleton width={40} height={20} radius="sm" />
+            <Skeleton width={20} height={20} radius="sm" />
           </View>
         </View>
       </View>

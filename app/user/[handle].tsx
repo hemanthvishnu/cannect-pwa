@@ -30,8 +30,8 @@ export default function UserProfileScreen() {
     }
   };
 
-  // Loading state
-  if (profileQuery.isLoading) {
+  // Loading state - only show skeleton on initial load, not refetch
+  if (profileQuery.isLoading && !profileData) {
     return (
       <SafeAreaView className="flex-1 bg-background">
         <Stack.Screen

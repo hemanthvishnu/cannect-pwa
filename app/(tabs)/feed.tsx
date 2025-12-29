@@ -194,14 +194,16 @@ export default function FeedScreen() {
 
   const isLoading = useMemo(() => {
     if (activeFeed === 'global') return globalLoading && globalPosts.length === 0;
-    if (activeFeed === 'local') return localQuery.isLoading;
-    return followingQuery.isLoading;
+    if (activeFeed === 'local') return localQuery.isLoading && localPosts.length === 0;
+    return followingQuery.isLoading && posts.length === 0;
   }, [
     activeFeed,
     globalLoading,
     globalPosts.length,
     localQuery.isLoading,
+    localPosts.length,
     followingQuery.isLoading,
+    posts.length,
   ]);
 
   const isRefreshing = useMemo(() => {
